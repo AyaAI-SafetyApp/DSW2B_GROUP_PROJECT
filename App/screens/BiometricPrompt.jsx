@@ -5,10 +5,8 @@ import { styles } from '../styles/BiometricPromptStyles';
 export default function BiometricPrompt({ onDone }) {
   return (
     <View style={styles.container}>
-      <Image
-        source={require('../assets/face-id.png')}
-        style={styles.icon}
-      />
+      <Image source={{ uri: 'https://example.com/logo.png' }} />
+
       <Text style={styles.title}>Enable Biometric Login</Text>
       <Text style={styles.subtitle}>
         Use Face ID or Fingerprint next time you login

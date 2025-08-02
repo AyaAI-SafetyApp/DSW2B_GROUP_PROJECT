@@ -9,10 +9,15 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@babel/runtime": "^7.28.2",
+    "@supabase/supabase-js": "^2.53.0",
     "expo": "~53.0.20",
+    "expo-linear-gradient": "~14.1.5",
     "expo-status-bar": "~2.2.3",
+    "lottie-react-native": "7.2.2",
     "react": "19.0.0",
-    "react-native": "0.79.5"
+    "react-native": "0.79.5",
+    "react-native-url-polyfill": "^2.0.0"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0"
