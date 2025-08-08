@@ -3,7 +3,7 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
 
 import HomeScreen from "./screens/HomeScreen";
-// import EmergencyScreen from "./screens/EmergencyScreen";
+import EmergencyScreen from "./screens/EmergencyScreen";
 // import RoutesScreen from "./screens/RoutesScreen";
 // import CommunityScreen from "./screens/CommunityScreen";
 
@@ -35,12 +35,12 @@ export default function App() {
 
             return <Ionicons name={iconName} size={size} color={color} />;
           },
-          tabBarActiveTintColor: "#007AFF",
+          tabBarActiveTintColor: "#ff00c8ff",
           tabBarInactiveTintColor: "gray",
         })}
       >
         <Tab.Screen name="Home" component={HomeScreen} />
-        <Tab.Screen name="SOS" component={HomeScreen} />
+        <Tab.Screen name="SOS" component={EmergencyScreen} />
         <Tab.Screen name="Routes" component={HomeScreen} />
         <Tab.Screen name="Community" component={HomeScreen} />
       </Tab.Navigator>

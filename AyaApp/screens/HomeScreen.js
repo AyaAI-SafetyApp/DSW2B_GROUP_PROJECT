@@ -7,6 +7,7 @@ import {
   Alert,
   ScrollView,
   SafeAreaView,
+  StatusBar,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -16,16 +17,16 @@ export default function HomeScreen() {
   const recentAlerts = 3;
 
   const getSafetyColor = (score) => {
-    if (score >= 70) return "#22c55e"; // green
-    if (score >= 40) return "#f59e0b"; // amber
-    return "#ef4444"; // red
+    if (score >= 70) return "#22c55e";
+    if (score >= 40) return "#f59e0b";
+    return "#ef4444";
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor="#f9f9f9" />
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.header}>
-          {/* Dummy logo placeholder */}
           <View style={styles.logoPlaceholder}>
             <Text style={styles.logoText}>Logo</Text>
           </View>
@@ -172,7 +173,7 @@ const styles = StyleSheet.create({
   },
   buttonPink: {
     flex: 1,
-    backgroundColor: "#e11d48", // brand pink
+    backgroundColor: "#e11d48",
     paddingVertical: 16,
     borderRadius: 16,
     alignItems: "center",
