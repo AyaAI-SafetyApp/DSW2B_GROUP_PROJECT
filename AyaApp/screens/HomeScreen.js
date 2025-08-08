@@ -1,107 +1,189 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import React from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+  ScrollView,
+  SafeAreaView,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 
 export default function HomeScreen() {
-  const userName = 'User';
-  const actions = [
-    { name: 'SOS', icon: 'alert-circle', route: 'SOS' },
-    { name: 'Routes', icon: 'map', route: 'Routes' },
-    { name: 'Community', icon: 'people', route: 'Community' },
-  ];
+  const safetyScore = 72;
+  const currentLocation = "Johannesburg CBD";
+  const recentAlerts = 3;
+
+  const getSafetyColor = (score) => {
+    if (score >= 70) return "#22c55e"; // green
+    if (score >= 40) return "#f59e0b"; // amber
+    return "#ef4444"; // red
+  };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.logo}>Aya</Text>
-        <Ionicons name="person-circle-outline" size={32} color="#007AFF" />
-      </View>
-      <Text style={styles.greeting}>Welcome back, {userName}</Text>
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView contentContainerStyle={styles.container}>
+        <View style={styles.header}>
+          {/* Dummy logo placeholder */}
+          <View style={styles.logoPlaceholder}>
+            <Text style={styles.logoText}>Logo</Text>
+          </View>
+          <View style={styles.nearbyContainer}>
+            <Ionicons name="eye-outline" size={16} color="#6b7280" />
+            <Text style={styles.nearbyText}>1,247 nearby</Text>
+          </View>
+        </View>
 
-      <View style={styles.actionsContainer}>
-        {actions.map(action => (
-          <TouchableOpacity key={action.name} style={styles.actionButton}>
-            <Ionicons name={action.icon} size={28} color="#fff" />
-            <Text style={styles.actionText}>{action.name}</Text>
+        <View style={styles.card}>
+          <View style={styles.locationRow}>
+            <Ionicons name="location-outline" size={16} color="#6b7280" />
+            <Text style={styles.locationText}>{currentLocation}</Text>
+          </View>
+          <View
+            style={[
+              styles.safetyCircle,
+              { backgroundColor: getSafetyColor(safetyScore) },
+            ]}
+          >
+            <Ionicons name="shield-outline" size={32} color="white" />
+          </View>
+          <View style={styles.safetyInfo}>
+            <Text style={styles.safetyScore}>{safetyScore}% Safe</Text>
+            <Text style={styles.subtext}>Real-time reports & AI analysis</Text>
+            <Text style={styles.subtext}>
+              {recentAlerts > 0
+                ? `${recentAlerts} incidents in 24h`
+                : "No incidents nearby"}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.actionsRow}>
+          <TouchableOpacity style={styles.buttonDark}>
+            <Ionicons name="map-outline" size={20} color="white" />
+            <Text style={styles.buttonText}>Safe Trip</Text>
           </TouchableOpacity>
-        ))}
-      </View>
-
-      <View style={styles.statsContainer}>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>5</Text>
-          <Text style={styles.statLabel}>Alerts handled</Text>
+          <TouchableOpacity
+            style={styles.buttonPink}
+            onPress={() => Alert.alert("🚨 Emergency team notified!")}
+          >
+            <Ionicons name="alert" size={20} color="white" />
+            <Text style={styles.buttonText}>SOS</Text>
+          </TouchableOpacity>
         </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>12</Text>
-          <Text style={styles.statLabel}>Safe trips</Text>
-        </View>
-      </View>
-    </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
+    backgroundColor: "#f9f9f9",
+  },
+  container: {
     padding: 16,
-    backgroundColor: '#f9f9f9',
+    paddingBottom: 32,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 24,
   },
-  logo: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#007AFF',
+  logoPlaceholder: {
+    width: 100,
+    height: 40,
+    backgroundColor: "#ddd",
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  greeting: {
-    fontSize: 20,
-    marginBottom: 16,
+  logoText: {
+    color: "#888",
+    fontWeight: "700",
   },
-  actionsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  nearbyContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  nearbyText: {
+    fontSize: 12,
+    color: "#6b7280",
+    marginLeft: 4,
+  },
+  card: {
+    backgroundColor: "white",
+    padding: 20,
+    borderRadius: 20,
+    alignItems: "center",
     marginBottom: 24,
-  },
-  actionButton: {
-    flex: 1,
-    marginHorizontal: 4,
-    backgroundColor: '#007AFF',
-    borderRadius: 8,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  actionText: {
-    color: '#fff',
-    marginTop: 4,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 8,
-    marginHorizontal: 4,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
     elevation: 2,
   },
-  statNumber: {
-    fontSize: 22,
-    fontWeight: 'bold',
+  locationRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
   },
-  statLabel: {
+  locationText: {
+    fontSize: 14,
+    color: "#4b5563",
+    marginLeft: 6,
+  },
+  safetyCircle: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
+  safetyInfo: {
+    alignItems: "center",
+  },
+  safetyScore: {
+    fontSize: 24,
+    fontWeight: "600",
+    color: "#111827",
+    marginBottom: 4,
+  },
+  subtext: {
     fontSize: 12,
-    color: 'gray',
-    marginTop: 4,
+    color: "#6b7280",
+  },
+  actionsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  buttonDark: {
+    flex: 1,
+    backgroundColor: "#111827",
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: "center",
+    marginRight: 8,
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 6,
+  },
+  buttonPink: {
+    flex: 1,
+    backgroundColor: "#e11d48", // brand pink
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: "center",
+    marginLeft: 8,
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 6,
+  },
+  buttonText: {
+    color: "white",
+    fontSize: 14,
+    fontWeight: "500",
   },
 });
