@@ -5,7 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import HomeScreen from "./screens/HomeScreen";
 import EmergencyScreen from "./screens/EmergencyScreen";
 // import RoutesScreen from "./screens/RoutesScreen";
-// import CommunityScreen from "./screens/CommunityScreen";
+import CommunityScreen from "./screens/CommunityScreen";
 
 const Tab = createBottomTabNavigator();
 
@@ -35,14 +35,14 @@ export default function App() {
 
             return <Ionicons name={iconName} size={size} color={color} />;
           },
-          tabBarActiveTintColor: "#ff00c8ff",
+          tabBarActiveTintColor: "#E91E63",
           tabBarInactiveTintColor: "gray",
         })}
       >
         <Tab.Screen name="Home" component={HomeScreen} />
         <Tab.Screen name="SOS" component={EmergencyScreen} />
         <Tab.Screen name="Routes" component={HomeScreen} />
-        <Tab.Screen name="Community" component={HomeScreen} />
+        <Tab.Screen name="Community" component={CommunityScreen} />
       </Tab.Navigator>
     </NavigationContainer>
   );
