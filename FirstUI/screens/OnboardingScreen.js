@@ -92,7 +92,7 @@ const OnboardingScreen = () => {
     if (currentScreen < screens.length - 1) {
       setCurrentScreen(currentScreen + 1);
     } else {
-      navigation.navigate('SignUp');
+      navigation.navigate('Login');
     }
   };
 

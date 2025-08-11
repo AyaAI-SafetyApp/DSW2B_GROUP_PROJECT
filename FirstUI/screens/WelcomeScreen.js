@@ -18,7 +18,7 @@ export default function WelcomeScreen() {
             Welcome to Aya
           </Text>
 
-          <TouchableOpacity style={styles.signUpButton} onPress={()=> navigation.navigate('Onboarding')}>
+          <TouchableOpacity style={styles.signUpButton} onPress={()=> navigation.navigate('Login')}>
             <Text style={styles.signUpText}>
               Get Started
             </Text>

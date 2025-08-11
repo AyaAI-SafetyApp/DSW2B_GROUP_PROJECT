@@ -16,15 +16,35 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
+import { firebaseAuth } from '../firebaseConfig';
 
 const { width, height } = Dimensions.get('window');
 
 const LoginScreen = () => {
   const navigation = useNavigation();
   const [isChecked, setIsChecked] = useState(false);
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
 
   const toggleCheckbox = () => {
     setIsChecked(!isChecked);
+  };
+
+  const handleSignUp = async () => {
+    setError('');
+    if (!isChecked) {
+      setError('Please agree to the Terms of Service and Privacy Policy');
+      return;
+    }
+    try {
+      const result = await firebaseAuth.signUp(email, password);
+      // Signup successful, navigate to login page
+      navigation.navigate('Login');
+    } catch (error) {
+      setError(error.message);
+    }
   };
   
   return (
@@ -54,6 +74,8 @@ const LoginScreen = () => {
                 style={styles.input}
                 placeholder="Enter your full name"
                 placeholderTextColor="#9CA3AF"
+                value={fullName}
+                onChangeText={setFullName}
               />
             </View>
 
@@ -64,6 +86,8 @@ const LoginScreen = () => {
                 placeholder="Enter your email"
                 placeholderTextColor="#9CA3AF"
                 keyboardType="email-address"
+                value={email}
+                onChangeText={setEmail}
               />
             </View>
 
@@ -74,6 +98,8 @@ const LoginScreen = () => {
                 placeholder="Create a password"
                 placeholderTextColor="#9CA3AF"
                 secureTextEntry
+                value={password}
+                onChangeText={setPassword}
               />
             </View>
 
@@ -89,11 +115,15 @@ const LoginScreen = () => {
               </Text>
             </View>
 
-            <TouchableOpacity style={styles.primaryButton}>
+            <TouchableOpacity style={styles.primaryButton} onPress={handleSignUp}>
               <View style={styles.gradientButton}>
                 <Text style={styles.buttonText}>Sign Up</Text>
               </View>
             </TouchableOpacity>
+
+            {error ? (
+              <Text style={{ color: 'red', textAlign: 'center', marginTop: 8 }}>{error}</Text>
+            ) : null}
         
             <View style={styles.dividerContainer}>
               <View style={styles.dividerLine} />

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -15,12 +15,27 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { firebaseAuth } from '../firebaseConfig';
 
 const { width, height } = Dimensions.get('window');
 
 const LoginScreen = () => {
   const navigation = useNavigation();
-  
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+
+  const handleLogin = async () => {
+    setError('');
+    try {
+      const result = await firebaseAuth.signIn(email, password);
+      // Login successful, navigate to landing page
+      navigation.navigate('Landing');
+    } catch (error) {
+      setError(error.message);
+    }
+  };
+
   return (
     <ImageBackground
       source={require('../assets/Login.png')}
@@ -36,7 +51,10 @@ const LoginScreen = () => {
           </TouchableOpacity>
       </SafeAreaView>
       <View style={styles.card}>
-        <SafeAreaView contentContainerStyle={styles.screenContainer}>
+        <ScrollView 
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.header}>
             <Text style={styles.title}>Welcome back</Text>
           </View>
@@ -49,6 +67,8 @@ const LoginScreen = () => {
                 placeholder="Enter your email"
                 placeholderTextColor="#9CA3AF"
                 keyboardType="email-address"
+                value={email}
+                onChangeText={setEmail}
               />
             </View>
 
@@ -59,14 +79,20 @@ const LoginScreen = () => {
                 placeholder="Enter your password"
                 placeholderTextColor="#9CA3AF"
                 secureTextEntry
+                value={password}
+                onChangeText={setPassword}
               />
             </View>
 
-            <TouchableOpacity style={styles.primaryButton}>
+            <TouchableOpacity style={styles.primaryButton} onPress={handleLogin}>
               <View style={styles.gradientButton}>
                 <Text style={styles.buttonText}>Sign In</Text>
               </View>
             </TouchableOpacity>
+
+            {error ? (
+              <Text style={{ color: 'red', textAlign: 'center', marginTop: 8 }}>{error}</Text>
+            ) : null}
 
             <TouchableOpacity style={styles.linkButton}>
               <Text style={styles.linkText}>Forgot Password?</Text>
@@ -101,12 +127,12 @@ const LoginScreen = () => {
 
             <View style={styles.footer}>
               <Text style={styles.footerText}>Don't have an account? </Text>
-              <TouchableOpacity>
-                <Text style={styles.footerLink} onPress={()=> navigation.navigate('SignUp')}>Sign Up</Text>
+              <TouchableOpacity onPress={()=> navigation.navigate('SignUp')}>
+                <Text style={styles.footerLink}>Sign Up</Text>
               </TouchableOpacity>
             </View>
           </View>
-        </SafeAreaView>
+        </ScrollView>
       </View>
     </ImageBackground>
   );
@@ -139,6 +165,10 @@ const styles = StyleSheet.create({
   },
   screenContainer: {
     flexGrow: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 20,
   },
   backButton: {
     position: 'absolute',
