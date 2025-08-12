@@ -31,8 +31,12 @@ const LoginScreen = () => {
       const result = await firebaseAuth.signIn(email, password);
       // Login successful, navigate to landing page
       navigation.navigate('Landing');
-    } catch (error) {
-      setError(error.message);
+      } catch (error) {
+        if (error.code === 'auth/invalid-credential') {
+          setError('Invalid email or password. Please try again.');
+        } else {
+          setError(error.message);
+        }
     }
   };
 
