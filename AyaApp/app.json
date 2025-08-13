@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "AyaApp",
-    "slug": "AyaApp",
+    "name": "LoginPage",
+    "slug": "LoginPage",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",

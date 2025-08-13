@@ -1,257 +1,335 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useState } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
-  ActivityIndicator,
-  FlatList,
   TouchableOpacity,
+  StyleSheet,
+  SafeAreaView,
   Alert,
-} from "react-native";
-import { Accelerometer } from "expo-sensors";
-import * as Location from "expo-location";
-import axios from "axios";
-import { MaterialIcons } from "@expo/vector-icons";
+  Dimensions,
+} from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 
-const FALL_THRESHOLD = 1.8;
-const FALL_DETECTION_COOLDOWN = 30000;
+const { width } = Dimensions.get('window');
 
-export default function FallDetectionScreen() {
-  const [fallDetected, setFallDetected] = useState(false);
-  const [location, setLocation] = useState(null);
-  const [sending, setSending] = useState(false);
+const EmergencyScreen = () => {
+  const navigation = useNavigation();
+  const [isEmergencyActive, setIsEmergencyActive] = useState(false);
 
-  const lastFallTime = useRef(0);
-
-  useEffect(() => {
-    let accelSubscription = null;
-
-    const subscribeSensors = () => {
-      accelSubscription = Accelerometer.addListener(({ x, y, z }) => {
-        const magnitude = Math.sqrt(x * x + y * y + z * z);
-
-        const now = Date.now();
-        if (
-          magnitude > FALL_THRESHOLD &&
-          now - lastFallTime.current > FALL_DETECTION_COOLDOWN &&
-          !fallDetected
-        ) {
-          lastFallTime.current = now;
-          setFallDetected(true);
-        }
-      });
-
-      Accelerometer.setUpdateInterval(200);
-    };
-
-    subscribeSensors();
-
-    return () => {
-      if (accelSubscription) accelSubscription.remove();
-    };
-  }, [fallDetected]);
-
-  useEffect(() => {
-    const sendSOS = async () => {
-      if (!fallDetected) return;
-
-      setSending(true);
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== "granted") {
-          Alert.alert(
-            "Permission Denied",
-            "Location permission is required to send SOS alerts."
-          );
-          setSending(false);
-          setFallDetected(false);
-          return;
-        }
-
-        const loc = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Highest,
-        });
-        setLocation(loc.coords);
-
-        const payload = {
-          userId: "Ms Manyamboze",
-          timestamp: new Date().toISOString(),
-          coords: {
-            latitude: loc.coords.latitude,
-            longitude: loc.coords.longitude,
+  const handleEmergencyPress = () => {
+    if (isEmergencyActive) {
+      // Cancel emergency
+      Alert.alert(
+        'Cancel Emergency',
+        'Are you sure you want to cancel the emergency alert?',
+        [
+          { text: 'No', style: 'cancel' },
+          { 
+            text: 'Yes', 
+            onPress: () => {
+              setIsEmergencyActive(false);
+              Alert.alert('Emergency Cancelled', 'Your emergency alert has been cancelled.');
+            }
           },
-          trustedContacts: trustedContacts.map((c) => c.phone),
-        };
-
-        await axios.post(
-          "https://3a721eb96aa9.ngrok-free.app/api/send-location",
-          payload
-        );
-
-        Alert.alert("SOS Sent", "Emergency alert has been sent to contacts.");
-      } catch (error) {
-        console.error("Error sending SOS:", error);
-        Alert.alert("Error", "Failed to send SOS alert.");
-      } finally {
-        setSending(false);
-        setFallDetected(false);
-      }
-    };
-
-    sendSOS();
-  }, [fallDetected]);
-
-  const manualSOS = () => {
-    if (!sending) setFallDetected(true);
+        ]
+      );
+    } else {
+      // Activate emergency
+      Alert.alert(
+        'Emergency Alert',
+        'This will send your location and alert to all emergency contacts. Continue?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Send Alert', 
+            style: 'destructive',
+            onPress: () => {
+              setIsEmergencyActive(true);
+              Alert.alert('Alert Sent!', 'Emergency contacts have been notified with your location.');
+            }
+          },
+        ]
+      );
+    }
   };
 
-  const handleContactOptions = (contact) => {
-    Alert.alert(
-      "Contact Options",
-      `${contact.name} (${contact.phone})`,
-      [
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => {
-            setTrustedContacts((prev) =>
-              prev.filter((c) => c.id !== contact.id)
-            );
-          },
-        },
-        { text: "Cancel", style: "cancel" },
-      ],
-      { cancelable: true }
-    );
-  };
-
-  const renderContact = ({ item }) => (
-    <View style={styles.contactRow}>
-      <Text style={styles.contactText}>{item.name}</Text>
-      <TouchableOpacity onPress={() => handleContactOptions(item)}>
-        <MaterialIcons name="more-vert" size={24} color="#FF3B30" />
-      </TouchableOpacity>
-    </View>
-  );
+  const emergencyContacts = [
+    { id: 1, name: 'Mom', phone: '+1 234 567 8900', relation: 'Mother' },
+    { id: 2, name: 'Police', phone: '911', relation: 'Emergency Services' },
+    { id: 3, name: 'Medical', phone: '+1 234 567 8901', relation: 'Doctor' },
+  ];
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Aya - Fall Detection SOS</Text>
+    <SafeAreaView style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color="#1F2937" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Emergency SOS</Text>
+        <View style={styles.placeholder} />
+      </View>
 
-      <FlatList
-        data={trustedContacts}
-        keyExtractor={(item) => item.id}
-        renderItem={renderContact}
-        style={styles.contactList}
-        ListHeaderComponent={
-          <Text style={styles.contactHeader}>Trusted Contacts</Text>
-        }
-        ListEmptyComponent={
-          <Text style={styles.emptyContacts}>No trusted contacts added.</Text>
-        }
-      />
+      <View style={styles.content}>
+        {/* Emergency Button */}
+        <View style={styles.emergencySection}>
+          <Text style={styles.emergencyTitle}>
+            {isEmergencyActive ? 'Emergency Active' : 'Emergency SOS'}
+          </Text>
+          <Text style={styles.emergencySubtitle}>
+            {isEmergencyActive 
+              ? 'Your emergency contacts have been notified. Tap to cancel.'
+              : 'Press and hold the button below to send emergency alert'
+            }
+          </Text>
 
-      {sending ? (
-        <>
-          <ActivityIndicator size="large" color="#FF3B30" />
-          <Text style={styles.status}>Sending SOS alert...</Text>
-        </>
-      ) : (
-        <Text style={styles.status}>
-          {fallDetected
-            ? "Fall detected! Sending alert..."
-            : "Monitoring for falls..."}
-        </Text>
-      )}
+          <TouchableOpacity
+            style={[
+              styles.emergencyButton,
+              isEmergencyActive && styles.emergencyButtonActive
+            ]}
+            onPress={handleEmergencyPress}
+            activeOpacity={0.7}
+          >
+            <View style={styles.emergencyButtonInner}>
+              <Ionicons 
+                name={isEmergencyActive ? "checkmark" : "warning"} 
+                size={48} 
+                color="#FFFFFF" 
+              />
+            </View>
+          </TouchableOpacity>
 
-      {location && (
-        <Text style={styles.location}>
-          Last Location: {location.latitude.toFixed(5)},{" "}
-          {location.longitude.toFixed(5)}
-        </Text>
-      )}
+          {isEmergencyActive && (
+            <View style={styles.activeAlert}>
+              <Text style={styles.activeAlertText}>🚨 Emergency Alert Active</Text>
+              <Text style={styles.activeAlertSubtext}>Location sharing enabled</Text>
+            </View>
+          )}
+        </View>
 
-      <TouchableOpacity style={styles.sosButton} onPress={manualSOS}>
-        <Text style={styles.sosText}>SOS</Text>
-      </TouchableOpacity>
-    </View>
+        {/* Quick Actions */}
+        <View style={styles.quickActionsSection}>
+          <Text style={styles.sectionTitle}>Quick Actions</Text>
+          <View style={styles.quickActions}>
+            <TouchableOpacity style={styles.quickAction}>
+              <Ionicons name="call" size={24} color="#10B981" />
+              <Text style={styles.quickActionText}>Call 911</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.quickAction}>
+              <Ionicons name="location" size={24} color="#3B82F6" />
+              <Text style={styles.quickActionText}>Share Location</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.quickAction}>
+              <Ionicons name="medical" size={24} color="#EF4444" />
+              <Text style={styles.quickActionText}>Medical Info</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Emergency Contacts */}
+        <View style={styles.contactsSection}>
+          <Text style={styles.sectionTitle}>Emergency Contacts</Text>
+          {emergencyContacts.map((contact) => (
+            <TouchableOpacity key={contact.id} style={styles.contactItem}>
+              <View style={styles.contactIcon}>
+                <Ionicons name="person" size={20} color="#6366F1" />
+              </View>
+              <View style={styles.contactInfo}>
+                <Text style={styles.contactName}>{contact.name}</Text>
+                <Text style={styles.contactRelation}>{contact.relation}</Text>
+              </View>
+              <TouchableOpacity style={styles.callButton}>
+                <Ionicons name="call" size={20} color="#10B981" />
+              </TouchableOpacity>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+    </SafeAreaView>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
-    padding: 24,
-    justifyContent: "center",
+    backgroundColor: '#F8FAFC',
   },
-  title: {
-    fontSize: 26,
-    fontWeight: "bold",
-    color: "#FF3B30",
-    marginBottom: 20,
-    textAlign: "center",
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
   },
-  contactList: {
-    maxHeight: 150,
-    marginBottom: 20,
+  backButton: {
+    padding: 8,
   },
-  contactHeader: {
+  headerTitle: {
     fontSize: 18,
-    fontWeight: "600",
-    color: "#FF3B30",
+    fontWeight: 'bold',
+    color: '#1F2937',
+  },
+  placeholder: {
+    width: 40,
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+  emergencySection: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emergencyTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1F2937',
     marginBottom: 8,
   },
-  contactRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+  emergencySubtitle: {
+    fontSize: 16,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginBottom: 40,
+    paddingHorizontal: 20,
+  },
+  emergencyButton: {
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: '#EF4444',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#EF4444',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 10,
+  },
+  emergencyButtonActive: {
+    backgroundColor: '#10B981',
+    shadowColor: '#10B981',
+  },
+  emergencyButtonInner: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activeAlert: {
+    marginTop: 24,
+    backgroundColor: '#FEF2F2',
+    paddingHorizontal: 20,
     paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: "#ffe6e6",
-    borderRadius: 8,
-    marginBottom: 10,
-    shadowColor: "#FF3B30",
-    shadowOpacity: 0.25,
-    shadowRadius: 3,
-    shadowOffset: { width: 0, height: 2 },
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FECACA',
   },
-  contactText: {
+  activeAlertText: {
     fontSize: 16,
-    color: "#b30000",
+    fontWeight: 'bold',
+    color: '#DC2626',
+    textAlign: 'center',
   },
-  emptyContacts: {
-    fontSize: 16,
-    color: "#999",
-    textAlign: "center",
-    marginVertical: 20,
-  },
-  status: {
-    fontSize: 18,
-    color: "#555",
-    textAlign: "center",
-    marginBottom: 10,
-  },
-  location: {
+  activeAlertSubtext: {
     fontSize: 14,
-    color: "#777",
-    textAlign: "center",
-    marginBottom: 30,
+    color: '#7F1D1D',
+    textAlign: 'center',
+    marginTop: 4,
   },
-  sosButton: {
-    backgroundColor: "#FF0000",
-    paddingVertical: 20,
-    borderRadius: 50,
-    alignItems: "center",
-    marginHorizontal: 80,
-    shadowColor: "#FF0000",
-    shadowOpacity: 0.7,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 6 },
+  quickActionsSection: {
+    marginTop: 20,
   },
-  sosText: {
-    fontSize: 28,
-    color: "#fff",
-    fontWeight: "bold",
-    letterSpacing: 2,
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    marginBottom: 16,
+  },
+  quickActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  quickAction: {
+    backgroundColor: '#FFFFFF',
+    padding: 20,
+    borderRadius: 12,
+    alignItems: 'center',
+    width: (width - 80) / 3,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  quickActionText: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  contactsSection: {
+    marginTop: 32,
+  },
+  contactItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  contactIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#EEF2FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  contactInfo: {
+    flex: 1,
+  },
+  contactName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  contactRelation: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  callButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#ECFDF5',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
+
+export default EmergencyScreen;
