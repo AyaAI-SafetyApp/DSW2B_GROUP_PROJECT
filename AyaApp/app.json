@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "LoginPage",
-    "slug": "LoginPage",
+    "name": "AyaAI",
+    "slug": "AyaAI",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/Logos/Aya_AI_Logo.png",

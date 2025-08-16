@@ -1,335 +1,338 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState, useRef } from "react";
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   Alert,
-  Dimensions,
-} from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
+  Modal,
+  TextInput,
+  FlatList,
+  Button,
+  Platform,
+} from "react-native";
+import { Accelerometer } from "expo-sensors";
+import * as Location from "expo-location";
+import * as SMS from "expo-sms";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Haptics from "expo-haptics";
 
-const { width } = Dimensions.get('window');
+const FALL_THRESHOLD = 2.5; // Adjusted for impact detection based on typical values (2-3g for fall impact)
 
-const EmergencyScreen = () => {
-  const navigation = useNavigation();
-  const [isEmergencyActive, setIsEmergencyActive] = useState(false);
+export default function SOSScreen() {
+  const [accelerometerData, setAccelerometerData] = useState({
+    x: 0,
+    y: 0,
+    z: 0,
+  });
+  const [alertActive, setAlertActive] = useState(false);
+  const [countdown, setCountdown] = useState(10);
+  const countdownRef = useRef(null);
+  const [trustedNumbers, setTrustedNumbers] = useState([]);
+  const [settingsModalVisible, setSettingsModalVisible] = useState(false);
+  const [newNumber, setNewNumber] = useState("");
 
-  const handleEmergencyPress = () => {
-    if (isEmergencyActive) {
-      // Cancel emergency
-      Alert.alert(
-        'Cancel Emergency',
-        'Are you sure you want to cancel the emergency alert?',
-        [
-          { text: 'No', style: 'cancel' },
-          { 
-            text: 'Yes', 
-            onPress: () => {
-              setIsEmergencyActive(false);
-              Alert.alert('Emergency Cancelled', 'Your emergency alert has been cancelled.');
-            }
-          },
-        ]
-      );
-    } else {
-      // Activate emergency
-      Alert.alert(
-        'Emergency Alert',
-        'This will send your location and alert to all emergency contacts. Continue?',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { 
-            text: 'Send Alert', 
-            style: 'destructive',
-            onPress: () => {
-              setIsEmergencyActive(true);
-              Alert.alert('Alert Sent!', 'Emergency contacts have been notified with your location.');
-            }
-          },
-        ]
-      );
+  // Load trusted numbers from storage
+  useEffect(() => {
+    const loadTrustedNumbers = async () => {
+      try {
+        const storedNumbers = await AsyncStorage.getItem("trustedNumbers");
+        if (storedNumbers) {
+          setTrustedNumbers(JSON.parse(storedNumbers));
+        }
+      } catch (error) {
+        console.error("Failed to load trusted numbers", error);
+      }
+    };
+    loadTrustedNumbers();
+  }, []);
+
+  // Save trusted numbers to storage
+  const saveTrustedNumbers = async (numbers) => {
+    try {
+      await AsyncStorage.setItem("trustedNumbers", JSON.stringify(numbers));
+      setTrustedNumbers(numbers);
+    } catch (error) {
+      console.error("Failed to save trusted numbers", error);
     }
   };
 
-  const emergencyContacts = [
-    { id: 1, name: 'Mom', phone: '+1 234 567 8900', relation: 'Mother' },
-    { id: 2, name: 'Police', phone: '911', relation: 'Emergency Services' },
-    { id: 3, name: 'Medical', phone: '+1 234 567 8901', relation: 'Doctor' },
-  ];
+  // Add new number
+  const addNumber = () => {
+    if (newNumber && !trustedNumbers.includes(newNumber)) {
+      const updatedNumbers = [...trustedNumbers, newNumber];
+      saveTrustedNumbers(updatedNumbers);
+      setNewNumber("");
+    } else {
+      Alert.alert("Invalid", "Please enter a valid unique number.");
+    }
+  };
+
+  // Remove number
+  const removeNumber = (number) => {
+    const updatedNumbers = trustedNumbers.filter((n) => n !== number);
+    saveTrustedNumbers(updatedNumbers);
+  };
+
+  // Request permissions
+  useEffect(() => {
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Permission Denied", "Location access is required for SOS.");
+      }
+    })();
+  }, []);
+
+  // Start accelerometer
+  useEffect(() => {
+    Accelerometer.setUpdateInterval(100); // 100ms
+    const subscription = Accelerometer.addListener((data) => {
+      setAccelerometerData(data);
+      const totalForce = Math.sqrt(data.x ** 2 + data.y ** 2 + data.z ** 2);
+
+      if (totalForce > FALL_THRESHOLD && !alertActive) {
+        startCountdown();
+      }
+    });
+
+    return () => subscription?.remove();
+  }, [alertActive]);
+
+  // Countdown timer with haptics
+  const startCountdown = () => {
+    if (trustedNumbers.length === 0) {
+      Alert.alert("No Trusted Contacts", "Please add trusted contacts in settings.");
+      return;
+    }
+    setAlertActive(true);
+    setCountdown(10);
+    countdownRef.current = setInterval(() => {
+      setCountdown((prev) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+        if (prev <= 1) {
+          clearInterval(countdownRef.current);
+          sendSOS();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const cancelCountdown = () => {
+    clearInterval(countdownRef.current);
+    setAlertActive(false);
+    setCountdown(10);
+  };
+
+  // Send SOS with location
+  const sendSOS = async () => {
+    setAlertActive(false);
+    try {
+      const location = await Location.getCurrentPositionAsync({});
+      const message = `🚨 Emergency! I may have fallen. My location: https://maps.google.com/?q=${location.coords.latitude},${location.coords.longitude}`;
+
+      const isAvailable = await SMS.isAvailableAsync();
+      if (isAvailable) {
+        await SMS.sendSMSAsync(trustedNumbers, message);
+        Alert.alert("SOS Sent", "Trusted contacts have been notified with your location!");
+      } else {
+        Alert.alert("SMS Not Available", "Cannot send message on this device.");
+      }
+    } catch (error) {
+      console.error(error);
+      Alert.alert("Error", "Failed to send SOS. Please check permissions.");
+    }
+  };
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#1F2937" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Emergency SOS</Text>
-        <View style={styles.placeholder} />
-      </View>
+    <View style={styles.container}>
+      <Text style={styles.title}>AYA SOS</Text>
+      <Text style={styles.instruction}>
+        Detects falls automatically and sends your location to trusted contacts. Press the button for manual SOS.
+      </Text>
 
-      <View style={styles.content}>
-        {/* Emergency Button */}
-        <View style={styles.emergencySection}>
-          <Text style={styles.emergencyTitle}>
-            {isEmergencyActive ? 'Emergency Active' : 'Emergency SOS'}
-          </Text>
-          <Text style={styles.emergencySubtitle}>
-            {isEmergencyActive 
-              ? 'Your emergency contacts have been notified. Tap to cancel.'
-              : 'Press and hold the button below to send emergency alert'
-            }
-          </Text>
+      <TouchableOpacity style={styles.sosButton} onPress={startCountdown}>
+        <Text style={styles.sosText}>SOS</Text>
+      </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[
-              styles.emergencyButton,
-              isEmergencyActive && styles.emergencyButtonActive
-            ]}
-            onPress={handleEmergencyPress}
-            activeOpacity={0.7}
-          >
-            <View style={styles.emergencyButtonInner}>
-              <Ionicons 
-                name={isEmergencyActive ? "checkmark" : "warning"} 
-                size={48} 
-                color="#FFFFFF" 
-              />
-            </View>
+      <TouchableOpacity
+        style={styles.settingsButton}
+        onPress={() => setSettingsModalVisible(true)}
+      >
+        <Text style={styles.settingsText}>Settings</Text>
+      </TouchableOpacity>
+
+      <Modal visible={alertActive} transparent animationType="fade">
+        <View style={styles.countdownOverlay}>
+          <Text style={styles.countdownText}>{countdown}</Text>
+          <Text style={styles.countdownSubText}>Sending SOS in...</Text>
+          <TouchableOpacity style={styles.cancelButton} onPress={cancelCountdown}>
+            <Text style={styles.cancelText}>Cancel</Text>
           </TouchableOpacity>
-
-          {isEmergencyActive && (
-            <View style={styles.activeAlert}>
-              <Text style={styles.activeAlertText}>🚨 Emergency Alert Active</Text>
-              <Text style={styles.activeAlertSubtext}>Location sharing enabled</Text>
-            </View>
-          )}
         </View>
+      </Modal>
 
-        {/* Quick Actions */}
-        <View style={styles.quickActionsSection}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <View style={styles.quickActions}>
-            <TouchableOpacity style={styles.quickAction}>
-              <Ionicons name="call" size={24} color="#10B981" />
-              <Text style={styles.quickActionText}>Call 911</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.quickAction}>
-              <Ionicons name="location" size={24} color="#3B82F6" />
-              <Text style={styles.quickActionText}>Share Location</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.quickAction}>
-              <Ionicons name="medical" size={24} color="#EF4444" />
-              <Text style={styles.quickActionText}>Medical Info</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Emergency Contacts */}
-        <View style={styles.contactsSection}>
-          <Text style={styles.sectionTitle}>Emergency Contacts</Text>
-          {emergencyContacts.map((contact) => (
-            <TouchableOpacity key={contact.id} style={styles.contactItem}>
-              <View style={styles.contactIcon}>
-                <Ionicons name="person" size={20} color="#6366F1" />
+      <Modal
+        visible={settingsModalVisible}
+        animationType="slide"
+        onRequestClose={() => setSettingsModalVisible(false)}
+      >
+        <View style={styles.settingsModal}>
+          <Text style={styles.modalTitle}>Trusted Contacts</Text>
+          <FlatList
+            data={trustedNumbers}
+            keyExtractor={(item) => item}
+            renderItem={({ item }) => (
+              <View style={styles.numberItem}>
+                <Text>{item}</Text>
+                <Button title="Remove" color="#E91E63" onPress={() => removeNumber(item)} />
               </View>
-              <View style={styles.contactInfo}>
-                <Text style={styles.contactName}>{contact.name}</Text>
-                <Text style={styles.contactRelation}>{contact.relation}</Text>
-              </View>
-              <TouchableOpacity style={styles.callButton}>
-                <Ionicons name="call" size={20} color="#10B981" />
-              </TouchableOpacity>
-            </TouchableOpacity>
-          ))}
+            )}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Enter phone number (e.g., +1234567890)"
+            value={newNumber}
+            onChangeText={setNewNumber}
+            keyboardType="phone-pad"
+          />
+          <TouchableOpacity style={styles.addButton} onPress={addNumber}>
+            <Text style={styles.addText}>Add Number</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={() => setSettingsModalVisible(false)}
+          >
+            <Text style={styles.closeText}>Close</Text>
+          </TouchableOpacity>
         </View>
-      </View>
-    </SafeAreaView>
+      </Modal>
+    </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+    backgroundColor: "#f8f8f8", // Softer background
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+  title: {
+    fontSize: 32,
+    fontWeight: "bold",
+    color: "#E91E63",
+    marginBottom: 20,
   },
-  backButton: {
-    padding: 8,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1F2937',
-  },
-  placeholder: {
-    width: 40,
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: 20,
-  },
-  emergencySection: {
-    alignItems: 'center',
-    paddingVertical: 40,
-  },
-  emergencyTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    marginBottom: 8,
-  },
-  emergencySubtitle: {
+  instruction: {
     fontSize: 16,
-    color: '#6B7280',
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 40,
+    color: "#666",
     paddingHorizontal: 20,
   },
-  emergencyButton: {
+  sosButton: {
+    backgroundColor: "#E91E63",
     width: 160,
     height: 160,
     borderRadius: 80,
-    backgroundColor: '#EF4444',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#EF4444',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 10,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#E91E63",
+    shadowOpacity: 0.6,
+    shadowOffset: { width: 0, height: 12 },
+    shadowRadius: 24,
+    elevation: 12,
   },
-  emergencyButtonActive: {
-    backgroundColor: '#10B981',
-    shadowColor: '#10B981',
+  sosText: {
+    color: "#fff",
+    fontSize: 32,
+    fontWeight: "bold",
   },
-  emergencyButtonInner: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
+  settingsButton: {
+    marginTop: 40,
+    padding: 10,
+    backgroundColor: "#ddd",
+    borderRadius: 8,
   },
-  activeAlert: {
-    marginTop: 24,
-    backgroundColor: '#FEF2F2',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#FECACA',
-  },
-  activeAlertText: {
+  settingsText: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#DC2626',
-    textAlign: 'center',
+    color: "#333",
   },
-  activeAlertSubtext: {
-    fontSize: 14,
-    color: '#7F1D1D',
-    textAlign: 'center',
-    marginTop: 4,
-  },
-  quickActionsSection: {
-    marginTop: 20,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    marginBottom: 16,
-  },
-  quickActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  quickAction: {
-    backgroundColor: '#FFFFFF',
-    padding: 20,
-    borderRadius: 12,
-    alignItems: 'center',
-    width: (width - 80) / 3,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  quickActionText: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  contactsSection: {
-    marginTop: 32,
-  },
-  contactItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  contactIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#EEF2FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  contactInfo: {
+  countdownOverlay: {
     flex: 1,
+    backgroundColor: "rgba(0,0,0,0.8)",
+    justifyContent: "center",
+    alignItems: "center",
   },
-  contactName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
+  countdownText: {
+    fontSize: 100,
+    color: "#fff",
+    fontWeight: "bold",
   },
-  contactRelation: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginTop: 2,
+  countdownSubText: {
+    fontSize: 24,
+    color: "#fff",
+    marginBottom: 30,
   },
-  callButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#ECFDF5',
-    alignItems: 'center',
-    justifyContent: 'center',
+  cancelButton: {
+    padding: 15,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    width: 200,
+    alignItems: "center",
+  },
+  cancelText: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#E91E63",
+  },
+  settingsModal: {
+    flex: 1,
+    padding: 20,
+    backgroundColor: "#fff",
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    marginBottom: 20,
+  },
+  numberItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 8,
+    padding: 10,
+    marginVertical: 20,
+  },
+  addButton: {
+    backgroundColor: "#E91E63",
+    padding: 15,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  addText: {
+    color: "#fff",
+    fontWeight: "bold",
+  },
+  closeButton: {
+    marginTop: 20,
+    padding: 15,
+    backgroundColor: "#ddd",
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  closeText: {
+    fontWeight: "bold",
   },
 });
-
-export default EmergencyScreen;
