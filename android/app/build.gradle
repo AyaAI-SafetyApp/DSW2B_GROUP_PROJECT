@@ -1,0 +1,105 @@
+apply plugin: "com.android.application"
+apply plugin: "org.jetbrains.kotlin.android"
+apply plugin: "com.facebook.react"
+
+react {
+    autolinkLibrariesWithApp()
+}
+
+def enableProguardInReleaseBuilds = false
+def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
+
+android {
+    ndkVersion rootProject.ext.ndkVersion
+    buildToolsVersion rootProject.ext.buildToolsVersion
+    compileSdk rootProject.ext.compileSdkVersion
+
+    externalNativeBuild {
+        cmake {
+            version "3.22.1"
+        }
+    }
+
+    buildFeatures {
+        prefab true
+    }
+
+    namespace "com.emzo6"
+
+    defaultConfig {
+        applicationId "com.emzo6"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode 1
+        versionName "1.0"
+        multiDexEnabled true
+
+        externalNativeBuild {
+            cmake {
+                arguments "-DANDROID_STL=c++_shared",
+                          "-DANDROID_TOOLCHAIN=clang",
+                          "-DANDROID_CPP_FEATURES=rtti exceptions",
+                          "-DCMAKE_CXX_STANDARD=20",
+                          "-DCMAKE_CXX_STANDARD_REQUIRED=ON",
+                          "-DANDROID_STL_FORCE_FEATURES=ON"
+                cppFlags "-std=c++20",
+                         "-fexceptions",
+                         "-frtti",
+                         "-Wno-error",
+                         "-include${project.projectDir}/src/main/cpp/ndk_cpp20_compat.h",
+                         "-DFOLLY_HAVE_FORMAT=0",
+                         "-DFOLLY_USE_LIBCPP_FORMATS=0",
+                         "-DFOLLY_MOBILE=1",
+                         "-DFOLLY_USE_LIBCPP=1",
+                         "-D_LIBCPP_ENABLE_CXX20_REMOVED_TYPE_TRAITS",
+                         "-D_LIBCPP_DISABLE_AVAILABILITY=1"
+            }
+        }
+    }
+
+    signingConfigs {
+        debug {
+            storeFile file('debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+    }
+
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+        }
+        release {
+            signingConfig signingConfigs.debug
+            minifyEnabled enableProguardInReleaseBuilds
+            proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+        }
+    }
+
+    packagingOptions {
+        pickFirst "lib/x86/libc++_shared.so"
+        pickFirst "lib/x86_64/libc++_shared.so"
+        pickFirst "lib/arm64-v8a/libc++_shared.so"
+        pickFirst "lib/armeabi-v7a/libc++_shared.so"
+        pickFirst "lib/x86/libjsi.so"
+        pickFirst "lib/x86_64/libjsi.so"
+        pickFirst "lib/arm64-v8a/libjsi.so"
+        pickFirst "lib/armeabi-v7a/libjsi.so"
+    }
+}
+
+dependencies {
+    implementation("com.facebook.react:react-android")
+
+    implementation("androidx.multidex:multidex:2.0.1")
+    implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
+    implementation("androidx.core:core-ktx:1.12.0")
+    implementation("androidx.appcompat:appcompat:1.6.1")
+
+    if (hermesEnabled.toBoolean()) {
+        implementation("com.facebook.react:hermes-android")
+    } else {
+        implementation jscFlavor
+    }
+}
