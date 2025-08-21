@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
 
 const tutorials = [
   {
@@ -46,6 +47,12 @@ const games = [
 ];
 
 export default function LearningScreen() {
+  const navigation = useNavigation();
+
+  const handleGamePress = (game) => {
+    navigation.navigate("Game", { game });
+  };
+
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.sectionTitle}>Self-Defense Tutorials</Text>
@@ -64,7 +71,11 @@ export default function LearningScreen() {
 
       <Text style={styles.sectionTitle}>Games & Training</Text>
       {games.map((game) => (
-        <TouchableOpacity key={game.id} style={styles.card}>
+        <TouchableOpacity
+          key={game.id}
+          style={styles.card}
+          onPress={() => handleGamePress(game)}
+        >
           <Image source={game.image} style={styles.cardImage} />
           <View style={styles.cardContent}>
             <Text style={styles.cardTitle}>{game.title}</Text>
