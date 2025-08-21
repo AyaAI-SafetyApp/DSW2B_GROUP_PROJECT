@@ -1,5 +1,5 @@
-import React, { useEffect } from "react";
-import { View, Text, Image, TouchableOpacity, StyleSheet } from "react-native";
+import React from "react";
+import { StyleSheet } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -29,7 +29,7 @@ const Tab = createBottomTabNavigator();
 const WaterIcon = ({ name, focused, size }) => {
   const fill = useSharedValue(focused ? 1 : 0);
 
-  useEffect(() => {
+  React.useEffect(() => {
     fill.value = withTiming(focused ? 1 : 0, {
       duration: 600,
       easing: Easing.out(Easing.exp),
@@ -58,30 +58,11 @@ const WaterIcon = ({ name, focused, size }) => {
   );
 };
 
-// Custom Header
-const CustomHeader = ({ title }) => (
-  <View style={styles.header}>
-    <Image
-      source={require("./assets/Logos/Aya_AI_Logo.png")}
-      style={styles.logo}
-    />
-    <Text style={styles.headerTitle}>{title}</Text>
-    <View style={styles.headerIcons}>
-      <TouchableOpacity style={styles.iconButton}>
-        <Ionicons name="notifications-outline" size={24} color="#333" />
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.iconButton}>
-        <Ionicons name="settings-outline" size={24} color="#333" />
-      </TouchableOpacity>
-    </View>
-  </View>
-);
-
 function MainTabs() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
-        header: () => <CustomHeader title={route.name} />,
+        headerShown: false,
         tabBarStyle: styles.tabBar,
         tabBarLabelStyle: { fontSize: 12, marginBottom: 5 },
         tabBarIcon: ({ focused, size }) => {
@@ -136,23 +117,6 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  header: {
-    height: 70,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    backgroundColor: "#fff",
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 3 },
-    shadowRadius: 5,
-    elevation: 5,
-  },
-  logo: { width: 40, height: 40, borderRadius: 20 },
-  headerTitle: { fontSize: 20, fontWeight: "bold", color: "#333" },
-  headerIcons: { flexDirection: "row" },
-  iconButton: { marginLeft: 15 },
   tabBar: {
     position: "absolute",
     left: 15,
