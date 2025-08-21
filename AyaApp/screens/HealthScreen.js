@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -13,6 +13,8 @@ import {
   Dimensions,
   Modal,
   KeyboardAvoidingView,
+  Animated,
+  Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -20,7 +22,7 @@ const { width, height } = Dimensions.get("window");
 
 const DigitalSafetyCard = () => {
   const [activeTab, setActiveTab] = useState("emergency");
-  const [isEditMode, setIsEditMode] = useState(true);
+  const [isEditMode, setIsEditMode] = useState(false);
   const [contacts, setContacts] = useState([]);
   const [showNfcScreen, setShowNfcScreen] = useState(false);
   const [healthInfo, setHealthInfo] = useState({
@@ -29,6 +31,71 @@ const DigitalSafetyCard = () => {
     conditions: "",
     medications: "",
     medicalNotes: "",
+  });
+  const [userInfo, setUserInfo] = useState({
+    name: "Full Name",
+    pictureUri: null, // Set to a URI if available, e.g., 'https://example.com/image.jpg'
+    dob: "",
+    gender: "",
+  });
+  const [isFlipped, setIsFlipped] = useState(false);
+
+  const animatedValue = useRef(new Animated.Value(0)).current;
+  const waveAnim1 = useRef(new Animated.Value(0)).current;
+  const waveAnim2 = useRef(new Animated.Value(0)).current;
+  const waveAnim3 = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(animatedValue, {
+      toValue: isFlipped ? 180 : 0,
+      duration: 500,
+      useNativeDriver: true,
+    }).start();
+  }, [isFlipped]);
+
+  useEffect(() => {
+    if (showNfcScreen) {
+      const animateWave = (anim) =>
+        Animated.loop(
+          Animated.sequence([
+            Animated.timing(anim, {
+              toValue: 1,
+              duration: 2000,
+              useNativeDriver: true,
+            }),
+            Animated.timing(anim, {
+              toValue: 0,
+              duration: 0,
+              useNativeDriver: true,
+            }),
+          ])
+        );
+      animateWave(waveAnim1).start();
+      setTimeout(() => animateWave(waveAnim2).start(), 300);
+      setTimeout(() => animateWave(waveAnim3).start(), 600);
+
+      const timer = setTimeout(() => setShowNfcScreen(false), 10000);
+      return () => clearTimeout(timer);
+    }
+  }, [showNfcScreen]);
+
+  const frontInterpolate = animatedValue.interpolate({
+    inputRange: [0, 180],
+    outputRange: ["0deg", "180deg"],
+  });
+  const backInterpolate = animatedValue.interpolate({
+    inputRange: [0, 180],
+    outputRange: ["180deg", "360deg"],
+  });
+  const frontOpacity = animatedValue.interpolate({
+    inputRange: [89, 90],
+    outputRange: [1, 0],
+    extrapolate: "clamp",
+  });
+  const backOpacity = animatedValue.interpolate({
+    inputRange: [89, 90],
+    outputRange: [0, 1],
+    extrapolate: "clamp",
   });
 
   const addContact = () => {
@@ -39,7 +106,6 @@ const DigitalSafetyCard = () => {
       );
       return;
     }
-
     setContacts([
       ...contacts,
       {
@@ -71,13 +137,17 @@ const DigitalSafetyCard = () => {
     setHealthInfo({ ...healthInfo, [field]: value });
   };
 
+  const updateUserInfo = (field, value) => {
+    setUserInfo({ ...userInfo, [field]: value });
+  };
+
   const saveCard = () => {
     const validContacts = contacts.filter(
       (contact) => contact.firstName || contact.lastName || contact.primaryPhone
     );
-
     setContacts(validContacts);
     setIsEditMode(false);
+    setIsFlipped(false);
   };
 
   const editCard = () => {
@@ -86,7 +156,6 @@ const DigitalSafetyCard = () => {
 
   const openNfcScreen = () => {
     setShowNfcScreen(true);
-    setTimeout(() => setShowNfcScreen(false), 10000);
   };
 
   const renderEditMode = () => (
@@ -204,15 +273,41 @@ const DigitalSafetyCard = () => {
       ) : (
         <ScrollView style={styles.tabContent}>
           <View style={styles.healthEntry}>
-            <Text style={styles.label}>Blood Type</Text>
+            <Text style={styles.label}>Name (Read-only)</Text>
+            <TextInput
+              style={styles.input}
+              value={userInfo.name}
+              editable={false}
+              placeholder="Full name"
+            />
+          </View>
+          <View style={styles.healthEntry}>
+            <Text style={styles.label}>Date of Birth</Text>
+            <TextInput
+              style={styles.input}
+              value={userInfo.dob}
+              onChangeText={(text) => updateUserInfo("dob", text)}
+              placeholder="YYYY-MM-DD"
+            />
+          </View>
+          <View style={styles.healthEntry}>
+            <Text style={styles.label}>Gender</Text>
+            <TextInput
+              style={styles.input}
+              value={userInfo.gender}
+              onChangeText={(text) => updateUserInfo("gender", text)}
+              placeholder="e.g., Male, Female, Other"
+            />
+          </View>
+          <View style={styles.healthEntry}>
+            <Text style={styles.label}>Blood Type (Read-only)</Text>
             <TextInput
               style={styles.input}
               value={healthInfo.bloodType}
-              onChangeText={(text) => updateHealthInfo("bloodType", text)}
+              editable={false}
               placeholder="e.g., O+, A-, B+, AB-"
             />
           </View>
-
           <View style={styles.healthEntry}>
             <Text style={styles.label}>Allergies</Text>
             <TextInput
@@ -222,7 +317,6 @@ const DigitalSafetyCard = () => {
               placeholder="List any allergies or 'None'"
             />
           </View>
-
           <View style={styles.healthEntry}>
             <Text style={styles.label}>Medical Conditions</Text>
             <TextInput
@@ -232,7 +326,6 @@ const DigitalSafetyCard = () => {
               placeholder="Any ongoing medical conditions"
             />
           </View>
-
           <View style={styles.healthEntry}>
             <Text style={styles.label}>Current Medications</Text>
             <TextInput
@@ -242,7 +335,6 @@ const DigitalSafetyCard = () => {
               placeholder="List current medications"
             />
           </View>
-
           <View style={styles.healthEntry}>
             <Text style={styles.label}>Emergency Medical Notes</Text>
             <TextInput
@@ -257,8 +349,59 @@ const DigitalSafetyCard = () => {
     </View>
   );
 
-  const renderCardView = () => (
-    <View style={styles.cardView}>
+  const renderFrontCard = () => (
+    <Animated.View
+      style={[
+        styles.cardFront,
+        {
+          opacity: frontOpacity,
+          transform: [{ rotateY: frontInterpolate }],
+        },
+      ]}
+    >
+      <View style={styles.cardHeader}>
+        {userInfo.pictureUri ? (
+          <Image
+            source={{ uri: userInfo.pictureUri }}
+            style={styles.userPicture}
+          />
+        ) : (
+          <View style={styles.profileIconLarge}>
+            <Ionicons name="person" size={60} color="#E91E63" />
+          </View>
+        )}
+        <Text style={styles.cardTitle}>Aya Medical Card</Text>
+      </View>
+      <View style={styles.summaryInfo}>
+        <Text style={styles.summaryText}>Name: {userInfo.name}</Text>
+        <Text style={styles.summaryText}>DOB: {userInfo.dob || "Not set"}</Text>
+        <Text style={styles.summaryText}>
+          Blood Type: {healthInfo.bloodType || "Not set"}
+        </Text>
+        <Text style={styles.summaryText}>
+          Allergies: {healthInfo.allergies || "None"}
+        </Text>
+        <Text style={styles.summaryText}>
+          Emergency Contacts: {contacts.length}
+        </Text>
+      </View>
+      <TouchableOpacity style={styles.shareButton} onPress={openNfcScreen}>
+        <Ionicons name="share" size={20} color="white" />
+        <Text style={styles.buttonText}>Share Card</Text>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+
+  const renderBackCard = () => (
+    <Animated.View
+      style={[
+        styles.cardBack,
+        {
+          opacity: backOpacity,
+          transform: [{ rotateY: backInterpolate }],
+        },
+      ]}
+    >
       <TouchableOpacity style={styles.editButton} onPress={editCard}>
         <Ionicons name="create" size={16} color="white" />
         <Text style={styles.editButtonText}>Edit</Text>
@@ -287,36 +430,36 @@ const DigitalSafetyCard = () => {
             return (
               <View key={index} style={styles.contactDisplay}>
                 <Text style={styles.contactName}>{fullName}</Text>
-                {contact.relationship ? (
+                {contact.relationship && (
                   <Text style={styles.contactDetail}>
                     <Text style={styles.detailLabel}>Relationship:</Text>{" "}
                     {contact.relationship}
                   </Text>
-                ) : null}
-                {contact.primaryPhone ? (
+                )}
+                {contact.primaryPhone && (
                   <Text style={styles.contactDetail}>
                     <Text style={styles.detailLabel}>Primary Phone:</Text>{" "}
                     {contact.primaryPhone}
                   </Text>
-                ) : null}
-                {contact.secondaryPhone ? (
+                )}
+                {contact.secondaryPhone && (
                   <Text style={styles.contactDetail}>
                     <Text style={styles.detailLabel}>Secondary Phone:</Text>{" "}
                     {contact.secondaryPhone}
                   </Text>
-                ) : null}
-                {contact.email ? (
+                )}
+                {contact.email && (
                   <Text style={styles.contactDetail}>
                     <Text style={styles.detailLabel}>Email:</Text>{" "}
                     {contact.email}
                   </Text>
-                ) : null}
-                {contact.address ? (
+                )}
+                {contact.address && (
                   <Text style={styles.contactDetail}>
                     <Text style={styles.detailLabel}>Address:</Text>{" "}
                     {contact.address}
                   </Text>
-                ) : null}
+                )}
               </View>
             );
           })
@@ -344,46 +487,53 @@ const DigitalSafetyCard = () => {
           </View>
         ) : (
           <View style={styles.healthDisplay}>
-            {healthInfo.bloodType ? (
+            {healthInfo.bloodType && (
               <View style={styles.healthDetail}>
                 <Text style={styles.healthLabel}>Blood Type:</Text>
                 <Text style={styles.healthValue}>{healthInfo.bloodType}</Text>
               </View>
-            ) : null}
-
-            {healthInfo.allergies ? (
+            )}
+            {healthInfo.allergies && (
               <View style={styles.healthDetail}>
                 <Text style={styles.healthLabel}>Allergies:</Text>
                 <Text style={styles.healthValue}>{healthInfo.allergies}</Text>
               </View>
-            ) : null}
-
-            {healthInfo.conditions ? (
+            )}
+            {healthInfo.conditions && (
               <View style={styles.healthDetail}>
                 <Text style={styles.healthLabel}>Medical Conditions:</Text>
                 <Text style={styles.healthValue}>{healthInfo.conditions}</Text>
               </View>
-            ) : null}
-
-            {healthInfo.medications ? (
+            )}
+            {healthInfo.medications && (
               <View style={styles.healthDetail}>
                 <Text style={styles.healthLabel}>Medications:</Text>
                 <Text style={styles.healthValue}>{healthInfo.medications}</Text>
               </View>
-            ) : null}
-
-            {healthInfo.medicalNotes ? (
+            )}
+            {healthInfo.medicalNotes && (
               <View style={styles.healthDetail}>
                 <Text style={styles.healthLabel}>Emergency Notes:</Text>
                 <Text style={styles.healthValue}>
                   {healthInfo.medicalNotes}
                 </Text>
               </View>
-            ) : null}
+            )}
           </View>
         )}
       </View>
-    </View>
+    </Animated.View>
+  );
+
+  const renderCardView = () => (
+    <TouchableOpacity
+      style={styles.flipCardContainer}
+      activeOpacity={1}
+      onPress={() => setIsFlipped(!isFlipped)}
+    >
+      {renderFrontCard()}
+      {renderBackCard()}
+    </TouchableOpacity>
   );
 
   const renderNfcScreen = () => (
@@ -403,27 +553,81 @@ const DigitalSafetyCard = () => {
           </TouchableOpacity>
 
           <View style={styles.nfcAnimation}>
-            <View style={styles.nfcWave}></View>
-            <View style={styles.nfcWave}></View>
-            <View style={styles.nfcWave}></View>
+            <Animated.View
+              style={[
+                styles.nfcWave,
+                {
+                  transform: [
+                    {
+                      scale: waveAnim1.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [1, 1.5],
+                      }),
+                    },
+                  ],
+                  opacity: waveAnim1.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.5, 0],
+                  }),
+                },
+              ]}
+            />
+            <Animated.View
+              style={[
+                styles.nfcWave,
+                {
+                  transform: [
+                    {
+                      scale: waveAnim2.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [1, 1.5],
+                      }),
+                    },
+                  ],
+                  opacity: waveAnim2.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.5, 0],
+                  }),
+                },
+              ]}
+            />
+            <Animated.View
+              style={[
+                styles.nfcWave,
+                {
+                  transform: [
+                    {
+                      scale: waveAnim3.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [1, 1.5],
+                      }),
+                    },
+                  ],
+                  opacity: waveAnim3.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.5, 0],
+                  }),
+                },
+              ]}
+            />
             <Ionicons name="wifi" size={80} color="white" />
           </View>
 
-          <Text style={styles.nfcModalTitle}>Ready to Tap</Text>
+          <Text style={styles.nfcModalTitle}>Searching for NFC Reader</Text>
           <Text style={styles.nfcModalText}>
-            Hold your device near an NFC reader to share your safety information
+            Hold your device near an NFC reader to share your medical card
           </Text>
 
           <View style={styles.nfcCardPreview}>
             <View style={styles.nfcCardHeader}>
               <Ionicons name="person" size={24} color="#E91E63" />
-              <Text style={styles.nfcCardName}>Full Name</Text>
+              <Text style={styles.nfcCardName}>{userInfo.name}</Text>
             </View>
-            <Text style={styles.nfcCardInfo}>Emergency Safety Card</Text>
+            <Text style={styles.nfcCardInfo}>Aya Medical Card</Text>
           </View>
 
           <Text style={styles.nfcFooter}>
-            This card contains emergency contact and health information
+            Sharing emergency contact and health information
           </Text>
         </View>
       </View>
@@ -436,7 +640,7 @@ const DigitalSafetyCard = () => {
 
       <View style={styles.header}>
         <View style={styles.headerTopRow}>
-          <Text style={styles.headerName}>Full Name</Text>
+          <Text style={styles.headerName}>Aya Medical Card</Text>
           <View style={styles.headerIcons}>
             <TouchableOpacity
               style={styles.nfcIconButton}
@@ -446,9 +650,16 @@ const DigitalSafetyCard = () => {
                 <Ionicons name="wifi" size={20} color="#E91E63" />
               </View>
             </TouchableOpacity>
-            <View style={styles.profileIcon}>
-              <Ionicons name="person" size={20} color="#E91E63" />
-            </View>
+            {userInfo.pictureUri ? (
+              <Image
+                source={{ uri: userInfo.pictureUri }}
+                style={styles.profileIcon}
+              />
+            ) : (
+              <View style={styles.profileIcon}>
+                <Ionicons name="person" size={20} color="#E91E63" />
+              </View>
+            )}
           </View>
         </View>
 
@@ -513,7 +724,7 @@ const DigitalSafetyCard = () => {
           <View style={styles.fixedButtonContainer}>
             <TouchableOpacity style={styles.primaryButton} onPress={saveCard}>
               <Ionicons name="save" size={20} color="white" />
-              <Text style={styles.buttonText}>Save Safety Card</Text>
+              <Text style={styles.buttonText}>Save Card</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -535,11 +746,11 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    top: 10,
   },
   contentContainer: {
     paddingHorizontal: 20,
     paddingBottom: 80,
+    alignItems: "center",
   },
   header: {
     paddingHorizontal: 20,
@@ -573,6 +784,20 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
+    backgroundColor: "#F3F4F6",
+    justifyContent: "center",
+    alignItems: "center",
+    overflow: "hidden",
+  },
+  userPicture: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+  },
+  profileIconLarge: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     backgroundColor: "#F3F4F6",
     justifyContent: "center",
     alignItems: "center",
@@ -617,6 +842,7 @@ const styles = StyleSheet.create({
   },
   editContainer: {
     flex: 1,
+    width: "100%",
   },
   tabContent: {
     marginBottom: 20,
@@ -738,8 +964,70 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginLeft: 8,
   },
-  cardView: {
-    flex: 1,
+  shareButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#E91E63",
+    padding: 12,
+    borderRadius: 12,
+    marginTop: 20,
+    width: "100%",
+  },
+  flipCardContainer: {
+    width: width - 40,
+    height: height * 0.6,
+    perspective: 1000,
+    marginTop: 20,
+  },
+  cardFront: {
+    position: "absolute",
+    width: "100%",
+    height: "100%",
+    backgroundColor: "white",
+    borderRadius: 20,
+    padding: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+    backfaceVisibility: "hidden",
+  },
+  cardBack: {
+    position: "absolute",
+    width: "100%",
+    height: "100%",
+    backgroundColor: "white",
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+    backfaceVisibility: "hidden",
+  },
+  cardHeader: {
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  cardTitle: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#1F2937",
+    marginTop: 10,
+  },
+  summaryInfo: {
+    width: "100%",
+    alignItems: "flex-start",
+  },
+  summaryText: {
+    fontSize: 16,
+    color: "#1F2937",
+    marginBottom: 10,
   },
   editButton: {
     flexDirection: "row",
@@ -861,6 +1149,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 30,
     position: "relative",
+    overflow: "hidden",
   },
   nfcWave: {
     position: "absolute",
@@ -869,7 +1158,6 @@ const styles = StyleSheet.create({
     borderRadius: 90,
     borderWidth: 2,
     borderColor: "rgba(255, 255, 255, 0.3)",
-    opacity: 0,
   },
   nfcModalTitle: {
     fontSize: 24,
