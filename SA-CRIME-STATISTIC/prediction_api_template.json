@@ -1,0 +1,31 @@
+{
+  "prediction_endpoint": {
+    "method": "POST",
+    "required_fields": [
+      "province",
+      "crime_category",
+      "historical_data"
+    ],
+    "response_format": {
+      "predicted_crimes": "number",
+      "confidence_level": "percentage",
+      "trend_direction": "increasing/decreasing/stable",
+      "recommendation": "text"
+    }
+  },
+  "sample_request": {
+    "province": "Gauteng",
+    "crime_category": "Contact crimes",
+    "historical_data": [
+      100,
+      105,
+      110
+    ]
+  },
+  "sample_response": {
+    "predicted_crimes": 115,
+    "confidence_level": 78.5,
+    "trend_direction": "increasing",
+    "recommendation": "Consider increased patrol presence"
+  }
+}

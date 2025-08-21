@@ -1,0 +1,1703 @@
+[
+  {
+    "Province":"Eastern Cape",
+    "Category":"All theft not mentioned elsewhere",
+    "2014-2015":25597,
+    "2015-2016":23429,
+    "trend_2015_vs_2014":-8.47
+  },
+  {
+    "Province":"Eastern Cape",
+    "Category":"Arson",
+    "2014-2015":785,
+    "2015-2016":679,
+    "trend_2015_vs_2014":-13.49
+  },
+  {
+    "Province":"Eastern Cape",
+    "Category":"Assault with the intent to inflict grievous bodily harm",
+    "2014-2015":25431,
+    "2015-2016":24818,
+    "trend_2015_vs_2014":-2.41
+  },
+  {
+    "Province":"Eastern Cape",
+    "Category":"Attempted murder",
+    "2014-2015":1832,
+    "2015-2016":2052,
+    "trend_2015_vs_2014":12.0
+  },
+  {
+    "Province":"Eastern Cape",
+    "Category":"Bank robbery",
+    "2014-2015":0,
+    "2015-2016":0,
+    "trend_2015_vs_2014":0.0
+  },
+  {
+    "Province":"Eastern Cape",
+    "Category":"Burglary at non-residential premises",
+    "2014-2015":7810,
+    "2015-2016":7470,
+    "trend_2015_vs_2014":-4.35
+  },
+  {
+    "Province":"Eastern Cape",
+    "Category":"Burglary at residential premises",
+    "2014-2015":24329,
+    "2015-2016":23901,
+    "trend_2015_vs_2014":-1.76
+  },
+  {
+    "Province":"Eastern Cape",
+    "Category":"Carjacking",
+    "2014-2015":769,
+    "2015-2016":956,
+    "trend_2015_vs_2014":24.29
+  },
+  {
+    "Province":"Eastern Cape",
+    "Category":"Commercial crime",
+    "2014-2015":5546,
+    "2015-2016":6155,
+    "trend_2015_vs_2014":10.98
+  },
+  {
+    "Province":"Eastern Cape",
+    "Category":"Common assault",
+    "2014-2015":11848,
+    "2015-2016":11475,
+    "trend_2015_vs_2014":-3.15
+  },
+  {
+    "Province":"Eastern Cape",
+    "Category":"Common robbery",
+    "2014-2015":3753,
+    "2015-2016":3690,
+    "trend_2015_vs_2014":-1.68
+  },
+  {
+    "Province":"Eastern Cape",
+    "Category":"Driving under the influence of alcohol or drugs",
+    "2014-2015":6946,
+    "2015-2016":6547,
+    "trend_2015_vs_2014":-5.74
+  },
+  {
+    "Province":"Eastern Cape",
+    "Category":"Drug-related crime",
+    "2014-2015":16038,
+    "2015-2016":16129,
+    "trend_2015_vs_2014":0.57
+  },
+  {
+    "Province":"Eastern Cape",
+    "Category":"Illegal possession of firearms and ammunition",
+    "2014-2015":1719,
+    "2015-2016":1773,
+    "trend_2015_vs_2014":3.14
+  },
+  {
+    "Province":"Eastern Cape",
+    "Category":"Malicious damage to property",
+    "2014-2015":12399,
+    "2015-2016":11819,
+    "trend_2015_vs_2014":-4.68
+  },
+  {
+    "Province":"Eastern Cape",
+    "Category":"Murder",
+    "2014-2015":3321,
+    "2015-2016":3649,
+    "trend_2015_vs_2014":9.87
+  },
+  {
+    "Province":"Eastern Cape",
+    "Category":"Robbery at non-residential premises",
+    "2014-2015":2474,
+    "2015-2016":2218,
+    "trend_2015_vs_2014":-10.34
+  },
+  {
+    "Province":"Eastern Cape",
+    "Category":"Robbery at residential premises",
+    "2014-2015":1811,
+    "2015-2016":2054,
+    "trend_2015_vs_2014":13.41
+  },
+  {
+    "Province":"Eastern Cape",
+    "Category":"Robbery of cash in transit",
+    "2014-2015":10,
+    "2015-2016":19,
+    "trend_2015_vs_2014":81.82
+  },
+  {
+    "Province":"Eastern Cape",
+    "Category":"Robbery with aggravating circumstances",
+    "2014-2015":13245,
+    "2015-2016":12777,
+    "trend_2015_vs_2014":-3.53
+  },
+  {
+    "Province":"Eastern Cape",
+    "Category":"Sexual Offences",
+    "2014-2015":9224,
+    "2015-2016":8797,
+    "trend_2015_vs_2014":-4.63
+  },
+  {
+    "Province":"Eastern Cape",
+    "Category":"Sexual offences as result of police action",
+    "2014-2015":219,
+    "2015-2016":262,
+    "trend_2015_vs_2014":19.55
+  },
+  {
+    "Province":"Eastern Cape",
+    "Category":"Shoplifting",
+    "2014-2015":6045,
+    "2015-2016":5654,
+    "trend_2015_vs_2014":-6.47
+  },
+  {
+    "Province":"Eastern Cape",
+    "Category":"Stock-theft",
+    "2014-2015":6087,
+    "2015-2016":5809,
+    "trend_2015_vs_2014":-4.57
+  },
+  {
+    "Province":"Eastern Cape",
+    "Category":"Theft of motor vehicle and motorcycle",
+    "2014-2015":3276,
+    "2015-2016":2678,
+    "trend_2015_vs_2014":-18.25
+  },
+  {
+    "Province":"Eastern Cape",
+    "Category":"Theft out of or from motor vehicle",
+    "2014-2015":12034,
+    "2015-2016":11225,
+    "trend_2015_vs_2014":-6.72
+  },
+  {
+    "Province":"Eastern Cape",
+    "Category":"Truck hijacking",
+    "2014-2015":34,
+    "2015-2016":54,
+    "trend_2015_vs_2014":57.14
+  },
+  {
+    "Province":"Free State",
+    "Category":"All theft not mentioned elsewhere",
+    "2014-2015":17180,
+    "2015-2016":16341,
+    "trend_2015_vs_2014":-4.88
+  },
+  {
+    "Province":"Free State",
+    "Category":"Arson",
+    "2014-2015":287,
+    "2015-2016":265,
+    "trend_2015_vs_2014":-7.64
+  },
+  {
+    "Province":"Free State",
+    "Category":"Assault with the intent to inflict grievous bodily harm",
+    "2014-2015":13458,
+    "2015-2016":13116,
+    "trend_2015_vs_2014":-2.54
+  },
+  {
+    "Province":"Free State",
+    "Category":"Attempted murder",
+    "2014-2015":816,
+    "2015-2016":787,
+    "trend_2015_vs_2014":-3.55
+  },
+  {
+    "Province":"Free State",
+    "Category":"Bank robbery",
+    "2014-2015":2,
+    "2015-2016":0,
+    "trend_2015_vs_2014":-66.67
+  },
+  {
+    "Province":"Free State",
+    "Category":"Burglary at non-residential premises",
+    "2014-2015":4875,
+    "2015-2016":5210,
+    "trend_2015_vs_2014":6.87
+  },
+  {
+    "Province":"Free State",
+    "Category":"Burglary at residential premises",
+    "2014-2015":15618,
+    "2015-2016":15323,
+    "trend_2015_vs_2014":-1.89
+  },
+  {
+    "Province":"Free State",
+    "Category":"Carjacking",
+    "2014-2015":270,
+    "2015-2016":258,
+    "trend_2015_vs_2014":-4.43
+  },
+  {
+    "Province":"Free State",
+    "Category":"Commercial crime",
+    "2014-2015":3806,
+    "2015-2016":3986,
+    "trend_2015_vs_2014":4.73
+  },
+  {
+    "Province":"Free State",
+    "Category":"Common assault",
+    "2014-2015":15243,
+    "2015-2016":15194,
+    "trend_2015_vs_2014":-0.32
+  },
+  {
+    "Province":"Free State",
+    "Category":"Common robbery",
+    "2014-2015":2521,
+    "2015-2016":2304,
+    "trend_2015_vs_2014":-8.6
+  },
+  {
+    "Province":"Free State",
+    "Category":"Driving under the influence of alcohol or drugs",
+    "2014-2015":1976,
+    "2015-2016":2448,
+    "trend_2015_vs_2014":23.87
+  },
+  {
+    "Province":"Free State",
+    "Category":"Drug-related crime",
+    "2014-2015":8776,
+    "2015-2016":9623,
+    "trend_2015_vs_2014":9.65
+  },
+  {
+    "Province":"Free State",
+    "Category":"Illegal possession of firearms and ammunition",
+    "2014-2015":442,
+    "2015-2016":469,
+    "trend_2015_vs_2014":6.09
+  },
+  {
+    "Province":"Free State",
+    "Category":"Malicious damage to property",
+    "2014-2015":7655,
+    "2015-2016":7551,
+    "trend_2015_vs_2014":-1.36
+  },
+  {
+    "Province":"Free State",
+    "Category":"Murder",
+    "2014-2015":943,
+    "2015-2016":993,
+    "trend_2015_vs_2014":5.3
+  },
+  {
+    "Province":"Free State",
+    "Category":"Robbery at non-residential premises",
+    "2014-2015":852,
+    "2015-2016":756,
+    "trend_2015_vs_2014":-11.25
+  },
+  {
+    "Province":"Free State",
+    "Category":"Robbery at residential premises",
+    "2014-2015":718,
+    "2015-2016":773,
+    "trend_2015_vs_2014":7.65
+  },
+  {
+    "Province":"Free State",
+    "Category":"Robbery of cash in transit",
+    "2014-2015":9,
+    "2015-2016":5,
+    "trend_2015_vs_2014":-40.0
+  },
+  {
+    "Province":"Free State",
+    "Category":"Robbery with aggravating circumstances",
+    "2014-2015":5239,
+    "2015-2016":4778,
+    "trend_2015_vs_2014":-8.8
+  },
+  {
+    "Province":"Free State",
+    "Category":"Sexual Offences",
+    "2014-2015":4094,
+    "2015-2016":3928,
+    "trend_2015_vs_2014":-4.05
+  },
+  {
+    "Province":"Free State",
+    "Category":"Sexual offences as result of police action",
+    "2014-2015":193,
+    "2015-2016":251,
+    "trend_2015_vs_2014":29.9
+  },
+  {
+    "Province":"Free State",
+    "Category":"Shoplifting",
+    "2014-2015":3148,
+    "2015-2016":3175,
+    "trend_2015_vs_2014":0.86
+  },
+  {
+    "Province":"Free State",
+    "Category":"Stock-theft",
+    "2014-2015":3527,
+    "2015-2016":3466,
+    "trend_2015_vs_2014":-1.73
+  },
+  {
+    "Province":"Free State",
+    "Category":"Theft of motor vehicle and motorcycle",
+    "2014-2015":1743,
+    "2015-2016":1745,
+    "trend_2015_vs_2014":0.11
+  },
+  {
+    "Province":"Free State",
+    "Category":"Theft out of or from motor vehicle",
+    "2014-2015":5399,
+    "2015-2016":4878,
+    "trend_2015_vs_2014":-9.65
+  },
+  {
+    "Province":"Free State",
+    "Category":"Truck hijacking",
+    "2014-2015":89,
+    "2015-2016":65,
+    "trend_2015_vs_2014":-26.67
+  },
+  {
+    "Province":"Gauteng",
+    "Category":"All theft not mentioned elsewhere",
+    "2014-2015":109422,
+    "2015-2016":102599,
+    "trend_2015_vs_2014":-6.24
+  },
+  {
+    "Province":"Gauteng",
+    "Category":"Arson",
+    "2014-2015":1042,
+    "2015-2016":992,
+    "trend_2015_vs_2014":-4.79
+  },
+  {
+    "Province":"Gauteng",
+    "Category":"Assault with the intent to inflict grievous bodily harm",
+    "2014-2015":41830,
+    "2015-2016":42790,
+    "trend_2015_vs_2014":2.29
+  },
+  {
+    "Province":"Gauteng",
+    "Category":"Attempted murder",
+    "2014-2015":4202,
+    "2015-2016":4574,
+    "trend_2015_vs_2014":8.85
+  },
+  {
+    "Province":"Gauteng",
+    "Category":"Bank robbery",
+    "2014-2015":9,
+    "2015-2016":2,
+    "trend_2015_vs_2014":-70.0
+  },
+  {
+    "Province":"Gauteng",
+    "Category":"Burglary at non-residential premises",
+    "2014-2015":16983,
+    "2015-2016":16412,
+    "trend_2015_vs_2014":-3.36
+  },
+  {
+    "Province":"Gauteng",
+    "Category":"Burglary at residential premises",
+    "2014-2015":66172,
+    "2015-2016":64968,
+    "trend_2015_vs_2014":-1.82
+  },
+  {
+    "Province":"Gauteng",
+    "Category":"Carjacking",
+    "2014-2015":6867,
+    "2015-2016":7367,
+    "trend_2015_vs_2014":7.28
+  },
+  {
+    "Province":"Gauteng",
+    "Category":"Commercial crime",
+    "2014-2015":23836,
+    "2015-2016":23680,
+    "trend_2015_vs_2014":-0.65
+  },
+  {
+    "Province":"Gauteng",
+    "Category":"Common assault",
+    "2014-2015":42918,
+    "2015-2016":44255,
+    "trend_2015_vs_2014":3.12
+  },
+  {
+    "Province":"Gauteng",
+    "Category":"Common robbery",
+    "2014-2015":17379,
+    "2015-2016":18051,
+    "trend_2015_vs_2014":3.87
+  },
+  {
+    "Province":"Gauteng",
+    "Category":"Driving under the influence of alcohol or drugs",
+    "2014-2015":25794,
+    "2015-2016":32287,
+    "trend_2015_vs_2014":25.17
+  },
+  {
+    "Province":"Gauteng",
+    "Category":"Drug-related crime",
+    "2014-2015":70264,
+    "2015-2016":55442,
+    "trend_2015_vs_2014":-21.09
+  },
+  {
+    "Province":"Gauteng",
+    "Category":"Illegal possession of firearms and ammunition",
+    "2014-2015":3740,
+    "2015-2016":3600,
+    "trend_2015_vs_2014":-3.74
+  },
+  {
+    "Province":"Gauteng",
+    "Category":"Malicious damage to property",
+    "2014-2015":34805,
+    "2015-2016":34320,
+    "trend_2015_vs_2014":-1.39
+  },
+  {
+    "Province":"Gauteng",
+    "Category":"Murder",
+    "2014-2015":3671,
+    "2015-2016":3842,
+    "trend_2015_vs_2014":4.66
+  },
+  {
+    "Province":"Gauteng",
+    "Category":"Robbery at non-residential premises",
+    "2014-2015":6329,
+    "2015-2016":6910,
+    "trend_2015_vs_2014":9.18
+  },
+  {
+    "Province":"Gauteng",
+    "Category":"Robbery at residential premises",
+    "2014-2015":8174,
+    "2015-2016":7896,
+    "trend_2015_vs_2014":-3.4
+  },
+  {
+    "Province":"Gauteng",
+    "Category":"Robbery of cash in transit",
+    "2014-2015":39,
+    "2015-2016":32,
+    "trend_2015_vs_2014":-17.5
+  },
+  {
+    "Province":"Gauteng",
+    "Category":"Robbery with aggravating circumstances",
+    "2014-2015":47362,
+    "2015-2016":49792,
+    "trend_2015_vs_2014":5.13
+  },
+  {
+    "Province":"Gauteng",
+    "Category":"Sexual Offences",
+    "2014-2015":9902,
+    "2015-2016":9510,
+    "trend_2015_vs_2014":-3.96
+  },
+  {
+    "Province":"Gauteng",
+    "Category":"Sexual offences as result of police action",
+    "2014-2015":469,
+    "2015-2016":470,
+    "trend_2015_vs_2014":0.21
+  },
+  {
+    "Province":"Gauteng",
+    "Category":"Shoplifting",
+    "2014-2015":22562,
+    "2015-2016":22157,
+    "trend_2015_vs_2014":-1.79
+  },
+  {
+    "Province":"Gauteng",
+    "Category":"Stock-theft",
+    "2014-2015":801,
+    "2015-2016":818,
+    "trend_2015_vs_2014":2.12
+  },
+  {
+    "Province":"Gauteng",
+    "Category":"Theft of motor vehicle and motorcycle",
+    "2014-2015":27147,
+    "2015-2016":26646,
+    "trend_2015_vs_2014":-1.85
+  },
+  {
+    "Province":"Gauteng",
+    "Category":"Theft out of or from motor vehicle",
+    "2014-2015":44809,
+    "2015-2016":42111,
+    "trend_2015_vs_2014":-6.02
+  },
+  {
+    "Province":"Gauteng",
+    "Category":"Truck hijacking",
+    "2014-2015":804,
+    "2015-2016":695,
+    "trend_2015_vs_2014":-13.54
+  },
+  {
+    "Province":"Kwazulu\/Natal",
+    "Category":"All theft not mentioned elsewhere",
+    "2014-2015":47622,
+    "2015-2016":43573,
+    "trend_2015_vs_2014":-8.5
+  },
+  {
+    "Province":"Kwazulu\/Natal",
+    "Category":"Arson",
+    "2014-2015":854,
+    "2015-2016":825,
+    "trend_2015_vs_2014":-3.39
+  },
+  {
+    "Province":"Kwazulu\/Natal",
+    "Category":"Assault with the intent to inflict grievous bodily harm",
+    "2014-2015":29201,
+    "2015-2016":28665,
+    "trend_2015_vs_2014":-1.84
+  },
+  {
+    "Province":"Kwazulu\/Natal",
+    "Category":"Attempted murder",
+    "2014-2015":3918,
+    "2015-2016":4041,
+    "trend_2015_vs_2014":3.14
+  },
+  {
+    "Province":"Kwazulu\/Natal",
+    "Category":"Bank robbery",
+    "2014-2015":0,
+    "2015-2016":0,
+    "trend_2015_vs_2014":0.0
+  },
+  {
+    "Province":"Kwazulu\/Natal",
+    "Category":"Burglary at non-residential premises",
+    "2014-2015":11032,
+    "2015-2016":11656,
+    "trend_2015_vs_2014":5.66
+  },
+  {
+    "Province":"Kwazulu\/Natal",
+    "Category":"Burglary at residential premises",
+    "2014-2015":43274,
+    "2015-2016":42429,
+    "trend_2015_vs_2014":-1.95
+  },
+  {
+    "Province":"Kwazulu\/Natal",
+    "Category":"Carjacking",
+    "2014-2015":2190,
+    "2015-2016":2493,
+    "trend_2015_vs_2014":13.83
+  },
+  {
+    "Province":"Kwazulu\/Natal",
+    "Category":"Commercial crime",
+    "2014-2015":11227,
+    "2015-2016":11395,
+    "trend_2015_vs_2014":1.5
+  },
+  {
+    "Province":"Kwazulu\/Natal",
+    "Category":"Common assault",
+    "2014-2015":24011,
+    "2015-2016":23703,
+    "trend_2015_vs_2014":-1.28
+  },
+  {
+    "Province":"Kwazulu\/Natal",
+    "Category":"Common robbery",
+    "2014-2015":7857,
+    "2015-2016":7524,
+    "trend_2015_vs_2014":-4.24
+  },
+  {
+    "Province":"Kwazulu\/Natal",
+    "Category":"Driving under the influence of alcohol or drugs",
+    "2014-2015":11702,
+    "2015-2016":12052,
+    "trend_2015_vs_2014":2.99
+  },
+  {
+    "Province":"Kwazulu\/Natal",
+    "Category":"Drug-related crime",
+    "2014-2015":47377,
+    "2015-2016":46354,
+    "trend_2015_vs_2014":-2.16
+  },
+  {
+    "Province":"Kwazulu\/Natal",
+    "Category":"Illegal possession of firearms and ammunition",
+    "2014-2015":4081,
+    "2015-2016":3908,
+    "trend_2015_vs_2014":-4.24
+  },
+  {
+    "Province":"Kwazulu\/Natal",
+    "Category":"Malicious damage to property",
+    "2014-2015":14605,
+    "2015-2016":14709,
+    "trend_2015_vs_2014":0.71
+  },
+  {
+    "Province":"Kwazulu\/Natal",
+    "Category":"Murder",
+    "2014-2015":3810,
+    "2015-2016":3929,
+    "trend_2015_vs_2014":3.12
+  },
+  {
+    "Province":"Kwazulu\/Natal",
+    "Category":"Robbery at non-residential premises",
+    "2014-2015":2750,
+    "2015-2016":2825,
+    "trend_2015_vs_2014":2.73
+  },
+  {
+    "Province":"Kwazulu\/Natal",
+    "Category":"Robbery at residential premises",
+    "2014-2015":3958,
+    "2015-2016":4082,
+    "trend_2015_vs_2014":3.13
+  },
+  {
+    "Province":"Kwazulu\/Natal",
+    "Category":"Robbery of cash in transit",
+    "2014-2015":18,
+    "2015-2016":21,
+    "trend_2015_vs_2014":15.79
+  },
+  {
+    "Province":"Kwazulu\/Natal",
+    "Category":"Robbery with aggravating circumstances",
+    "2014-2015":20881,
+    "2015-2016":21061,
+    "trend_2015_vs_2014":0.86
+  },
+  {
+    "Province":"Kwazulu\/Natal",
+    "Category":"Sexual Offences",
+    "2014-2015":9079,
+    "2015-2016":8947,
+    "trend_2015_vs_2014":-1.45
+  },
+  {
+    "Province":"Kwazulu\/Natal",
+    "Category":"Sexual offences as result of police action",
+    "2014-2015":2258,
+    "2015-2016":2561,
+    "trend_2015_vs_2014":13.41
+  },
+  {
+    "Province":"Kwazulu\/Natal",
+    "Category":"Shoplifting",
+    "2014-2015":14118,
+    "2015-2016":13648,
+    "trend_2015_vs_2014":-3.33
+  },
+  {
+    "Province":"Kwazulu\/Natal",
+    "Category":"Stock-theft",
+    "2014-2015":5956,
+    "2015-2016":5731,
+    "trend_2015_vs_2014":-3.78
+  },
+  {
+    "Province":"Kwazulu\/Natal",
+    "Category":"Theft of motor vehicle and motorcycle",
+    "2014-2015":8404,
+    "2015-2016":8673,
+    "trend_2015_vs_2014":3.2
+  },
+  {
+    "Province":"Kwazulu\/Natal",
+    "Category":"Theft out of or from motor vehicle",
+    "2014-2015":18148,
+    "2015-2016":17896,
+    "trend_2015_vs_2014":-1.39
+  },
+  {
+    "Province":"Kwazulu\/Natal",
+    "Category":"Truck hijacking",
+    "2014-2015":63,
+    "2015-2016":71,
+    "trend_2015_vs_2014":12.5
+  },
+  {
+    "Province":"Limpopo",
+    "Category":"All theft not mentioned elsewhere",
+    "2014-2015":19050,
+    "2015-2016":19915,
+    "trend_2015_vs_2014":4.54
+  },
+  {
+    "Province":"Limpopo",
+    "Category":"Arson",
+    "2014-2015":585,
+    "2015-2016":613,
+    "trend_2015_vs_2014":4.78
+  },
+  {
+    "Province":"Limpopo",
+    "Category":"Assault with the intent to inflict grievous bodily harm",
+    "2014-2015":13511,
+    "2015-2016":14143,
+    "trend_2015_vs_2014":4.68
+  },
+  {
+    "Province":"Limpopo",
+    "Category":"Attempted murder",
+    "2014-2015":793,
+    "2015-2016":875,
+    "trend_2015_vs_2014":10.33
+  },
+  {
+    "Province":"Limpopo",
+    "Category":"Bank robbery",
+    "2014-2015":1,
+    "2015-2016":0,
+    "trend_2015_vs_2014":-50.0
+  },
+  {
+    "Province":"Limpopo",
+    "Category":"Burglary at non-residential premises",
+    "2014-2015":7048,
+    "2015-2016":7386,
+    "trend_2015_vs_2014":4.8
+  },
+  {
+    "Province":"Limpopo",
+    "Category":"Burglary at residential premises",
+    "2014-2015":16466,
+    "2015-2016":16217,
+    "trend_2015_vs_2014":-1.51
+  },
+  {
+    "Province":"Limpopo",
+    "Category":"Carjacking",
+    "2014-2015":345,
+    "2015-2016":450,
+    "trend_2015_vs_2014":30.35
+  },
+  {
+    "Province":"Limpopo",
+    "Category":"Commercial crime",
+    "2014-2015":3500,
+    "2015-2016":3733,
+    "trend_2015_vs_2014":6.66
+  },
+  {
+    "Province":"Limpopo",
+    "Category":"Common assault",
+    "2014-2015":9073,
+    "2015-2016":9838,
+    "trend_2015_vs_2014":8.43
+  },
+  {
+    "Province":"Limpopo",
+    "Category":"Common robbery",
+    "2014-2015":3382,
+    "2015-2016":3545,
+    "trend_2015_vs_2014":4.82
+  },
+  {
+    "Province":"Limpopo",
+    "Category":"Driving under the influence of alcohol or drugs",
+    "2014-2015":3214,
+    "2015-2016":4143,
+    "trend_2015_vs_2014":28.9
+  },
+  {
+    "Province":"Limpopo",
+    "Category":"Drug-related crime",
+    "2014-2015":11716,
+    "2015-2016":11268,
+    "trend_2015_vs_2014":-3.82
+  },
+  {
+    "Province":"Limpopo",
+    "Category":"Illegal possession of firearms and ammunition",
+    "2014-2015":474,
+    "2015-2016":456,
+    "trend_2015_vs_2014":-3.79
+  },
+  {
+    "Province":"Limpopo",
+    "Category":"Malicious damage to property",
+    "2014-2015":6959,
+    "2015-2016":7612,
+    "trend_2015_vs_2014":9.38
+  },
+  {
+    "Province":"Limpopo",
+    "Category":"Murder",
+    "2014-2015":777,
+    "2015-2016":898,
+    "trend_2015_vs_2014":15.55
+  },
+  {
+    "Province":"Limpopo",
+    "Category":"Robbery at non-residential premises",
+    "2014-2015":1522,
+    "2015-2016":1802,
+    "trend_2015_vs_2014":18.38
+  },
+  {
+    "Province":"Limpopo",
+    "Category":"Robbery at residential premises",
+    "2014-2015":1117,
+    "2015-2016":1190,
+    "trend_2015_vs_2014":6.53
+  },
+  {
+    "Province":"Limpopo",
+    "Category":"Robbery of cash in transit",
+    "2014-2015":9,
+    "2015-2016":13,
+    "trend_2015_vs_2014":40.0
+  },
+  {
+    "Province":"Limpopo",
+    "Category":"Robbery with aggravating circumstances",
+    "2014-2015":6123,
+    "2015-2016":6723,
+    "trend_2015_vs_2014":9.8
+  },
+  {
+    "Province":"Limpopo",
+    "Category":"Sexual Offences",
+    "2014-2015":4312,
+    "2015-2016":4369,
+    "trend_2015_vs_2014":1.32
+  },
+  {
+    "Province":"Limpopo",
+    "Category":"Sexual offences as result of police action",
+    "2014-2015":2917,
+    "2015-2016":1842,
+    "trend_2015_vs_2014":-36.84
+  },
+  {
+    "Province":"Limpopo",
+    "Category":"Shoplifting",
+    "2014-2015":3909,
+    "2015-2016":3799,
+    "trend_2015_vs_2014":-2.81
+  },
+  {
+    "Province":"Limpopo",
+    "Category":"Stock-theft",
+    "2014-2015":1666,
+    "2015-2016":1756,
+    "trend_2015_vs_2014":5.4
+  },
+  {
+    "Province":"Limpopo",
+    "Category":"Theft of motor vehicle and motorcycle",
+    "2014-2015":989,
+    "2015-2016":1151,
+    "trend_2015_vs_2014":16.36
+  },
+  {
+    "Province":"Limpopo",
+    "Category":"Theft out of or from motor vehicle",
+    "2014-2015":5501,
+    "2015-2016":5571,
+    "trend_2015_vs_2014":1.27
+  },
+  {
+    "Province":"Limpopo",
+    "Category":"Truck hijacking",
+    "2014-2015":27,
+    "2015-2016":15,
+    "trend_2015_vs_2014":-42.86
+  },
+  {
+    "Province":"Mpumalanga",
+    "Category":"All theft not mentioned elsewhere",
+    "2014-2015":18894,
+    "2015-2016":18416,
+    "trend_2015_vs_2014":-2.53
+  },
+  {
+    "Province":"Mpumalanga",
+    "Category":"Arson",
+    "2014-2015":291,
+    "2015-2016":286,
+    "trend_2015_vs_2014":-1.71
+  },
+  {
+    "Province":"Mpumalanga",
+    "Category":"Assault with the intent to inflict grievous bodily harm",
+    "2014-2015":10778,
+    "2015-2016":11359,
+    "trend_2015_vs_2014":5.39
+  },
+  {
+    "Province":"Mpumalanga",
+    "Category":"Attempted murder",
+    "2014-2015":703,
+    "2015-2016":797,
+    "trend_2015_vs_2014":13.35
+  },
+  {
+    "Province":"Mpumalanga",
+    "Category":"Bank robbery",
+    "2014-2015":2,
+    "2015-2016":1,
+    "trend_2015_vs_2014":-33.33
+  },
+  {
+    "Province":"Mpumalanga",
+    "Category":"Burglary at non-residential premises",
+    "2014-2015":5541,
+    "2015-2016":6014,
+    "trend_2015_vs_2014":8.53
+  },
+  {
+    "Province":"Mpumalanga",
+    "Category":"Burglary at residential premises",
+    "2014-2015":18183,
+    "2015-2016":18162,
+    "trend_2015_vs_2014":-0.12
+  },
+  {
+    "Province":"Mpumalanga",
+    "Category":"Carjacking",
+    "2014-2015":509,
+    "2015-2016":629,
+    "trend_2015_vs_2014":23.53
+  },
+  {
+    "Province":"Mpumalanga",
+    "Category":"Commercial crime",
+    "2014-2015":4494,
+    "2015-2016":4733,
+    "trend_2015_vs_2014":5.32
+  },
+  {
+    "Province":"Mpumalanga",
+    "Category":"Common assault",
+    "2014-2015":7510,
+    "2015-2016":7649,
+    "trend_2015_vs_2014":1.85
+  },
+  {
+    "Province":"Mpumalanga",
+    "Category":"Common robbery",
+    "2014-2015":2934,
+    "2015-2016":2746,
+    "trend_2015_vs_2014":-6.41
+  },
+  {
+    "Province":"Mpumalanga",
+    "Category":"Driving under the influence of alcohol or drugs",
+    "2014-2015":2974,
+    "2015-2016":3649,
+    "trend_2015_vs_2014":22.69
+  },
+  {
+    "Province":"Mpumalanga",
+    "Category":"Drug-related crime",
+    "2014-2015":8841,
+    "2015-2016":9820,
+    "trend_2015_vs_2014":11.07
+  },
+  {
+    "Province":"Mpumalanga",
+    "Category":"Illegal possession of firearms and ammunition",
+    "2014-2015":1068,
+    "2015-2016":977,
+    "trend_2015_vs_2014":-8.51
+  },
+  {
+    "Province":"Mpumalanga",
+    "Category":"Malicious damage to property",
+    "2014-2015":5839,
+    "2015-2016":5827,
+    "trend_2015_vs_2014":-0.21
+  },
+  {
+    "Province":"Mpumalanga",
+    "Category":"Murder",
+    "2014-2015":831,
+    "2015-2016":859,
+    "trend_2015_vs_2014":3.37
+  },
+  {
+    "Province":"Mpumalanga",
+    "Category":"Robbery at non-residential premises",
+    "2014-2015":1366,
+    "2015-2016":1562,
+    "trend_2015_vs_2014":14.34
+  },
+  {
+    "Province":"Mpumalanga",
+    "Category":"Robbery at residential premises",
+    "2014-2015":1112,
+    "2015-2016":1080,
+    "trend_2015_vs_2014":-2.88
+  },
+  {
+    "Province":"Mpumalanga",
+    "Category":"Robbery of cash in transit",
+    "2014-2015":14,
+    "2015-2016":18,
+    "trend_2015_vs_2014":26.67
+  },
+  {
+    "Province":"Mpumalanga",
+    "Category":"Robbery with aggravating circumstances",
+    "2014-2015":5656,
+    "2015-2016":5996,
+    "trend_2015_vs_2014":6.01
+  },
+  {
+    "Province":"Mpumalanga",
+    "Category":"Sexual Offences",
+    "2014-2015":3474,
+    "2015-2016":3331,
+    "trend_2015_vs_2014":-4.12
+  },
+  {
+    "Province":"Mpumalanga",
+    "Category":"Sexual offences as result of police action",
+    "2014-2015":46,
+    "2015-2016":93,
+    "trend_2015_vs_2014":100.0
+  },
+  {
+    "Province":"Mpumalanga",
+    "Category":"Shoplifting",
+    "2014-2015":3494,
+    "2015-2016":3397,
+    "trend_2015_vs_2014":-2.78
+  },
+  {
+    "Province":"Mpumalanga",
+    "Category":"Stock-theft",
+    "2014-2015":2192,
+    "2015-2016":2337,
+    "trend_2015_vs_2014":6.61
+  },
+  {
+    "Province":"Mpumalanga",
+    "Category":"Theft of motor vehicle and motorcycle",
+    "2014-2015":2303,
+    "2015-2016":2222,
+    "trend_2015_vs_2014":-3.52
+  },
+  {
+    "Province":"Mpumalanga",
+    "Category":"Theft out of or from motor vehicle",
+    "2014-2015":7999,
+    "2015-2016":7372,
+    "trend_2015_vs_2014":-7.84
+  },
+  {
+    "Province":"Mpumalanga",
+    "Category":"Truck hijacking",
+    "2014-2015":155,
+    "2015-2016":194,
+    "trend_2015_vs_2014":25.0
+  },
+  {
+    "Province":"North West",
+    "Category":"All theft not mentioned elsewhere",
+    "2014-2015":17943,
+    "2015-2016":16751,
+    "trend_2015_vs_2014":-6.64
+  },
+  {
+    "Province":"North West",
+    "Category":"Arson",
+    "2014-2015":329,
+    "2015-2016":314,
+    "trend_2015_vs_2014":-4.55
+  },
+  {
+    "Province":"North West",
+    "Category":"Assault with the intent to inflict grievous bodily harm",
+    "2014-2015":13334,
+    "2015-2016":13614,
+    "trend_2015_vs_2014":2.1
+  },
+  {
+    "Province":"North West",
+    "Category":"Attempted murder",
+    "2014-2015":984,
+    "2015-2016":899,
+    "trend_2015_vs_2014":-8.63
+  },
+  {
+    "Province":"North West",
+    "Category":"Bank robbery",
+    "2014-2015":1,
+    "2015-2016":3,
+    "trend_2015_vs_2014":100.0
+  },
+  {
+    "Province":"North West",
+    "Category":"Burglary at non-residential premises",
+    "2014-2015":5080,
+    "2015-2016":5313,
+    "trend_2015_vs_2014":4.59
+  },
+  {
+    "Province":"North West",
+    "Category":"Burglary at residential premises",
+    "2014-2015":15687,
+    "2015-2016":15568,
+    "trend_2015_vs_2014":-0.76
+  },
+  {
+    "Province":"North West",
+    "Category":"Carjacking",
+    "2014-2015":278,
+    "2015-2016":370,
+    "trend_2015_vs_2014":32.97
+  },
+  {
+    "Province":"North West",
+    "Category":"Commercial crime",
+    "2014-2015":4016,
+    "2015-2016":4212,
+    "trend_2015_vs_2014":4.88
+  },
+  {
+    "Province":"North West",
+    "Category":"Common assault",
+    "2014-2015":6930,
+    "2015-2016":6942,
+    "trend_2015_vs_2014":0.17
+  },
+  {
+    "Province":"North West",
+    "Category":"Common robbery",
+    "2014-2015":2419,
+    "2015-2016":2417,
+    "trend_2015_vs_2014":-0.08
+  },
+  {
+    "Province":"North West",
+    "Category":"Driving under the influence of alcohol or drugs",
+    "2014-2015":1927,
+    "2015-2016":2583,
+    "trend_2015_vs_2014":34.02
+  },
+  {
+    "Province":"North West",
+    "Category":"Drug-related crime",
+    "2014-2015":11632,
+    "2015-2016":12189,
+    "trend_2015_vs_2014":4.79
+  },
+  {
+    "Province":"North West",
+    "Category":"Illegal possession of firearms and ammunition",
+    "2014-2015":531,
+    "2015-2016":678,
+    "trend_2015_vs_2014":27.63
+  },
+  {
+    "Province":"North West",
+    "Category":"Malicious damage to property",
+    "2014-2015":5902,
+    "2015-2016":5762,
+    "trend_2015_vs_2014":-2.37
+  },
+  {
+    "Province":"North West",
+    "Category":"Murder",
+    "2014-2015":853,
+    "2015-2016":907,
+    "trend_2015_vs_2014":6.32
+  },
+  {
+    "Province":"North West",
+    "Category":"Robbery at non-residential premises",
+    "2014-2015":1419,
+    "2015-2016":1394,
+    "trend_2015_vs_2014":-1.76
+  },
+  {
+    "Province":"North West",
+    "Category":"Robbery at residential premises",
+    "2014-2015":1110,
+    "2015-2016":1065,
+    "trend_2015_vs_2014":-4.05
+  },
+  {
+    "Province":"North West",
+    "Category":"Robbery of cash in transit",
+    "2014-2015":5,
+    "2015-2016":4,
+    "trend_2015_vs_2014":-16.67
+  },
+  {
+    "Province":"North West",
+    "Category":"Robbery with aggravating circumstances",
+    "2014-2015":5977,
+    "2015-2016":6281,
+    "trend_2015_vs_2014":5.09
+  },
+  {
+    "Province":"North West",
+    "Category":"Sexual Offences",
+    "2014-2015":4585,
+    "2015-2016":4164,
+    "trend_2015_vs_2014":-9.18
+  },
+  {
+    "Province":"North West",
+    "Category":"Sexual offences as result of police action",
+    "2014-2015":106,
+    "2015-2016":87,
+    "trend_2015_vs_2014":-17.76
+  },
+  {
+    "Province":"North West",
+    "Category":"Shoplifting",
+    "2014-2015":2270,
+    "2015-2016":2188,
+    "trend_2015_vs_2014":-3.61
+  },
+  {
+    "Province":"North West",
+    "Category":"Stock-theft",
+    "2014-2015":2574,
+    "2015-2016":2605,
+    "trend_2015_vs_2014":1.2
+  },
+  {
+    "Province":"North West",
+    "Category":"Theft of motor vehicle and motorcycle",
+    "2014-2015":1984,
+    "2015-2016":2070,
+    "trend_2015_vs_2014":4.33
+  },
+  {
+    "Province":"North West",
+    "Category":"Theft out of or from motor vehicle",
+    "2014-2015":6349,
+    "2015-2016":5913,
+    "trend_2015_vs_2014":-6.87
+  },
+  {
+    "Province":"North West",
+    "Category":"Truck hijacking",
+    "2014-2015":45,
+    "2015-2016":42,
+    "trend_2015_vs_2014":-6.52
+  },
+  {
+    "Province":"Northern Cape",
+    "Category":"All theft not mentioned elsewhere",
+    "2014-2015":7437,
+    "2015-2016":7316,
+    "trend_2015_vs_2014":-1.63
+  },
+  {
+    "Province":"Northern Cape",
+    "Category":"Arson",
+    "2014-2015":172,
+    "2015-2016":172,
+    "trend_2015_vs_2014":0.0
+  },
+  {
+    "Province":"Northern Cape",
+    "Category":"Assault with the intent to inflict grievous bodily harm",
+    "2014-2015":8813,
+    "2015-2016":8889,
+    "trend_2015_vs_2014":0.86
+  },
+  {
+    "Province":"Northern Cape",
+    "Category":"Attempted murder",
+    "2014-2015":562,
+    "2015-2016":658,
+    "trend_2015_vs_2014":17.05
+  },
+  {
+    "Province":"Northern Cape",
+    "Category":"Bank robbery",
+    "2014-2015":1,
+    "2015-2016":0,
+    "trend_2015_vs_2014":-50.0
+  },
+  {
+    "Province":"Northern Cape",
+    "Category":"Burglary at non-residential premises",
+    "2014-2015":2270,
+    "2015-2016":2203,
+    "trend_2015_vs_2014":-2.95
+  },
+  {
+    "Province":"Northern Cape",
+    "Category":"Burglary at residential premises",
+    "2014-2015":6204,
+    "2015-2016":6469,
+    "trend_2015_vs_2014":4.27
+  },
+  {
+    "Province":"Northern Cape",
+    "Category":"Carjacking",
+    "2014-2015":15,
+    "2015-2016":47,
+    "trend_2015_vs_2014":200.0
+  },
+  {
+    "Province":"Northern Cape",
+    "Category":"Commercial crime",
+    "2014-2015":997,
+    "2015-2016":1037,
+    "trend_2015_vs_2014":4.01
+  },
+  {
+    "Province":"Northern Cape",
+    "Category":"Common assault",
+    "2014-2015":4803,
+    "2015-2016":4598,
+    "trend_2015_vs_2014":-4.27
+  },
+  {
+    "Province":"Northern Cape",
+    "Category":"Common robbery",
+    "2014-2015":1262,
+    "2015-2016":1348,
+    "trend_2015_vs_2014":6.81
+  },
+  {
+    "Province":"Northern Cape",
+    "Category":"Driving under the influence of alcohol or drugs",
+    "2014-2015":804,
+    "2015-2016":725,
+    "trend_2015_vs_2014":-9.81
+  },
+  {
+    "Province":"Northern Cape",
+    "Category":"Drug-related crime",
+    "2014-2015":3527,
+    "2015-2016":4344,
+    "trend_2015_vs_2014":23.16
+  },
+  {
+    "Province":"Northern Cape",
+    "Category":"Illegal possession of firearms and ammunition",
+    "2014-2015":102,
+    "2015-2016":92,
+    "trend_2015_vs_2014":-9.71
+  },
+  {
+    "Province":"Northern Cape",
+    "Category":"Malicious damage to property",
+    "2014-2015":3209,
+    "2015-2016":3084,
+    "trend_2015_vs_2014":-3.89
+  },
+  {
+    "Province":"Northern Cape",
+    "Category":"Murder",
+    "2014-2015":413,
+    "2015-2016":372,
+    "trend_2015_vs_2014":-9.9
+  },
+  {
+    "Province":"Northern Cape",
+    "Category":"Robbery at non-residential premises",
+    "2014-2015":240,
+    "2015-2016":258,
+    "trend_2015_vs_2014":7.47
+  },
+  {
+    "Province":"Northern Cape",
+    "Category":"Robbery at residential premises",
+    "2014-2015":123,
+    "2015-2016":106,
+    "trend_2015_vs_2014":-13.71
+  },
+  {
+    "Province":"Northern Cape",
+    "Category":"Robbery of cash in transit",
+    "2014-2015":0,
+    "2015-2016":1,
+    "trend_2015_vs_2014":100.0
+  },
+  {
+    "Province":"Northern Cape",
+    "Category":"Robbery with aggravating circumstances",
+    "2014-2015":1446,
+    "2015-2016":1387,
+    "trend_2015_vs_2014":-4.08
+  },
+  {
+    "Province":"Northern Cape",
+    "Category":"Sexual Offences",
+    "2014-2015":1578,
+    "2015-2016":1719,
+    "trend_2015_vs_2014":8.93
+  },
+  {
+    "Province":"Northern Cape",
+    "Category":"Sexual offences as result of police action",
+    "2014-2015":3,
+    "2015-2016":22,
+    "trend_2015_vs_2014":475.0
+  },
+  {
+    "Province":"Northern Cape",
+    "Category":"Shoplifting",
+    "2014-2015":1360,
+    "2015-2016":1276,
+    "trend_2015_vs_2014":-6.17
+  },
+  {
+    "Province":"Northern Cape",
+    "Category":"Stock-theft",
+    "2014-2015":1331,
+    "2015-2016":1332,
+    "trend_2015_vs_2014":0.08
+  },
+  {
+    "Province":"Northern Cape",
+    "Category":"Theft of motor vehicle and motorcycle",
+    "2014-2015":327,
+    "2015-2016":246,
+    "trend_2015_vs_2014":-24.7
+  },
+  {
+    "Province":"Northern Cape",
+    "Category":"Theft out of or from motor vehicle",
+    "2014-2015":2898,
+    "2015-2016":2962,
+    "trend_2015_vs_2014":2.21
+  },
+  {
+    "Province":"Northern Cape",
+    "Category":"Truck hijacking",
+    "2014-2015":0,
+    "2015-2016":2,
+    "trend_2015_vs_2014":200.0
+  },
+  {
+    "Province":"Western Cape",
+    "Category":"All theft not mentioned elsewhere",
+    "2014-2015":97396,
+    "2015-2016":92032,
+    "trend_2015_vs_2014":-5.51
+  },
+  {
+    "Province":"Western Cape",
+    "Category":"Arson",
+    "2014-2015":782,
+    "2015-2016":757,
+    "trend_2015_vs_2014":-3.19
+  },
+  {
+    "Province":"Western Cape",
+    "Category":"Assault with the intent to inflict grievous bodily harm",
+    "2014-2015":26200,
+    "2015-2016":25539,
+    "trend_2015_vs_2014":-2.52
+  },
+  {
+    "Province":"Western Cape",
+    "Category":"Attempted murder",
+    "2014-2015":3727,
+    "2015-2016":3444,
+    "trend_2015_vs_2014":-7.59
+  },
+  {
+    "Province":"Western Cape",
+    "Category":"Bank robbery",
+    "2014-2015":1,
+    "2015-2016":0,
+    "trend_2015_vs_2014":-50.0
+  },
+  {
+    "Province":"Western Cape",
+    "Category":"Burglary at non-residential premises",
+    "2014-2015":13719,
+    "2015-2016":13344,
+    "trend_2015_vs_2014":-2.73
+  },
+  {
+    "Province":"Western Cape",
+    "Category":"Burglary at residential premises",
+    "2014-2015":47783,
+    "2015-2016":47569,
+    "trend_2015_vs_2014":-0.45
+  },
+  {
+    "Province":"Western Cape",
+    "Category":"Carjacking",
+    "2014-2015":1530,
+    "2015-2016":2032,
+    "trend_2015_vs_2014":32.79
+  },
+  {
+    "Province":"Western Cape",
+    "Category":"Commercial crime",
+    "2014-2015":10408,
+    "2015-2016":10986,
+    "trend_2015_vs_2014":5.55
+  },
+  {
+    "Province":"Western Cape",
+    "Category":"Common assault",
+    "2014-2015":39150,
+    "2015-2016":41304,
+    "trend_2015_vs_2014":5.5
+  },
+  {
+    "Province":"Western Cape",
+    "Category":"Common robbery",
+    "2014-2015":13420,
+    "2015-2016":12485,
+    "trend_2015_vs_2014":-6.97
+  },
+  {
+    "Province":"Western Cape",
+    "Category":"Driving under the influence of alcohol or drugs",
+    "2014-2015":13224,
+    "2015-2016":11725,
+    "trend_2015_vs_2014":-11.33
+  },
+  {
+    "Province":"Western Cape",
+    "Category":"Drug-related crime",
+    "2014-2015":88731,
+    "2015-2016":93996,
+    "trend_2015_vs_2014":5.93
+  },
+  {
+    "Province":"Western Cape",
+    "Category":"Illegal possession of firearms and ammunition",
+    "2014-2015":2959,
+    "2015-2016":2819,
+    "trend_2015_vs_2014":-4.73
+  },
+  {
+    "Province":"Western Cape",
+    "Category":"Malicious damage to property",
+    "2014-2015":29289,
+    "2015-2016":29217,
+    "trend_2015_vs_2014":-0.25
+  },
+  {
+    "Province":"Western Cape",
+    "Category":"Murder",
+    "2014-2015":3186,
+    "2015-2016":3224,
+    "trend_2015_vs_2014":1.19
+  },
+  {
+    "Province":"Western Cape",
+    "Category":"Robbery at non-residential premises",
+    "2014-2015":2218,
+    "2015-2016":1973,
+    "trend_2015_vs_2014":-11.04
+  },
+  {
+    "Province":"Western Cape",
+    "Category":"Robbery at residential premises",
+    "2014-2015":2158,
+    "2015-2016":2574,
+    "trend_2015_vs_2014":19.27
+  },
+  {
+    "Province":"Western Cape",
+    "Category":"Robbery of cash in transit",
+    "2014-2015":15,
+    "2015-2016":24,
+    "trend_2015_vs_2014":56.25
+  },
+  {
+    "Province":"Western Cape",
+    "Category":"Robbery with aggravating circumstances",
+    "2014-2015":23116,
+    "2015-2016":23732,
+    "trend_2015_vs_2014":2.66
+  },
+  {
+    "Province":"Western Cape",
+    "Category":"Sexual Offences",
+    "2014-2015":7369,
+    "2015-2016":7130,
+    "trend_2015_vs_2014":-3.24
+  },
+  {
+    "Province":"Western Cape",
+    "Category":"Sexual offences as result of police action",
+    "2014-2015":129,
+    "2015-2016":242,
+    "trend_2015_vs_2014":86.92
+  },
+  {
+    "Province":"Western Cape",
+    "Category":"Shoplifting",
+    "2014-2015":14421,
+    "2015-2016":13492,
+    "trend_2015_vs_2014":-6.44
+  },
+  {
+    "Province":"Western Cape",
+    "Category":"Stock-theft",
+    "2014-2015":831,
+    "2015-2016":861,
+    "trend_2015_vs_2014":3.61
+  },
+  {
+    "Province":"Western Cape",
+    "Category":"Theft of motor vehicle and motorcycle",
+    "2014-2015":8918,
+    "2015-2016":8378,
+    "trend_2015_vs_2014":-6.05
+  },
+  {
+    "Province":"Western Cape",
+    "Category":"Theft out of or from motor vehicle",
+    "2014-2015":42221,
+    "2015-2016":41458,
+    "trend_2015_vs_2014":-1.81
+  },
+  {
+    "Province":"Western Cape",
+    "Category":"Truck hijacking",
+    "2014-2015":62,
+    "2015-2016":46,
+    "trend_2015_vs_2014":-25.4
+  }
+]
