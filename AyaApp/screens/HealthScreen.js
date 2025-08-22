@@ -12,9 +12,9 @@ import {
   StatusBar,
   Dimensions,
   Modal,
-  KeyboardAvoidingView,
   Animated,
   Image,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -22,7 +22,6 @@ const { width, height } = Dimensions.get("window");
 
 const DigitalSafetyCard = () => {
   const [activeTab, setActiveTab] = useState("emergency");
-  const [isEditMode, setIsEditMode] = useState(false);
   const [contacts, setContacts] = useState([]);
   const [showNfcScreen, setShowNfcScreen] = useState(false);
   const [healthInfo, setHealthInfo] = useState({
@@ -33,12 +32,16 @@ const DigitalSafetyCard = () => {
     medicalNotes: "",
   });
   const [userInfo, setUserInfo] = useState({
-    name: "Full Name",
-    pictureUri: null, // Set to a URI if available, e.g., 'https://example.com/image.jpg'
+    name: "",
+    pictureUri: "",
     dob: "",
     gender: "",
   });
   const [isFlipped, setIsFlipped] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
+  const [medicalNumber, setMedicalNumber] = useState("");
+  const [showLoadingModal, setShowLoadingModal] = useState(false);
+  const [loadingStep, setLoadingStep] = useState(0);
 
   const animatedValue = useRef(new Animated.Value(0)).current;
   const waveAnim1 = useRef(new Animated.Value(0)).current;
@@ -98,256 +101,50 @@ const DigitalSafetyCard = () => {
     extrapolate: "clamp",
   });
 
-  const addContact = () => {
-    if (contacts.length >= 3) {
-      Alert.alert(
-        "Maximum contacts reached",
-        "You can only add up to 3 emergency contacts."
-      );
-      return;
-    }
-    setContacts([
-      ...contacts,
-      {
-        id: Date.now().toString(),
-        firstName: "",
-        lastName: "",
-        relationship: "",
-        primaryPhone: "",
-        secondaryPhone: "",
-        email: "",
-        address: "",
-      },
-    ]);
-  };
-
-  const removeContact = (id) => {
-    setContacts(contacts.filter((contact) => contact.id !== id));
-  };
-
-  const updateContact = (id, field, value) => {
-    setContacts(
-      contacts.map((contact) =>
-        contact.id === id ? { ...contact, [field]: value } : contact
-      )
-    );
-  };
-
-  const updateHealthInfo = (field, value) => {
-    setHealthInfo({ ...healthInfo, [field]: value });
-  };
-
-  const updateUserInfo = (field, value) => {
-    setUserInfo({ ...userInfo, [field]: value });
-  };
-
-  const saveCard = () => {
-    const validContacts = contacts.filter(
-      (contact) => contact.firstName || contact.lastName || contact.primaryPhone
-    );
-    setContacts(validContacts);
-    setIsEditMode(false);
-    setIsFlipped(false);
-  };
-
-  const editCard = () => {
-    setIsEditMode(true);
-  };
-
   const openNfcScreen = () => {
     setShowNfcScreen(true);
   };
 
-  const renderEditMode = () => (
-    <View style={styles.editContainer}>
-      {activeTab === "emergency" ? (
-        <ScrollView style={styles.tabContent}>
-          <TouchableOpacity style={styles.addButton} onPress={addContact}>
-            <Ionicons name="add" size={20} color="white" />
-            <Text style={styles.addButtonText}>Add Emergency Contact</Text>
-          </TouchableOpacity>
-
-          {contacts.map((contact) => (
-            <View key={contact.id} style={styles.contactForm}>
-              <View style={styles.contactHeader}>
-                <Text style={styles.contactTitle}>Emergency Contact</Text>
-                <TouchableOpacity
-                  style={styles.removeButton}
-                  onPress={() => removeContact(contact.id)}
-                >
-                  <Ionicons name="close" size={20} color="white" />
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.inputRow}>
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>First Name</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={contact.firstName}
-                    onChangeText={(text) =>
-                      updateContact(contact.id, "firstName", text)
-                    }
-                    placeholder="First name"
-                  />
-                </View>
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Last Name</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={contact.lastName}
-                    onChangeText={(text) =>
-                      updateContact(contact.id, "lastName", text)
-                    }
-                    placeholder="Last name"
-                  />
-                </View>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Relationship</Text>
-                <TextInput
-                  style={styles.input}
-                  value={contact.relationship}
-                  onChangeText={(text) =>
-                    updateContact(contact.id, "relationship", text)
-                  }
-                  placeholder="e.g., Mother, Father, Spouse"
-                />
-              </View>
-
-              <View style={styles.inputRow}>
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Primary Phone</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={contact.primaryPhone}
-                    onChangeText={(text) =>
-                      updateContact(contact.id, "primaryPhone", text)
-                    }
-                    placeholder="(555) 123-4567"
-                    keyboardType="phone-pad"
-                  />
-                </View>
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Secondary Phone</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={contact.secondaryPhone}
-                    onChangeText={(text) =>
-                      updateContact(contact.id, "secondaryPhone", text)
-                    }
-                    placeholder="Optional"
-                    keyboardType="phone-pad"
-                  />
-                </View>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Email Address</Text>
-                <TextInput
-                  style={styles.input}
-                  value={contact.email}
-                  onChangeText={(text) =>
-                    updateContact(contact.id, "email", text)
-                  }
-                  placeholder="contact@example.com"
-                  keyboardType="email-address"
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Address</Text>
-                <TextInput
-                  style={styles.input}
-                  value={contact.address}
-                  onChangeText={(text) =>
-                    updateContact(contact.id, "address", text)
-                  }
-                  placeholder="Street address (optional)"
-                />
-              </View>
-            </View>
-          ))}
-        </ScrollView>
-      ) : (
-        <ScrollView style={styles.tabContent}>
-          <View style={styles.healthEntry}>
-            <Text style={styles.label}>Name (Read-only)</Text>
-            <TextInput
-              style={styles.input}
-              value={userInfo.name}
-              editable={false}
-              placeholder="Full name"
-            />
-          </View>
-          <View style={styles.healthEntry}>
-            <Text style={styles.label}>Date of Birth</Text>
-            <TextInput
-              style={styles.input}
-              value={userInfo.dob}
-              onChangeText={(text) => updateUserInfo("dob", text)}
-              placeholder="YYYY-MM-DD"
-            />
-          </View>
-          <View style={styles.healthEntry}>
-            <Text style={styles.label}>Gender</Text>
-            <TextInput
-              style={styles.input}
-              value={userInfo.gender}
-              onChangeText={(text) => updateUserInfo("gender", text)}
-              placeholder="e.g., Male, Female, Other"
-            />
-          </View>
-          <View style={styles.healthEntry}>
-            <Text style={styles.label}>Blood Type (Read-only)</Text>
-            <TextInput
-              style={styles.input}
-              value={healthInfo.bloodType}
-              editable={false}
-              placeholder="e.g., O+, A-, B+, AB-"
-            />
-          </View>
-          <View style={styles.healthEntry}>
-            <Text style={styles.label}>Allergies</Text>
-            <TextInput
-              style={styles.input}
-              value={healthInfo.allergies}
-              onChangeText={(text) => updateHealthInfo("allergies", text)}
-              placeholder="List any allergies or 'None'"
-            />
-          </View>
-          <View style={styles.healthEntry}>
-            <Text style={styles.label}>Medical Conditions</Text>
-            <TextInput
-              style={styles.input}
-              value={healthInfo.conditions}
-              onChangeText={(text) => updateHealthInfo("conditions", text)}
-              placeholder="Any ongoing medical conditions"
-            />
-          </View>
-          <View style={styles.healthEntry}>
-            <Text style={styles.label}>Current Medications</Text>
-            <TextInput
-              style={styles.input}
-              value={healthInfo.medications}
-              onChangeText={(text) => updateHealthInfo("medications", text)}
-              placeholder="List current medications"
-            />
-          </View>
-          <View style={styles.healthEntry}>
-            <Text style={styles.label}>Emergency Medical Notes</Text>
-            <TextInput
-              style={styles.input}
-              value={healthInfo.medicalNotes}
-              onChangeText={(text) => updateHealthInfo("medicalNotes", text)}
-              placeholder="Any critical information for first responders"
-            />
-          </View>
-        </ScrollView>
-      )}
-    </View>
-  );
+  const handleConnect = () => {
+    if (!medicalNumber) {
+      Alert.alert("Error", "Please enter your Medical ID Number");
+      return;
+    }
+    setShowLoadingModal(true);
+    setLoadingStep(1);
+    setTimeout(() => setLoadingStep(2), 2000);
+    setTimeout(() => setLoadingStep(3), 4000);
+    setTimeout(() => {
+      // Populate with dummy data
+      setUserInfo({
+        name: "William Gates",
+        pictureUri:
+          "https://static01.nyt.com/images/2021/05/17/business/14altGates-print/merlin_183135423_1167fa8a-7940-427e-b690-68876010d286-articleLarge.jpg?quality=75&auto=webp&disable=upscale",
+        dob: "1955-10-28",
+        gender: "Male",
+      });
+      setHealthInfo({
+        bloodType: "A+",
+        allergies: "Rice",
+        conditions: "ADHD",
+        medications: "Panado",
+        medicalNotes: "Take one Panado daily",
+      });
+      setContacts([
+        {
+          firstName: "Melinda",
+          lastName: "Gates",
+          relationship: "Ex-spouse",
+          primaryPhone: "123-456-7890",
+          secondaryPhone: "098-765-4321",
+          email: "melinda@example.com",
+          address: "123 Example St, Seattle, WA",
+        },
+      ]);
+      setIsConnected(true);
+      setShowLoadingModal(false);
+    }, 6000);
+  };
 
   const renderFrontCard = () => (
     <Animated.View
@@ -402,11 +199,6 @@ const DigitalSafetyCard = () => {
         },
       ]}
     >
-      <TouchableOpacity style={styles.editButton} onPress={editCard}>
-        <Ionicons name="create" size={16} color="white" />
-        <Text style={styles.editButtonText}>Edit</Text>
-      </TouchableOpacity>
-
       <View style={styles.displaySection}>
         <View style={styles.displayTitle}>
           <View style={styles.displayIcon}>
@@ -536,6 +328,49 @@ const DigitalSafetyCard = () => {
     </TouchableOpacity>
   );
 
+  const renderConnect = () => (
+    <View style={styles.connectContainer}>
+      <Text style={styles.connectTitle}>Connect Aya to Medical Card</Text>
+      <Text style={styles.connectText}>
+        Enter your Medical ID Number to connect and load your information from
+        the Department of Home Affairs.
+      </Text>
+      <TextInput
+        style={styles.input}
+        value={medicalNumber}
+        onChangeText={setMedicalNumber}
+        placeholder="Enter Medical ID Number"
+        keyboardType="numeric"
+      />
+      <TouchableOpacity style={styles.primaryButton} onPress={handleConnect}>
+        <Ionicons name="link" size={20} color="white" />
+        <Text style={styles.buttonText}>Connect</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  const renderLoadingModal = () => (
+    <Modal
+      visible={showLoadingModal}
+      transparent={true}
+      animationType="fade"
+      onRequestClose={() => {}}
+    >
+      <View style={styles.loadingModalContainer}>
+        <View style={styles.loadingModalContent}>
+          <ActivityIndicator size="large" color="#E91E63" />
+          <Text style={styles.loadingText}>
+            {loadingStep === 1
+              ? "Connecting to Department of Home Affairs..."
+              : loadingStep === 2
+              ? "Extracting data..."
+              : "Building card..."}
+          </Text>
+        </View>
+      </View>
+    </Modal>
+  );
+
   const renderNfcScreen = () => (
     <Modal
       visible={showNfcScreen}
@@ -662,75 +497,19 @@ const DigitalSafetyCard = () => {
             )}
           </View>
         </View>
-
-        {isEditMode && (
-          <View style={styles.tabBar}>
-            <TouchableOpacity
-              style={[
-                styles.tab,
-                activeTab === "emergency" && styles.activeTab,
-              ]}
-              onPress={() => setActiveTab("emergency")}
-            >
-              <Ionicons
-                name="warning"
-                size={16}
-                color={activeTab === "emergency" ? "white" : "#8895aa"}
-              />
-              <Text
-                style={[
-                  styles.tabText,
-                  activeTab === "emergency" && styles.activeTabText,
-                ]}
-              >
-                Emergency Contacts
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.tab, activeTab === "health" && styles.activeTab]}
-              onPress={() => setActiveTab("health")}
-            >
-              <Ionicons
-                name="medkit"
-                size={16}
-                color={activeTab === "health" ? "white" : "#8895aa"}
-              />
-              <Text
-                style={[
-                  styles.tabText,
-                  activeTab === "health" && styles.activeTabText,
-                ]}
-              >
-                Health Information
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
       </View>
 
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-      >
+      <View style={styles.container}>
         <ScrollView
           contentContainerStyle={styles.contentContainer}
           style={styles.scrollView}
         >
-          {isEditMode ? renderEditMode() : renderCardView()}
+          {isConnected ? renderCardView() : renderConnect()}
         </ScrollView>
-
-        {isEditMode && (
-          <View style={styles.fixedButtonContainer}>
-            <TouchableOpacity style={styles.primaryButton} onPress={saveCard}>
-              <Ionicons name="save" size={20} color="white" />
-              <Text style={styles.buttonText}>Save Card</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </KeyboardAvoidingView>
+      </View>
 
       {renderNfcScreen()}
+      {renderLoadingModal()}
     </SafeAreaView>
   );
 };
@@ -813,102 +592,22 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  tabBar: {
-    flexDirection: "row",
-    backgroundColor: "#F3F4F6",
-    borderRadius: 12,
-    padding: 4,
+  connectContainer: {
+    width: "100%",
+    alignItems: "center",
+    marginTop: 50,
+  },
+  connectTitle: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#1F2937",
     marginBottom: 10,
   },
-  tab: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 12,
-    borderRadius: 8,
-  },
-  activeTab: {
-    backgroundColor: "#E91E63",
-  },
-  tabText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#8895aa",
-    marginLeft: 6,
-  },
-  activeTabText: {
-    color: "white",
-  },
-  editContainer: {
-    flex: 1,
-    width: "100%",
-  },
-  tabContent: {
-    marginBottom: 20,
-  },
-  addButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#E91E63",
-    padding: 14,
-    borderRadius: 12,
-    marginBottom: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  addButtonText: {
-    color: "white",
+  connectText: {
     fontSize: 16,
-    fontWeight: "600",
-    marginLeft: 8,
-  },
-  contactForm: {
-    backgroundColor: "#F9FAFB",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: "#E91E63",
-  },
-  contactHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  contactTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#E91E63",
-  },
-  removeButton: {
-    backgroundColor: "#e74c3c",
-    borderRadius: 6,
-    width: 24,
-    height: 24,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  inputRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 12,
-    gap: 12,
-  },
-  inputGroup: {
-    flex: 1,
-    marginBottom: 24,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: "600",
     color: "#6B7280",
-    marginBottom: 8,
+    textAlign: "center",
+    marginBottom: 20,
   },
   input: {
     width: "100%",
@@ -920,29 +619,12 @@ const styles = StyleSheet.create({
     backgroundColor: "white",
     fontSize: 16,
     color: "#1F2937",
+    marginBottom: 20,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
-  },
-  healthEntry: {
-    marginBottom: 24,
-  },
-  fixedButtonContainer: {
-    position: "absolute",
-    bottom: 20,
-    left: 20,
-    right: 20,
-    backgroundColor: "white",
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: "#E5E7EB",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   primaryButton: {
     flexDirection: "row",
@@ -951,7 +633,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#E91E63",
     padding: 16,
     borderRadius: 12,
-    marginBottom: 10,
+    width: "100%",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
@@ -963,6 +645,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     marginLeft: 8,
+  },
+  loadingModalContainer: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingModalContent: {
+    backgroundColor: "white",
+    padding: 30,
+    borderRadius: 20,
+    alignItems: "center",
+  },
+  loadingText: {
+    marginTop: 20,
+    fontSize: 16,
+    color: "#1F2937",
+    textAlign: "center",
   },
   shareButton: {
     flexDirection: "row",
@@ -1028,22 +728,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#1F2937",
     marginBottom: 10,
-  },
-  editButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#f39c12",
-    padding: 8,
-    borderRadius: 8,
-    alignSelf: "flex-end",
-    marginBottom: 20,
-  },
-  editButtonText: {
-    color: "white",
-    fontSize: 12,
-    fontWeight: "600",
-    marginLeft: 4,
   },
   displaySection: {
     marginBottom: 20,
