@@ -13,17 +13,24 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "This app uses the microphone to record your voice input."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/Logos/Aya_Ai_Logo.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "permissions": ["RECORD_AUDIO"]
     },
     "web": {
       "favicon": "./assets/Logos/Aya_Ai_Logo.png"
-    }
+    },
+    "plugins": [
+      "expo-av"
+    ]
   }
 }
