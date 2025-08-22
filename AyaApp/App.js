@@ -21,7 +21,6 @@ import CommunityScreen from "./screens/CommunityScreen";
 import HomeScreen from "./screens/HomeScreen";
 import HealthScreen from "./screens/HealthScreen";
 import OnboardingScreen from "./screens/OnboardingScreen";
-import GeminiChatScreen from "./screens/GeminiChatScreen";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -115,7 +114,6 @@ function MainTabs() {
       <Tab.Screen name="SOS" component={EmergencyScreen} />
       <Tab.Screen name="Learning" component={LearningScreen} />
       <Tab.Screen name="Health" component={HealthScreen} />
-      <Tab.Screen name="Gemini Chat" component={GeminiChatScreen} />
     </Tab.Navigator>
   );
 }
@@ -132,7 +130,6 @@ export default function App() {
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="SignUp" component={SignUpScreen} />
         <Stack.Screen name="Landing" component={MainTabs} />
-        <Stack.Screen name="GeminiChat" component={GeminiChatScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
