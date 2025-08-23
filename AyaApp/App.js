@@ -12,6 +12,7 @@ import SOSScreen from "./screens/SosScreen";
 import LearningScreen from "./screens/Learning/LearningScreen";
 import TherapistScreen from "./screens/TherapistScreen";
 import HealthScreen from "./screens/HealthScreen";
+import GameScreen from "./screens/Learning/Game";
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -121,6 +122,7 @@ const App = () => (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Tabs" component={TabsNavigator} />
       <Stack.Screen name="Health" component={HealthScreen} />
+      <Stack.Screen name="Game" component={GameScreen} />
     </Stack.Navigator>
   </NavigationContainer>
 );

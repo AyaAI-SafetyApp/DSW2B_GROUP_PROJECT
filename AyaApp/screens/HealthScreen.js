@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
-  Platform,
   SafeAreaView,
   StatusBar,
   Dimensions,
@@ -42,8 +41,10 @@ const DigitalSafetyCard = () => {
   });
   const [contacts, setContacts] = useState([]);
   const [flipped, setFlipped] = useState(false);
+  const [tilt, setTilt] = useState(false);
 
   const animatedValue = useRef(new Animated.Value(0)).current;
+  const tiltValue = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.timing(animatedValue, {
@@ -52,6 +53,15 @@ const DigitalSafetyCard = () => {
       useNativeDriver: true,
     }).start();
   }, [flipped]);
+
+  useEffect(() => {
+    Animated.spring(tiltValue, {
+      toValue: tilt ? 1 : 0,
+      friction: 8,
+      tension: 20,
+      useNativeDriver: true,
+    }).start();
+  }, [tilt]);
 
   const frontInterpolate = animatedValue.interpolate({
     inputRange: [0, 180],
@@ -68,10 +78,16 @@ const DigitalSafetyCard = () => {
     outputRange: [1, 0],
     extrapolate: "clamp",
   });
+
   const backOpacity = animatedValue.interpolate({
     inputRange: [89, 90],
     outputRange: [0, 1],
     extrapolate: "clamp",
+  });
+
+  const tiltInterpolate = tiltValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0deg", "10deg"],
   });
 
   const handleConnect = () => {
@@ -84,7 +100,6 @@ const DigitalSafetyCard = () => {
     setTimeout(() => setLoadingStep(2), 2000);
     setTimeout(() => setLoadingStep(3), 4000);
     setTimeout(() => {
-      // Dummy data
       setUserInfo({
         name: "William Gates",
         dob: "1955-10-28",
@@ -113,11 +128,17 @@ const DigitalSafetyCard = () => {
 
   const handleShare = async () => {
     try {
-      const message = `Aya Medical Card\nName: ${userInfo.name}\nDOB: ${userInfo.dob}\nBlood Type: ${healthInfo.bloodType}\nAllergies: ${healthInfo.allergies}\nMedications: ${healthInfo.medications}`;
+      const message = `Aya Medical Card\nName: ${userInfo.name}\nDOB: ${userInfo.dob}\nGender: ${userInfo.gender}\nBlood Type: ${healthInfo.bloodType}\nAllergies: ${healthInfo.allergies}\nConditions: ${healthInfo.conditions}\nMedications: ${healthInfo.medications}\nNotes: ${healthInfo.medicalNotes}`;
       await Share.share({ message });
     } catch (error) {
       Alert.alert("Error", "Unable to share card");
     }
+  };
+
+  const handleCardPress = () => {
+    setTilt(true);
+    setTimeout(() => setTilt(false), 200);
+    setFlipped(!flipped);
   };
 
   const renderFront = () => (
@@ -126,29 +147,50 @@ const DigitalSafetyCard = () => {
         styles.card,
         {
           opacity: frontOpacity,
-          transform: [{ rotateY: frontInterpolate }],
+          transform: [
+            { rotateY: frontInterpolate },
+            { rotateX: tiltInterpolate },
+            { perspective: 1000 },
+          ],
         },
       ]}
     >
-      {userInfo.pictureUri ? (
-        <Image source={{ uri: userInfo.pictureUri }} style={styles.userPic} />
-      ) : (
-        <View style={styles.userPicPlaceholder}>
-          <Ionicons name="person" size={60} color="#E91E63" />
+      <TouchableOpacity
+        style={styles.cardTouchable}
+        activeOpacity={0.9}
+        onPress={handleCardPress}
+      >
+        {userInfo.pictureUri ? (
+          <Image source={{ uri: userInfo.pictureUri }} style={styles.userPic} />
+        ) : (
+          <View style={styles.userPicPlaceholder}>
+            <Ionicons name="person" size={60} color="#E91E63" />
+          </View>
+        )}
+        <Text style={styles.cardTitle}>Aya Medical Card</Text>
+        <View style={styles.infoContainer}>
+          <Text style={styles.cardText}>
+            <Text style={styles.label}>Name:</Text> {userInfo.name}
+          </Text>
+          <Text style={styles.cardText}>
+            <Text style={styles.label}>DOB:</Text> {userInfo.dob}
+          </Text>
+          <Text style={styles.cardText}>
+            <Text style={styles.label}>Gender:</Text> {userInfo.gender}
+          </Text>
+          <Text style={styles.cardText}>
+            <Text style={styles.label}>Blood Type:</Text> {healthInfo.bloodType}
+          </Text>
+          <Text style={styles.cardText}>
+            <Text style={styles.label}>Allergies:</Text> {healthInfo.allergies}
+          </Text>
         </View>
-      )}
-      <Text style={styles.cardTitle}>Aya Medical Card</Text>
-      <Text style={styles.cardText}>Name: {userInfo.name}</Text>
-      <Text style={styles.cardText}>DOB: {userInfo.dob}</Text>
-      <Text style={styles.cardText}>Blood Type: {healthInfo.bloodType}</Text>
-      <Text style={styles.cardText}>Allergies: {healthInfo.allergies}</Text>
-
-      <TouchableOpacity style={styles.button} onPress={() => setFlipped(true)}>
-        <Text style={styles.buttonText}>View Details</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
-        <Ionicons name="share" size={20} color="white" />
-        <Text style={styles.buttonText}>Share Card</Text>
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
+            <Ionicons name="share-outline" size={20} color="white" />
+            <Text style={styles.buttonText}>Share Card</Text>
+          </TouchableOpacity>
+        </View>
       </TouchableOpacity>
     </Animated.View>
   );
@@ -159,28 +201,57 @@ const DigitalSafetyCard = () => {
         styles.card,
         {
           opacity: backOpacity,
-          transform: [{ rotateY: backInterpolate }],
+          transform: [
+            { rotateY: backInterpolate },
+            { rotateX: tiltInterpolate },
+            { perspective: 1000 },
+          ],
         },
       ]}
     >
-      <Text style={styles.cardTitle}>Health Details</Text>
-      <Text style={styles.cardText}>Medical Conditions: {healthInfo.conditions}</Text>
-      <Text style={styles.cardText}>Medications: {healthInfo.medications}</Text>
-      <Text style={styles.cardText}>Notes: {healthInfo.medicalNotes}</Text>
-
-      <Text style={styles.cardTitle}>Emergency Contacts</Text>
-      {contacts.map((c, i) => (
-        <Text key={i} style={styles.cardText}>
-          {c.name} - {c.relationship} - {c.phone}
-        </Text>
-      ))}
-
-      <TouchableOpacity style={styles.button} onPress={() => setFlipped(false)}>
-        <Text style={styles.buttonText}>Back</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
-        <Ionicons name="share" size={20} color="white" />
-        <Text style={styles.buttonText}>Share Card</Text>
+      <TouchableOpacity
+        style={styles.cardTouchable}
+        activeOpacity={0.9}
+        onPress={handleCardPress}
+      >
+        <Text style={styles.cardTitle}>Health Details</Text>
+        <View style={styles.infoContainer}>
+          <View style={styles.infoSection}>
+            <Text style={styles.sectionTitle}>Medical Information</Text>
+            <Text style={styles.cardText}>
+              <Text style={styles.label}>Conditions:</Text>{" "}
+              {healthInfo.conditions}
+            </Text>
+            <Text style={styles.cardText}>
+              <Text style={styles.label}>Medications:</Text>{" "}
+              {healthInfo.medications}
+            </Text>
+            <Text style={styles.cardText}>
+              <Text style={styles.label}>Notes:</Text> {healthInfo.medicalNotes}
+            </Text>
+          </View>
+          <View style={styles.infoSection}>
+            <Text style={styles.sectionTitle}>Emergency Contacts</Text>
+            {contacts.map((c, i) => (
+              <View key={i} style={styles.contactItem}>
+                <Ionicons
+                  name="person-circle-outline"
+                  size={20}
+                  color="#374151"
+                />
+                <Text style={styles.cardText}>
+                  {c.name} - {c.relationship} - {c.phone}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </View>
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
+            <Ionicons name="share-outline" size={20} color="white" />
+            <Text style={styles.buttonText}>Share Card</Text>
+          </TouchableOpacity>
+        </View>
       </TouchableOpacity>
     </Animated.View>
   );
@@ -239,20 +310,20 @@ const styles = StyleSheet.create({
   container: { flexGrow: 1, alignItems: "center", padding: 20 },
   card: {
     width: width - 40,
-    minHeight: height * 0.5,
+    minHeight: height * 0.55,
     backgroundColor: "white",
     borderRadius: 20,
     padding: 20,
     marginBottom: 20,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 8,
     alignItems: "center",
-    justifyContent: "center",
     backfaceVisibility: "hidden",
   },
+  cardTouchable: { width: "100%", alignItems: "center" },
   userPic: { width: 100, height: 100, borderRadius: 50, marginBottom: 20 },
   userPicPlaceholder: {
     width: 100,
@@ -263,10 +334,25 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 20,
   },
-  cardTitle: { fontSize: 22, fontWeight: "700", marginBottom: 10 },
-  cardText: { fontSize: 16, marginBottom: 6, textAlign: "center" },
+  cardTitle: {
+    fontSize: 24,
+    fontWeight: "700",
+    marginBottom: 15,
+    color: "#1F2937",
+  },
+  cardText: { fontSize: 16, marginBottom: 8, color: "#374151" },
+  label: { fontWeight: "600", color: "#1F2937" },
+  infoContainer: { width: "100%", alignItems: "flex-start" },
+  infoSection: { width: "100%", marginBottom: 20 },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    marginBottom: 10,
+    color: "#1F2937",
+  },
+  contactItem: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
+  buttonContainer: { width: "100%", alignItems: "center", marginTop: 15 },
   button: {
-    marginTop: 15,
     backgroundColor: "#E91E63",
     paddingHorizontal: 20,
     paddingVertical: 12,
@@ -274,9 +360,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
-  buttonText: { color: "white", fontWeight: "600", marginLeft: 5 },
+  buttonText: {
+    color: "white",
+    fontWeight: "600",
+    fontSize: 16,
+    marginLeft: 5,
+  },
   shareButton: {
-    marginTop: 10,
     backgroundColor: "#9C27B0",
     paddingHorizontal: 20,
     paddingVertical: 12,
@@ -294,7 +384,12 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   connectContainer: { width: "100%", alignItems: "center", marginTop: 50 },
-  connectTitle: { fontSize: 22, fontWeight: "700", marginBottom: 20 },
+  connectTitle: {
+    fontSize: 24,
+    fontWeight: "700",
+    marginBottom: 20,
+    color: "#1F2937",
+  },
   loadingContainer: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",
