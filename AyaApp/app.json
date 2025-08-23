@@ -1,16 +1,14 @@
 {
   "expo": {
-    "name": "AyaAI",
+    "name": "Welcome to Aya",
     "slug": "AyaAI",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/Logos/Aya_AI_Logo.png",
+    "icon": "./assets/Logos/Aya_Logo.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/Logos/Aya_Ai_Logo.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "image": "./assets/Logos/Aya_Logo.png",
     },
     "ios": {
       "supportsTablet": true,
@@ -20,14 +18,15 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/Logos/Aya_Ai_Logo.png",
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/Logos/Aya_Logo.png",
       },
       "edgeToEdgeEnabled": true,
-      "permissions": ["RECORD_AUDIO"]
+      "permissions": [
+        "RECORD_AUDIO"
+      ]
     },
     "web": {
-      "favicon": "./assets/Logos/Aya_Ai_Logo.png"
+      "favicon": "./assets/Logos/Aya_Logo.png"
     },
     "plugins": [
       "expo-av"

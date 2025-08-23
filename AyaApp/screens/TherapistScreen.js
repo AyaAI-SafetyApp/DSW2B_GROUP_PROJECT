@@ -17,16 +17,18 @@ import axios from "axios";
 
 const BACKEND_URL = "http://172.16.26.108:3000";
 
-export default function AIOrbScreen() {
+export default function AyaTherapistScreen() {
   const [listening, setListening] = useState(false);
   const [aiResponse, setAIResponse] = useState("");
   const [message, setMessage] = useState("");
   const [recording, setRecording] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [emotion, setEmotion] = useState("neutral");
 
   const glowAnim = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  // Glow animation loop
+  // Orb glow animation loop
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
@@ -44,14 +46,51 @@ export default function AIOrbScreen() {
     ).start();
   }, []);
 
+  // Fade-out animation for AI response
+  const showAIResponse = async (text, audioUrl) => {
+    setAIResponse(text);
+    fadeAnim.setValue(1);
+
+    try {
+      const { sound } = await Audio.Sound.createAsync({ uri: audioUrl });
+      await sound.playAsync();
+
+      // Animate fade-out after speech
+      sound.setOnPlaybackStatusUpdate((status) => {
+        if (status.didJustFinish) {
+          Animated.timing(fadeAnim, {
+            toValue: 0,
+            duration: 1200,
+            useNativeDriver: true,
+          }).start(() => setAIResponse(""));
+        }
+      });
+    } catch (e) {
+      console.error("Audio playback failed", e);
+      // fallback to speech
+      Speech.speak(text, {
+        onDone: () => {
+          Animated.timing(fadeAnim, {
+            toValue: 0,
+            duration: 1200,
+            useNativeDriver: true,
+          }).start(() => setAIResponse(""));
+        },
+      });
+    }
+  };
+
+  // Recording functions
   const startRecording = async () => {
     try {
       const { status } = await Audio.requestPermissionsAsync();
       if (status !== "granted") return;
+
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
       });
+
       const { recording } = await Audio.Recording.createAsync(
         Audio.RecordingOptionsPresets.HIGH_QUALITY
       );
@@ -75,46 +114,57 @@ export default function AIOrbScreen() {
     }
   };
 
+  // Send user voice to backend
   const sendAudioToAI = async (uri) => {
     setLoading(true);
     try {
       const formData = new FormData();
       formData.append("audio", { uri, type: "audio/m4a", name: "voice.m4a" });
-      const res = await axios.post(`${BACKEND_URL}/chat-audio`, formData, {
+
+      const res = await axios.post(`${BACKEND_URL}/voice-chat`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      handleAIResponse(res.data.reply);
+
+      const { text, audioUrl, emotion } = res.data;
+      setEmotion(emotion || "neutral");
+      showAIResponse(text, audioUrl);
     } catch (e) {
       console.error(e);
-      setAIResponse("Error: Could not get AI response.");
+      showAIResponse("I’m having trouble responding right now.", null);
     } finally {
       setLoading(false);
     }
   };
 
+  // Send text fallback to backend
   const sendTextToAI = async () => {
     if (!message.trim()) return;
     setLoading(true);
     try {
-      const res = await axios.post(`${BACKEND_URL}/chat`, { message });
-      handleAIResponse(res.data.reply);
+      const res = await axios.post(`${BACKEND_URL}/voice-chat-text`, {
+        message,
+      });
+      const { text, audioUrl, emotion } = res.data;
+      setEmotion(emotion || "neutral");
+      showAIResponse(text, audioUrl);
       setMessage("");
     } catch (e) {
       console.error(e);
-      setAIResponse("Error: Could not get AI response.");
+      showAIResponse("I’m having trouble responding right now.", null);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAIResponse = (text) => {
-    setAIResponse(text);
-    Speech.speak(text);
-  };
-
+  // Orb glow color based on emotion
   const glowInterpolation = glowAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: ["rgba(255,182,193,0.3)", "rgba(255,20,147,0.8)"], // Pink nebula glow
+    outputRange:
+      emotion === "calm"
+        ? ["rgba(100,200,255,0.3)", "rgba(50,150,255,0.8)"]
+        : emotion === "happy"
+        ? ["rgba(255,220,100,0.3)", "rgba(255,180,50,0.8)"]
+        : ["rgba(255,182,193,0.3)", "rgba(255,20,147,0.8)"],
   });
 
   return (
@@ -143,15 +193,18 @@ export default function AIOrbScreen() {
           </Animated.View>
 
           {/* AI Response */}
-          {loading ? (
+          {loading && (
             <ActivityIndicator
               size="large"
               color="#FF69B4"
               style={{ marginTop: 25 }}
             />
-          ) : (
-            <Text style={styles.aiText}>{aiResponse}</Text>
           )}
+          {!loading && aiResponse ? (
+            <Animated.View style={{ opacity: fadeAnim, marginTop: 25 }}>
+              <Text style={styles.aiText}>{aiResponse}</Text>
+            </Animated.View>
+          ) : null}
 
           {/* Text input fallback */}
           <View style={styles.inputRow}>
@@ -182,54 +235,45 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   orb: {
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    backgroundColor: "#FF69B4",
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: "#d9006dff",
     justifyContent: "center",
     alignItems: "center",
     shadowOpacity: 0.6,
     shadowOffset: { width: 0, height: 0 },
   },
-  touchArea: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 75,
-  },
+  touchArea: { width: "100%", height: "100%", borderRadius: 80 },
   aiText: {
     color: "#333",
     fontSize: 18,
-    marginTop: 30,
     textAlign: "center",
-    lineHeight: 24,
-    backgroundColor: "#fff",
-    padding: 15,
-    borderRadius: 12,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 8,
+    lineHeight: 26,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    padding: 16,
+    borderRadius: 16,
+    shadowColor: "#FF69B4",
+    shadowOpacity: 0.4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 12,
   },
-  inputRow: {
-    flexDirection: "row",
-    marginTop: 25,
-    width: "100%",
-  },
+  inputRow: { flexDirection: "row", marginTop: 30, width: "100%" },
   input: {
     flex: 1,
-    backgroundColor: "#eee",
-    color: "#333",
-    borderRadius: 12,
-    paddingHorizontal: 15,
+    backgroundColor: "#dcdcdcff",
+    color: "#000",
+    borderRadius: 16,
+    paddingHorizontal: 20,
     fontSize: 16,
     height: 50,
   },
   sendBtn: {
-    backgroundColor: "#FF69B4",
-    marginLeft: 10,
-    paddingHorizontal: 20,
+    backgroundColor: "#dc006eff",
+    marginLeft: 12,
+    paddingHorizontal: 22,
     justifyContent: "center",
     alignItems: "center",
-    borderRadius: 12,
+    borderRadius: 16,
   },
 });

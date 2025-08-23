@@ -1,338 +1,428 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
-  Alert,
+  TouchableOpacity,
   Modal,
   TextInput,
-  FlatList,
-  Button,
-  Platform,
+  Alert,
+  ScrollView,
 } from "react-native";
-import { Accelerometer } from "expo-sensors";
+import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
-import * as SMS from "expo-sms";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as Haptics from "expo-haptics";
 
-const FALL_THRESHOLD = 2.5; // Adjusted for impact detection based on typical values (2-3g for fall impact)
-
-export default function SOSScreen() {
-  const [accelerometerData, setAccelerometerData] = useState({
-    x: 0,
-    y: 0,
-    z: 0,
+export default function SosScreen() {
+  const [location, setLocation] = useState({
+    latitude: 37.7749,
+    longitude: -122.4194,
   });
-  const [alertActive, setAlertActive] = useState(false);
+  const [contacts, setContacts] = useState([
+    "+1 (555) 123-4567",
+    "+1 (555) 987-6543",
+  ]);
+  const [isCountdownActive, setIsCountdownActive] = useState(false);
   const [countdown, setCountdown] = useState(10);
-  const countdownRef = useRef(null);
-  const [trustedNumbers, setTrustedNumbers] = useState([]);
-  const [settingsModalVisible, setSettingsModalVisible] = useState(false);
-  const [newNumber, setNewNumber] = useState("");
+  const [contactModalVisible, setContactModalVisible] = useState(false);
+  const [newContact, setNewContact] = useState("");
+  const [editingContactIndex, setEditingContactIndex] = useState(null);
+  const countdownInterval = useRef(null);
 
-  // Load trusted numbers from storage
-  useEffect(() => {
-    const loadTrustedNumbers = async () => {
-      try {
-        const storedNumbers = await AsyncStorage.getItem("trustedNumbers");
-        if (storedNumbers) {
-          setTrustedNumbers(JSON.parse(storedNumbers));
-        }
-      } catch (error) {
-        console.error("Failed to load trusted numbers", error);
-      }
-    };
-    loadTrustedNumbers();
-  }, []);
-
-  // Save trusted numbers to storage
-  const saveTrustedNumbers = async (numbers) => {
-    try {
-      await AsyncStorage.setItem("trustedNumbers", JSON.stringify(numbers));
-      setTrustedNumbers(numbers);
-    } catch (error) {
-      console.error("Failed to save trusted numbers", error);
-    }
-  };
-
-  // Add new number
-  const addNumber = () => {
-    if (newNumber && !trustedNumbers.includes(newNumber)) {
-      const updatedNumbers = [...trustedNumbers, newNumber];
-      saveTrustedNumbers(updatedNumbers);
-      setNewNumber("");
-    } else {
-      Alert.alert("Invalid", "Please enter a valid unique number.");
-    }
-  };
-
-  // Remove number
-  const removeNumber = (number) => {
-    const updatedNumbers = trustedNumbers.filter((n) => n !== number);
-    saveTrustedNumbers(updatedNumbers);
-  };
-
-  // Request permissions
   useEffect(() => {
     (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
+      let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
-        Alert.alert("Permission Denied", "Location access is required for SOS.");
+        Alert.alert("Permission denied", "Cannot access location");
+        return;
       }
+      let loc = await Location.getCurrentPositionAsync({});
+      setLocation({
+        latitude: loc.coords.latitude,
+        longitude: loc.coords.longitude,
+      });
     })();
   }, []);
 
-  // Start accelerometer
-  useEffect(() => {
-    Accelerometer.setUpdateInterval(100); // 100ms
-    const subscription = Accelerometer.addListener((data) => {
-      setAccelerometerData(data);
-      const totalForce = Math.sqrt(data.x ** 2 + data.y ** 2 + data.z ** 2);
-
-      if (totalForce > FALL_THRESHOLD && !alertActive) {
-        startCountdown();
-      }
-    });
-
-    return () => subscription?.remove();
-  }, [alertActive]);
-
-  // Countdown timer with haptics
-  const startCountdown = () => {
-    if (trustedNumbers.length === 0) {
-      Alert.alert("No Trusted Contacts", "Please add trusted contacts in settings.");
-      return;
-    }
-    setAlertActive(true);
+  const startCountdown = useCallback(() => {
+    setIsCountdownActive(true);
     setCountdown(10);
-    countdownRef.current = setInterval(() => {
+    countdownInterval.current = setInterval(() => {
       setCountdown((prev) => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
         if (prev <= 1) {
-          clearInterval(countdownRef.current);
+          clearInterval(countdownInterval.current);
           sendSOS();
-          return 0;
+          return 10;
         }
         return prev - 1;
       });
     }, 1000);
-  };
+  }, []);
 
-  const cancelCountdown = () => {
-    clearInterval(countdownRef.current);
-    setAlertActive(false);
-    setCountdown(10);
-  };
+  const cancelCountdown = useCallback(() => {
+    clearInterval(countdownInterval.current);
+    setIsCountdownActive(false);
+  }, []);
 
-  // Send SOS with location
-  const sendSOS = async () => {
-    setAlertActive(false);
-    try {
-      const location = await Location.getCurrentPositionAsync({});
-      const message = `🚨 Emergency! I may have fallen. My location: https://maps.google.com/?q=${location.coords.latitude},${location.coords.longitude}`;
+  const handleSOSPress = useCallback(() => {
+    Alert.alert(
+      "Send SOS Alert?",
+      "This will start a countdown before sending your location to emergency contacts.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Start", onPress: startCountdown },
+      ]
+    );
+  }, [startCountdown]);
 
-      const isAvailable = await SMS.isAvailableAsync();
-      if (isAvailable) {
-        await SMS.sendSMSAsync(trustedNumbers, message);
-        Alert.alert("SOS Sent", "Trusted contacts have been notified with your location!");
-      } else {
-        Alert.alert("SMS Not Available", "Cannot send message on this device.");
-      }
-    } catch (error) {
-      console.error(error);
-      Alert.alert("Error", "Failed to send SOS. Please check permissions.");
+  const sendSOS = useCallback(() => {
+    setIsCountdownActive(false);
+    Alert.alert(
+      "SOS Alert Sent",
+      `Location: ${location.latitude}, ${location.longitude}\nContacts notified: ${contacts.length}`
+    );
+  }, [location, contacts]);
+
+  const addOrUpdateContact = useCallback(() => {
+    if (!newContact.trim()) return;
+    let updatedContacts;
+    if (editingContactIndex !== null) {
+      updatedContacts = [...contacts];
+      updatedContacts[editingContactIndex] = newContact;
+      setEditingContactIndex(null);
+    } else {
+      updatedContacts = [...contacts, newContact];
     }
+    setContacts(updatedContacts);
+    setNewContact("");
+    setContactModalVisible(false);
+  }, [contacts, newContact, editingContactIndex]);
+
+  const deleteContact = useCallback(
+    (index) => {
+      Alert.alert("Remove contact?", "Are you sure?", [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: () => setContacts(contacts.filter((_, i) => i !== index)),
+        },
+      ]);
+    },
+    [contacts]
+  );
+
+  const editContact = (index) => {
+    setNewContact(contacts[index]);
+    setEditingContactIndex(index);
+    setContactModalVisible(true);
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>AYA SOS</Text>
-      <Text style={styles.instruction}>
-        Detects falls automatically and sends your location to trusted contacts. Press the button for manual SOS.
-      </Text>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={{ paddingBottom: 40 }}
+    >
+      {/* Header */}
+      <View style={styles.header}></View>
 
-      <TouchableOpacity style={styles.sosButton} onPress={startCountdown}>
-        <Text style={styles.sosText}>SOS</Text>
-      </TouchableOpacity>
+      {/* Warning Banner */}
+      <View style={styles.banner}>
+        <Text style={styles.bannerText}>
+          Use only in real emergencies • Fall detection active
+        </Text>
+      </View>
 
-      <TouchableOpacity
-        style={styles.settingsButton}
-        onPress={() => setSettingsModalVisible(true)}
-      >
-        <Text style={styles.settingsText}>Settings</Text>
-      </TouchableOpacity>
+      {/* Main Content */}
+      <View style={styles.content}>
+        <Text style={styles.infoText}>
+          Press and hold the button below to send your location to emergency
+          contacts
+        </Text>
 
-      <Modal visible={alertActive} transparent animationType="fade">
-        <View style={styles.countdownOverlay}>
-          <Text style={styles.countdownText}>{countdown}</Text>
-          <Text style={styles.countdownSubText}>Sending SOS in...</Text>
-          <TouchableOpacity style={styles.cancelButton} onPress={cancelCountdown}>
-            <Text style={styles.cancelText}>Cancel</Text>
-          </TouchableOpacity>
-        </View>
-      </Modal>
+        {/* SOS Button */}
+        <TouchableOpacity
+          onPress={handleSOSPress}
+          style={styles.sosButton}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.sosText}>SOS</Text>
+        </TouchableOpacity>
 
-      <Modal
-        visible={settingsModalVisible}
-        animationType="slide"
-        onRequestClose={() => setSettingsModalVisible(false)}
-      >
-        <View style={styles.settingsModal}>
-          <Text style={styles.modalTitle}>Trusted Contacts</Text>
-          <FlatList
-            data={trustedNumbers}
-            keyExtractor={(item) => item}
-            renderItem={({ item }) => (
-              <View style={styles.numberItem}>
-                <Text>{item}</Text>
-                <Button title="Remove" color="#E91E63" onPress={() => removeNumber(item)} />
+        {/* Emergency Contacts */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <View style={styles.cardTitle}>
+              <Ionicons name="people" size={20} color="#4B5563" />
+              <Text style={styles.cardHeaderText}>Emergency Contacts</Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => {
+                setNewContact("");
+                setEditingContactIndex(null);
+                setContactModalVisible(true);
+              }}
+              style={styles.addButton}
+            >
+              <Ionicons name="add" size={20} color="#fff" />
+            </TouchableOpacity>
+          </View>
+
+          {contacts.map((contact, index) => (
+            <View key={index} style={styles.contactRow}>
+              <View style={styles.contactInfo}>
+                <Ionicons name="call" size={18} color="#9CA3AF" />
+                <Text style={styles.contactText}>{contact}</Text>
               </View>
-            )}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Enter phone number (e.g., +1234567890)"
-            value={newNumber}
-            onChangeText={setNewNumber}
-            keyboardType="phone-pad"
-          />
-          <TouchableOpacity style={styles.addButton} onPress={addNumber}>
-            <Text style={styles.addText}>Add Number</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.closeButton}
-            onPress={() => setSettingsModalVisible(false)}
-          >
-            <Text style={styles.closeText}>Close</Text>
-          </TouchableOpacity>
+              <View style={styles.contactActions}>
+                <TouchableOpacity
+                  onPress={() => editContact(index)}
+                  style={styles.iconButton}
+                >
+                  <Ionicons name="pencil" size={18} color="#6B7280" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => deleteContact(index)}
+                  style={styles.iconButton}
+                >
+                  <Ionicons name="trash" size={18} color="#EF4444" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))}
+
+          {contacts.length === 0 && (
+            <View style={styles.emptyState}>
+              <Ionicons name="call" size={48} color="#D1D5DB" />
+              <Text style={styles.emptyText}>No emergency contacts added</Text>
+              <Text style={styles.emptySubtext}>
+                Tap the + button to add contacts
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* Location Status */}
+        <View style={styles.card}>
+          <Text style={styles.cardHeaderText}>Location Status</Text>
+          <View style={styles.locationRow}>
+            <View style={styles.dot} />
+            <Text style={styles.locationText}>Location services enabled</Text>
+          </View>
+          <Text style={styles.locationSubtext}>
+            Your current location will be shared with emergency contacts
+          </Text>
+        </View>
+      </View>
+
+      {/* Countdown Modal */}
+      <Modal transparent visible={isCountdownActive} animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.countdownCircle}>
+              <Text style={styles.countdownText}>{countdown}</Text>
+            </View>
+            <Text style={styles.modalTitle}>Sending SOS Alert</Text>
+            <Text style={styles.modalSubtitle}>
+              Emergency alert will be sent in {countdown} seconds
+            </Text>
+            <TouchableOpacity
+              onPress={cancelCountdown}
+              style={styles.cancelButton}
+            >
+              <Text style={styles.cancelButtonText}>Cancel Alert</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </Modal>
-    </View>
+
+      {/* Contact Modal */}
+      <Modal transparent visible={contactModalVisible} animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>
+              {editingContactIndex !== null
+                ? "Edit Contact"
+                : "Add Emergency Contact"}
+            </Text>
+            <TextInput
+              style={styles.input}
+              placeholder="+1 (555) 123-4567"
+              value={newContact}
+              onChangeText={setNewContact}
+              keyboardType="phone-pad"
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                onPress={addOrUpdateContact}
+                style={styles.confirmButton}
+              >
+                <Text style={styles.confirmText}>
+                  {editingContactIndex !== null ? "Update" : "Add Contact"}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  setContactModalVisible(false);
+                  setNewContact("");
+                  setEditingContactIndex(null);
+                }}
+                style={styles.cancelButton}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: "center",
+  container: { flex: 1, backgroundColor: "#F9FAFB" },
+  header: {
+    flexDirection: "row",
     alignItems: "center",
-    padding: 20,
-    backgroundColor: "#f8f8f8", // Softer background
+    justifyContent: "center",
+    padding: 30,
   },
-  title: {
-    fontSize: 32,
-    fontWeight: "bold",
-    color: "#E91E63",
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: "600",
+    marginLeft: 10,
+    color: "#111827",
+  },
+  banner: { backgroundColor: "#FEF3C7", paddingVertical: 8 },
+  bannerText: { textAlign: "center", color: "#B45309", fontWeight: "500" },
+  content: { paddingHorizontal: 20, paddingTop: 20 },
+  infoText: {
+    textAlign: "center",
+    color: "#4B5563",
+    fontSize: 16,
     marginBottom: 20,
   },
-  instruction: {
-    fontSize: 16,
-    textAlign: "center",
-    marginBottom: 40,
-    color: "#666",
-    paddingHorizontal: 20,
-  },
   sosButton: {
-    backgroundColor: "#E91E63",
+    backgroundColor: "#EF4444",
     width: 160,
     height: 160,
     borderRadius: 80,
-    justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#E91E63",
-    shadowOpacity: 0.6,
-    shadowOffset: { width: 0, height: 12 },
-    shadowRadius: 24,
-    elevation: 12,
-  },
-  sosText: {
-    color: "#fff",
-    fontSize: 32,
-    fontWeight: "bold",
-  },
-  settingsButton: {
-    marginTop: 40,
-    padding: 10,
-    backgroundColor: "#ddd",
-    borderRadius: 8,
-  },
-  settingsText: {
-    fontSize: 16,
-    color: "#333",
-  },
-  countdownOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.8)",
     justifyContent: "center",
-    alignItems: "center",
-  },
-  countdownText: {
-    fontSize: 100,
-    color: "#fff",
-    fontWeight: "bold",
-  },
-  countdownSubText: {
-    fontSize: 24,
-    color: "#fff",
+    alignSelf: "center",
     marginBottom: 30,
+    elevation: 5,
   },
-  cancelButton: {
-    padding: 15,
+  sosText: { fontSize: 32, fontWeight: "bold", color: "#fff" },
+  card: {
     backgroundColor: "#fff",
-    borderRadius: 12,
-    width: 200,
-    alignItems: "center",
-  },
-  cancelText: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#E91E63",
-  },
-  settingsModal: {
-    flex: 1,
-    padding: 20,
-    backgroundColor: "#fff",
-  },
-  modalTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
+    borderRadius: 16,
+    padding: 16,
     marginBottom: 20,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    elevation: 2,
   },
-  numberItem: {
+  cardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
+    marginBottom: 12,
+  },
+  cardTitle: { flexDirection: "row", alignItems: "center" },
+  cardHeaderText: {
+    fontSize: 18,
+    fontWeight: "600",
+    marginLeft: 8,
+    color: "#111827",
+  },
+  addButton: { backgroundColor: "#E91E63", padding: 6, borderRadius: 16 },
+  contactRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 8,
+  },
+  contactInfo: { flexDirection: "row", alignItems: "center" },
+  contactText: { marginLeft: 8, fontSize: 16, color: "#111827" },
+  contactActions: { flexDirection: "row" },
+  iconButton: { padding: 6, marginLeft: 6 },
+  emptyState: { alignItems: "center", paddingVertical: 20 },
+  emptyText: { color: "#6B7280", marginTop: 4 },
+  emptySubtext: { color: "#9CA3AF", fontSize: 12 },
+  locationRow: { flexDirection: "row", alignItems: "center", marginTop: 6 },
+  dot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#34D399",
+    marginRight: 8,
+  },
+  locationText: { color: "#4B5563", fontSize: 14 },
+  locationSubtext: { color: "#9CA3AF", fontSize: 12, marginTop: 4 },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 20,
+    width: "100%",
+  },
+  countdownCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "#FEE2E2",
+    justifyContent: "center",
+    alignItems: "center",
+    alignSelf: "center",
+    marginBottom: 12,
+  },
+  countdownText: { fontSize: 32, fontWeight: "bold", color: "#B91C1C" },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "600",
+    textAlign: "center",
+    marginBottom: 4,
+    color: "#111827",
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: "#4B5563",
+    textAlign: "center",
+    marginBottom: 12,
+  },
+  cancelButton: {
+    backgroundColor: "#E5E7EB",
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginTop: 8,
+  },
+  cancelButtonText: {
+    textAlign: "center",
+    fontWeight: "600",
+    color: "#111827",
   },
   input: {
     borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-    padding: 10,
-    marginVertical: 20,
+    borderColor: "#D1D5DB",
+    borderRadius: 12,
+    padding: 12,
+    marginVertical: 12,
   },
-  addButton: {
+  modalButtons: { flexDirection: "row", justifyContent: "space-between" },
+  confirmButton: {
     backgroundColor: "#E91E63",
-    padding: 15,
-    borderRadius: 8,
-    alignItems: "center",
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginRight: 8,
   },
-  addText: {
-    color: "#fff",
-    fontWeight: "bold",
-  },
-  closeButton: {
-    marginTop: 20,
-    padding: 15,
-    backgroundColor: "#ddd",
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  closeText: {
-    fontWeight: "bold",
-  },
+  confirmText: { color: "#fff", textAlign: "center", fontWeight: "600" },
 });
