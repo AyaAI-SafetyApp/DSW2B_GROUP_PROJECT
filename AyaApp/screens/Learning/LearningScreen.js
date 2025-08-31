@@ -86,9 +86,9 @@ const games = [
   },
   {
     id: 2,
-    title: "MT Game",
-    description: "Rescue victims",
-    image: require("../../assets/Games/mtGame.avif"),
+    title: "MT Maja Toomuch",
+    description: "Rescue victims ",
+    image: require("../../assets/Games/Mt_icon.webp"),
   },
 ];
 
@@ -97,7 +97,11 @@ export default function LearningScreen() {
   const [activeTab, setActiveTab] = useState("Videos");
 
   const handleGamePress = (game) => {
-    navigation.navigate("Game", { game });
+    if (game.id === 1) {
+      navigation.navigate("ReactionGame", { game });
+    } else if (game.id === 2) {
+      navigation.navigate("PoliceGame", { game });
+    }
   };
 
   const handleTrainingPress = (tutorial) => {
