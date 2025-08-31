@@ -1,176 +1,130 @@
-import React, { useState, useEffect } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  Dimensions,
-  ImageBackground,
-  TouchableOpacity,
-} from "react-native";
-import Player from "./components/Player";
-import Civilian from "./components/Civilian";
-import Hazard from "./components/Hazard";
-import AICompanion from "./components/AICompanion";
+import React, { useCallback } from "react";
+import { StyleSheet } from "react-native";
+import { NavigationContainer } from "@react-navigation/native";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import Ionicons from "react-native-vector-icons/Ionicons";
 
-const { width, height } = Dimensions.get("window");
+// Screens
+import HomeScreen from "./screens/HomeScreen";
+import CommunityScreen from "./screens/CommunityScreen";
+import SOSScreen from "./screens/SosScreen";
+import LearningScreen from "./screens/Learning/LearningScreen";
+import TherapistScreen from "./screens/TherapistScreen";
+import HealthScreen from "./screens/HealthScreen";
+import GameScreen from "./screens/Learning/Game";
 
-export default function App() {
-  const [score, setScore] = useState(0);
-  const [health, setHealth] = useState(100);
-  const [hazards, setHazards] = useState([]);
-  const [civilians, setCivilians] = useState([]);
-  const [gameOver, setGameOver] = useState(false);
+const Tab = createBottomTabNavigator();
+const Stack = createNativeStackNavigator();
 
-  // Spawn hazards & civilians randomly
-  useEffect(() => {
-    if (gameOver) return;
-    const interval = setInterval(() => {
-      setHazards((prev) => [
-        ...prev,
-        {
-          id: Date.now(),
-          x: Math.random() * (width - 30),
-          y: Math.random() * (height - 100),
-        },
-      ]);
-      setCivilians((prev) => [
-        ...prev,
-        {
-          id: Date.now(),
-          x: Math.random() * (width - 30),
-          y: Math.random() * (height - 100),
-        },
-      ]);
-    }, 3000);
-    return () => clearInterval(interval);
-  }, [gameOver]);
+// Colors & Tab Bar constants
+const COLORS = { ACTIVE: "#de0973ff", INACTIVE: "gray" };
+const TAB_BAR = { HEIGHT: 60, PADDING: 5 };
 
-  // Check game over
-  useEffect(() => {
-    if (health <= 0) setGameOver(true);
-  }, [health]);
-
-  const handleRescue = (id) => {
-    setScore((prev) => prev + 10);
-    setCivilians((prev) => prev.filter((c) => c.id !== id));
-    setHealth((prev) => Math.min(prev + 5, 100));
-  };
-
-  const handleHazard = (id) => {
-    setHealth((prev) => Math.max(prev - 20, 0));
-    setHazards((prev) => prev.filter((h) => h.id !== id));
-  };
-
-  const resetGame = () => {
-    setScore(0);
-    setHealth(100);
-    setHazards([]);
-    setCivilians([]);
-    setGameOver(false);
-  };
-
-  return (
-    <ImageBackground
-      source={require("./assets/Games/map.jpg")}
-      style={styles.container}
-    >
-      <Text style={styles.score}>Score: {score}</Text>
-      <View style={styles.healthBar}>
-        <View
-          style={[
-            styles.health,
-            {
-              width: `${health}%`,
-              backgroundColor:
-                health > 50 ? "green" : health > 20 ? "orange" : "red",
-            },
-          ]}
-        />
-      </View>
-
-      <AICompanion />
-
-      {!gameOver && (
-        <Player
-          civilians={civilians}
-          hazards={hazards}
-          onRescue={handleRescue}
-          onHitHazard={handleHazard}
-        />
-      )}
-
-      {civilians.map((c) => (
-        <Civilian key={c.id} x={c.x} y={c.y} />
-      ))}
-
-      {hazards.map((h) => (
-        <Hazard key={h.id} x={h.x} y={h.y} />
-      ))}
-
-      {gameOver && (
-        <View style={styles.gameOverContainer}>
-          <Text style={styles.gameOverText}>GAME OVER</Text>
-          <Text style={styles.finalScore}>Your Score: {score}</Text>
-          <TouchableOpacity style={styles.button} onPress={resetGame}>
-            <Text style={styles.buttonText}>Try Again</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-    </ImageBackground>
-  );
-}
+// Bottom Tab Configuration
+const TABS = [
+  {
+    name: "Home",
+    component: HomeScreen,
+    icons: { active: "home", inactive: "home-outline" },
+    accessibilityLabel: "Home Screen",
+  },
+  {
+    name: "Newsfeed",
+    component: CommunityScreen,
+    icons: { active: "newspaper", inactive: "newspaper-outline" },
+    accessibilityLabel: "Newsfeed Screen",
+  },
+  {
+    name: "SOS",
+    component: SOSScreen,
+    icons: { active: "alert-circle", inactive: "alert-circle-outline" },
+    accessibilityLabel: "SOS Screen",
+  },
+  {
+    name: "Learning",
+    component: LearningScreen,
+    icons: { active: "book", inactive: "book-outline" },
+    accessibilityLabel: "Learning Screen",
+  },
+  {
+    name: "Therapist",
+    component: TherapistScreen,
+    icons: { active: "chatbubbles", inactive: "chatbubbles-outline" },
+    accessibilityLabel: "Therapist Screen",
+  },
+];
 
 const styles = StyleSheet.create({
-  container: { flex: 1, width: "100%", height: "100%" },
-  score: {
-    fontSize: 24,
-    fontWeight: "bold",
-    textAlign: "center",
-    marginTop: 40,
-    color: "#fff",
-    textShadowColor: "#000",
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 3,
-  },
-  healthBar: {
-    height: 20,
-    width: "80%",
-    backgroundColor: "#ccc",
-    borderRadius: 10,
-    margin: 10,
-    alignSelf: "center",
-  },
-  health: { height: "100%", borderRadius: 10 },
-  gameOverContainer: {
+  tabBar: {
+    backgroundColor: "#fff",
+    height: TAB_BAR.HEIGHT,
+    paddingBottom: TAB_BAR.PADDING,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     position: "absolute",
-    top: height / 2 - 80,
-    alignSelf: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.7)",
-    padding: 20,
-    borderRadius: 12,
-  },
-  gameOverText: {
-    fontSize: 40,
-    fontWeight: "bold",
-    color: "red",
-    marginBottom: 10,
-  },
-  finalScore: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#fff",
-    marginBottom: 20,
-  },
-  button: {
-    backgroundColor: "#2196f3",
-    paddingVertical: 10,
-    paddingHorizontal: 30,
-    borderRadius: 10,
-  },
-  buttonText: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#fff",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 5,
   },
 });
+
+// Tab Bar Icon Renderer
+const getTabBarIcon = ({ route, focused, color, size }) => {
+  const tabConfig = TABS.find((tab) => tab.name === route.name);
+  const icon = tabConfig?.icons || {
+    active: "alert",
+    inactive: "alert-outline",
+  };
+  return (
+    <Ionicons
+      name={focused ? icon.active : icon.inactive}
+      size={size}
+      color={color}
+    />
+  );
+};
+
+// Bottom Tabs Navigator
+const TabsNavigator = () => (
+  <Tab.Navigator
+    screenOptions={({ route }) => ({
+      headerShown: false,
+      tabBarIcon: ({ focused, color, size }) =>
+        getTabBarIcon({ route, focused, color, size }),
+      tabBarActiveTintColor: COLORS.ACTIVE,
+      tabBarInactiveTintColor: COLORS.INACTIVE,
+      tabBarStyle: styles.tabBar,
+      tabBarLabelStyle: { fontSize: 12, fontWeight: "500" },
+      tabBarItemStyle: { paddingVertical: 5 },
+      lazy: true,
+    })}
+  >
+    {TABS.map((tab) => (
+      <Tab.Screen
+        key={tab.name}
+        name={tab.name}
+        component={tab.component}
+        options={{
+          tabBarAccessibilityLabel: tab.accessibilityLabel,
+          unmountOnBlur: true,
+        }}
+      />
+    ))}
+  </Tab.Navigator>
+);
+
+// Root Stack Navigator
+const App = () => (
+  <NavigationContainer>
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="Tabs" component={TabsNavigator} />
+      <Stack.Screen name="Health" component={HealthScreen} />
+      <Stack.Screen name="Game" component={GameScreen} />
+    </Stack.Navigator>
+  </NavigationContainer>
+);
+
+export default App;
