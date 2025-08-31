@@ -14,6 +14,7 @@ import {
   Alert,
   PermissionsAndroid,
   Platform,
+  ScrollView,
 } from 'react-native';
 import {
   SafeAreaProvider,
@@ -22,6 +23,9 @@ import {
 
 // Import Porcupine components
 import { PorcupineManager } from '@picovoice/porcupine-react-native';
+
+// Import Crime Statistics Component
+import CrimeStatisticsComponent from './CrimeStatisticsComponent';
 
 function App() {
   const isDarkMode = useColorScheme() === 'dark';
@@ -40,6 +44,7 @@ function AppContent() {
   const [isListening, setIsListening] = useState(false);
   const [detectionCount, setDetectionCount] = useState(0);
   const [lastDetection, setLastDetection] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<'wakeword' | 'crime'>('wakeword');
 
   // Request microphone permission
   const requestMicrophonePermission = async () => {
@@ -159,45 +164,76 @@ function AppContent() {
 
   return (
     <View style={[styles.container, { paddingTop: safeAreaInsets.top }]}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Wakeword Detection App</Text>
-        <Text style={styles.subtitle}>Say "Hello Aya" to trigger detection</Text>
-      </View>
-
-      <View style={styles.statusContainer}>
-        <Text style={styles.statusText}>
-          Status: {isListening ? '🎤 Listening...' : '⏸️ Stopped'}
-        </Text>
-        <Text style={styles.countText}>Detections: {detectionCount}</Text>
-        {lastDetection && (
-          <Text style={styles.lastDetectionText}>
-            Last detection: {lastDetection}
-          </Text>
-        )}
-      </View>
-
-      <View style={styles.buttonContainer}>
+      {/* Tab Navigation */}
+      <View style={styles.tabNavigation}>
         <TouchableOpacity
-          style={[styles.button, isListening && styles.buttonActive]}
-          onPress={isListening ? stopListening : startListening}
-          disabled={!porcupineManager}
+          style={[styles.tabButton, activeTab === 'wakeword' && styles.activeTab]}
+          onPress={() => setActiveTab('wakeword')}
         >
-          <Text style={styles.buttonText}>
-            {isListening ? 'Stop Listening' : 'Start Listening'}
+          <Text style={[styles.tabButtonText, activeTab === 'wakeword' && styles.activeTabText]}>
+            🎤 Wakeword
           </Text>
         </TouchableOpacity>
-
         <TouchableOpacity
-          style={[styles.button, styles.secondaryButton]}
-          onPress={initPorcupine}
+          style={[styles.tabButton, activeTab === 'crime' && styles.activeTab]}
+          onPress={() => setActiveTab('crime')}
         >
-          <Text style={styles.buttonText}>Reinitialize</Text>
+          <Text style={[styles.tabButtonText, activeTab === 'crime' && styles.activeTabText]}>
+            📊 Crime Stats
+          </Text>
         </TouchableOpacity>
       </View>
 
-      <View style={styles.infoContainer}>
-      
-      </View>
+      {/* Conditional Content */}
+      {activeTab === 'wakeword' ? (
+        <ScrollView style={styles.content}>
+          <View style={styles.header}>
+            <Text style={styles.title}>Wakeword Detection App</Text>
+            <Text style={styles.subtitle}>Say "Hello Aya" to trigger detection</Text>
+          </View>
+
+          <View style={styles.statusContainer}>
+            <Text style={styles.statusText}>
+              Status: {isListening ? '🎤 Listening...' : '⏸️ Stopped'}
+            </Text>
+            <Text style={styles.countText}>Detections: {detectionCount}</Text>
+            {lastDetection && (
+              <Text style={styles.lastDetectionText}>
+                Last detection: {lastDetection}
+              </Text>
+            )}
+          </View>
+
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity
+              style={[styles.button, isListening && styles.buttonActive]}
+              onPress={isListening ? stopListening : startListening}
+              disabled={!porcupineManager}
+            >
+              <Text style={styles.buttonText}>
+                {isListening ? 'Stop Listening' : 'Start Listening'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.button, styles.secondaryButton]}
+              onPress={initPorcupine}
+            >
+              <Text style={styles.buttonText}>Reinitialize</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.infoContainer}>
+            <Text style={styles.infoText}>
+              Make sure your device's microphone is working and you have granted 
+              microphone permissions. The app will listen for the wake word "Hello Aya" 
+              and respond accordingly.
+            </Text>
+          </View>
+        </ScrollView>
+      ) : (
+        <CrimeStatisticsComponent />
+      )}
     </View>
   );
 }
@@ -206,6 +242,34 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  tabNavigation: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  tabButton: {
+    flex: 1,
+    paddingVertical: 15,
+    alignItems: 'center',
+    borderBottomWidth: 3,
+    borderBottomColor: 'transparent',
+  },
+  activeTab: {
+    borderBottomColor: '#007AFF',
+  },
+  tabButtonText: {
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '500',
+  },
+  activeTabText: {
+    color: '#007AFF',
+    fontWeight: 'bold',
+  },
+  content: {
+    flex: 1,
     padding: 20,
   },
   header: {
