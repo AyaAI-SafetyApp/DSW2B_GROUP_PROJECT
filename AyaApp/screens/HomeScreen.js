@@ -316,7 +316,12 @@ const QuickActions = () => {
 
   const actions = [
     { icon: "navigate-outline", color: PRIMARY, text: "Safe Route" },
-    { icon: "call-outline", color: "#e1170cff", text: "Emergency" },
+    {
+      icon: "call-outline",
+      color: "#e1170cff",
+      text: "Emergency",
+      onPress: () => navigation.navigate("EmergancyScreen"),
+    },
     {
       icon: "medkit-outline",
       color: "#34C759",
