@@ -86,9 +86,9 @@ const games = [
   },
   {
     id: 2,
-    title: "Virtual Sparring",
-    description: "Practice moves against AI opponent",
-    image: require("../../assets/Games/Game_icon.jpg"),
+    title: "MT Game",
+    description: "Rescue victims",
+    image: require("../../assets/Games/mtGame.avif"),
   },
 ];
 
