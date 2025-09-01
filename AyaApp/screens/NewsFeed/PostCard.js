@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,8 @@ import {
   StyleSheet,
   Dimensions,
   Animated,
+  Pressable,
+  TouchableWithoutFeedback,
 } from "react-native";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
 import { Video } from "expo-av";
@@ -23,14 +25,17 @@ const COLORS = {
 };
 
 const REACTIONS = [
-  { type: "like", icon: "thumb-up-outline" },
-  { type: "heart", icon: "heart-outline" },
-  { type: "fun", icon: "emoticon-happy-outline" },
+  { type: "like", icon: "thumb-up", label: "Like", color: "#1877F2" },
+  { type: "heart", icon: "heart", label: "Love", color: "#E91E63" },
+  { type: "fun", icon: "emoticon-happy", label: "Fun", color: "#F59E0B" },
 ];
 
 const PostCard = ({ post, onAddReaction }) => {
   const [expanded, setExpanded] = useState(false);
+  const [reactionPickerVisible, setReactionPickerVisible] = useState(false);
+  const [userReaction, setUserReaction] = useState(null);
   const [animation] = useState(new Animated.Value(0));
+  const pickerAnim = useRef(new Animated.Value(0)).current;
 
   const toggleComments = () => {
     const finalValue = expanded ? 0 : 1;
@@ -44,8 +49,37 @@ const PostCard = ({ post, onAddReaction }) => {
 
   const animatedHeight = animation.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, (post?.comments?.length || 0) * 50 + 20],
+    outputRange: [0, (post?.comments?.length || 0) * 55 + 20],
   });
+
+  const handleLikePress = () => {
+    const type = userReaction || "like"; // default like
+    onAddReaction?.(post.id, type);
+    setUserReaction(type);
+  };
+
+  const handleLongPress = () => {
+    setReactionPickerVisible(true);
+    Animated.spring(pickerAnim, {
+      toValue: 1,
+      friction: 5,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handleSelectReaction = (type) => {
+    onAddReaction?.(post.id, type);
+    setUserReaction(type);
+
+    Animated.timing(pickerAnim, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => setReactionPickerVisible(false));
+  };
+
+  const currentReaction =
+    REACTIONS.find((r) => r.type === userReaction) || REACTIONS[0];
 
   if (!post) return null;
 
@@ -60,14 +94,6 @@ const PostCard = ({ post, onAddReaction }) => {
             color={COLORS.primary}
           />
           <Text style={styles.username}>{post.username || "Anonymous"}</Text>
-          {post.verified && (
-            <MaterialCommunityIcons
-              name="check-decagram"
-              size={16}
-              color={COLORS.primary}
-              style={{ marginLeft: 4 }}
-            />
-          )}
           {post.isVerifiedIncident && (
             <View style={styles.rewardBadge}>
               <MaterialCommunityIcons
@@ -91,6 +117,7 @@ const PostCard = ({ post, onAddReaction }) => {
       {post.media?.length > 0 && (
         <FlatList
           horizontal
+          pagingEnabled
           data={post.media}
           keyExtractor={(item, index) => `${post.id}_${index}`}
           renderItem={({ item }) =>
@@ -111,25 +138,33 @@ const PostCard = ({ post, onAddReaction }) => {
         />
       )}
 
-      {/* Reactions */}
+      {/* Reaction Bar */}
       <View style={styles.reactionBar}>
-        {REACTIONS.map((r) => (
-          <TouchableOpacity
-            key={r.type}
-            style={styles.reactionButton}
-            onPress={() => onAddReaction?.(post.id, r.type)}
+        {/* Like Button */}
+        <Pressable
+          style={styles.reactionButton}
+          onPress={handleLikePress}
+          onLongPress={handleLongPress}
+        >
+          <MaterialCommunityIcons
+            name={currentReaction.icon}
+            size={20}
+            color={userReaction ? currentReaction.color : COLORS.textSecondary}
+          />
+          <Text
+            style={[
+              styles.reactionText,
+              userReaction && {
+                color: currentReaction.color,
+                fontWeight: "600",
+              },
+            ]}
           >
-            <MaterialCommunityIcons
-              name={r.icon}
-              size={20}
-              color={COLORS.textSecondary}
-            />
-            <Text style={styles.reactionText}>
-              {post.reactions?.[r.type] || 0}
-            </Text>
-          </TouchableOpacity>
-        ))}
+            {currentReaction.label}
+          </Text>
+        </Pressable>
 
+        {/* Comment Button */}
         <TouchableOpacity
           onPress={toggleComments}
           style={styles.reactionButton}
@@ -142,6 +177,49 @@ const PostCard = ({ post, onAddReaction }) => {
           <Text style={styles.reactionText}>{post.comments?.length || 0}</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Reaction Picker Overlay */}
+      {reactionPickerVisible && (
+        <TouchableWithoutFeedback
+          onPress={() => setReactionPickerVisible(false)}
+        >
+          <View style={styles.overlay}>
+            <Animated.View
+              style={[
+                styles.reactionPicker,
+                {
+                  transform: [
+                    {
+                      scale: pickerAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.7, 1],
+                      }),
+                    },
+                  ],
+                  opacity: pickerAnim,
+                },
+              ]}
+            >
+              {REACTIONS.map((r) => (
+                <TouchableOpacity
+                  key={r.type}
+                  style={styles.reactionOption}
+                  onPress={() => handleSelectReaction(r.type)}
+                >
+                  <MaterialCommunityIcons
+                    name={r.icon}
+                    size={28}
+                    color={r.color}
+                  />
+                  <Text style={[styles.reactionLabel, { color: r.color }]}>
+                    {r.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </Animated.View>
+          </View>
+        </TouchableWithoutFeedback>
+      )}
 
       {/* Comments */}
       <Animated.View style={{ height: animatedHeight, overflow: "hidden" }}>
@@ -194,8 +272,8 @@ const styles = StyleSheet.create({
   location: { color: COLORS.textSecondary, fontSize: 12 },
   content: { marginTop: 8, fontSize: 14, color: COLORS.text, lineHeight: 20 },
   media: {
-    width: width * 0.7,
-    height: width * 0.4,
+    width: width * 0.9,
+    height: width * 0.5,
     borderRadius: 12,
     marginRight: 12,
   },
@@ -205,7 +283,25 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginRight: 16,
   },
-  reactionText: { marginLeft: 6, fontSize: 13, color: COLORS.textSecondary },
+  reactionText: { marginLeft: 6, fontSize: 14, color: COLORS.textSecondary },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "flex-end",
+    alignItems: "center",
+  },
+  reactionPicker: {
+    flexDirection: "row",
+    backgroundColor: "#fff",
+    padding: 12,
+    borderRadius: 40,
+    marginBottom: 80,
+    elevation: 6,
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
+  reactionOption: { alignItems: "center", marginHorizontal: 10 },
+  reactionLabel: { fontSize: 12, marginTop: 4 },
   commentItem: { flexDirection: "row", alignItems: "center", marginTop: 8 },
   commentText: { marginLeft: 8, color: COLORS.textSecondary },
 });
