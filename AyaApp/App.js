@@ -15,6 +15,7 @@ import HealthScreen from "./screens/HealthScreen";
 import ReactionGame from "./screens/Learning/ReactionGame";
 import PoliceGame from "./screens/Learning/PoliceGame";
 import EmergencyScreen from "./screens/EmergencyScreen";
+import MapViewScreen from "./screens/MapViewScreen";
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -127,6 +128,7 @@ const App = () => (
       <Stack.Screen name="ReactionGame" component={ReactionGame} />
       <Stack.Screen name="PoliceGame" component={PoliceGame} />
       <Stack.Screen name="EmergancyScreen" component={EmergencyScreen} />
+      <Stack.Screen name="MapViewScreen" component={MapViewScreen} />
     </Stack.Navigator>
   </NavigationContainer>
 );

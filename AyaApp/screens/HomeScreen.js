@@ -315,7 +315,12 @@ const QuickActions = () => {
   const navigation = useNavigation();
 
   const actions = [
-    { icon: "navigate-outline", color: PRIMARY, text: "Safe Route" },
+    {
+      icon: "navigate-outline",
+      color: PRIMARY,
+      text: "Safe Route",
+      onPress: () => navigation.navigate("MapViewScreen"),
+    },
     {
       icon: "call-outline",
       color: "#e1170cff",
