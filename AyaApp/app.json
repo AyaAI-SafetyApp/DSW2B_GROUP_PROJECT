@@ -8,7 +8,7 @@
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/Logos/Aya_Logo.png",
+      "image": "./assets/Logos/Aya_Logo.png"
     },
     "ios": {
       "supportsTablet": true,
@@ -18,7 +18,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/Logos/Aya_Logo.png",
+        "foregroundImage": "./assets/Logos/Aya_Logo.png"
       },
       "edgeToEdgeEnabled": true,
       "permissions": [
@@ -29,7 +29,8 @@
       "favicon": "./assets/Logos/Aya_Logo.png"
     },
     "plugins": [
-      "expo-av"
+      "expo-av",
+      "react-native-video"
     ]
   }
 }

@@ -7,7 +7,7 @@ import Ionicons from "react-native-vector-icons/Ionicons";
 
 // Screens
 import HomeScreen from "./screens/HomeScreen";
-import CommunityScreen from "./screens/CommunityScreen";
+import CommunityScreen from "./screens/NewsFeed/Newsfeed";
 import SOSScreen from "./screens/SosScreen";
 import LearningScreen from "./screens/Learning/LearningScreen";
 import TherapistScreen from "./screens/TherapistScreen";

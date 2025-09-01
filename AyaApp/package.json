@@ -20,7 +20,8 @@
     "axios": "^1.11.0",
     "expo": "~53.0.20",
     "expo-audio": "^0.4.8",
-    "expo-av": "^15.1.7",
+    "expo-av": "~15.1.7",
+    "expo-blur": "~14.1.5",
     "expo-haptics": "~14.1.4",
     "expo-image-picker": "^16.1.4",
     "expo-linear-gradient": "~14.1.5",
@@ -55,6 +56,7 @@
     "react-native-svg": "^15.11.2",
     "react-native-url-polyfill": "^2.0.0",
     "react-native-vector-icons": "^10.3.0",
+    "react-native-video": "^6.16.1",
     "react-native-web": "^0.20.0",
     "react-native-webview": "^13.15.0"
   },

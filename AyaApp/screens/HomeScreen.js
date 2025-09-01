@@ -42,18 +42,21 @@ const newsData = [
 ];
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
+  container: { flex: 1, backgroundColor: "#ffffffff" },
   scrollView: { flex: 1 },
+
+  /* ------------------------- Header ------------------------- */
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingTop: Platform.OS === "ios" ? 0 : 44,
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === "ios" ? 50 : 44,
     paddingBottom: 16,
+    backgroundColor: "#fff",
   },
   headerLeft: { flexDirection: "row", alignItems: "center" },
-  logoImage: { width: 40, height: 40, resizeMode: "contain" },
+  logoImage: { width: 44, height: 44, resizeMode: "contain" },
   statusDot: { width: 10, height: 10, borderRadius: 5, marginLeft: 8 },
   headerRight: { flexDirection: "row", alignItems: "center" },
   headerButton: { marginLeft: 16, position: "relative" },
@@ -67,65 +70,82 @@ const styles = StyleSheet.create({
     backgroundColor: "#FF3B30",
   },
   profilePicture: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: PRIMARY,
     alignItems: "center",
     justifyContent: "center",
   },
+
+  /* ------------------------- Location Banner ------------------------- */
   locationBanner: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#F9F9F9",
-    marginHorizontal: 16,
+    justifyContent: "space-between",
+    backgroundColor: "#F9FAFB", // subtle soft background
+    marginHorizontal: 20,
     marginTop: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 0.4,
-    borderColor: "#E5E7EB",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 24, // nice pill shape
   },
   locationText: {
-    fontSize: 15,
-    fontWeight: "500",
-    color: "#1C2526",
-    marginHorizontal: 8,
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#111827", // darker, cleaner text
+    flex: 1, // allow text to take available space
   },
-  liveIndicator: { flexDirection: "row", alignItems: "center" },
+  liveIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginLeft: 12,
+  },
   liveDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     backgroundColor: "#34C759",
     marginRight: 6,
   },
-  liveText: { fontSize: 13, color: "#8E8E93", fontWeight: "500" },
+  liveText: {
+    fontSize: 13,
+    color: "#6B7280", // slightly lighter gray for subtlety
+    fontWeight: "500",
+  },
+
+  /* ------------------------- Risk Card ------------------------- */
   riskCard: {
-    backgroundColor: "#FFFFFF",
-    marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 18,
-    padding: 20,
-    borderWidth: 0.5,
-    borderColor: "#E5E7EB",
-    elevation: 3,
+    backgroundColor: "#F9FAFB", // subtle off-white for clean look
+    marginHorizontal: 20,
+    marginTop: 20,
+    borderRadius: 24,
+    padding: 24,
   },
   riskHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: 20,
   },
-  riskTitleContainer: { flexDirection: "row", alignItems: "center" },
+  riskTitleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   riskTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#1C2526",
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#111827", // darker, sharper
     marginLeft: 8,
   },
-  riskContent: { flexDirection: "column", alignItems: "center" },
-  progressSection: { position: "relative", marginBottom: 20 },
+  riskContent: {
+    flexDirection: "column",
+    alignItems: "center",
+  },
+  progressSection: {
+    position: "relative",
+    marginBottom: 24,
+  },
   progressCenter: {
     position: "absolute",
     top: 0,
@@ -135,71 +155,80 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  percentageText: { fontSize: 22, fontWeight: "700" },
-  riskLabel: {
-    fontSize: 12,
-    color: "#8E8E93",
-    fontWeight: "500",
-    marginTop: 4,
+  percentageText: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: PRIMARY,
   },
-  riskDetails: { width: "100%" },
-  riskDescription: {
+  riskLabel: {
     fontSize: 14,
-    color: "#6B7280",
-    lineHeight: 22,
-    marginBottom: 12,
+    color: "#6B7280", // subtle gray for secondary info
+    fontWeight: "500",
+    marginTop: 6,
+  },
+  riskDetails: {
+    width: "100%",
+  },
+  riskDescription: {
+    fontSize: 15,
+    color: "#4B5563", // slightly darker for readability
+    lineHeight: 24,
+    marginBottom: 16,
     textAlign: "center",
   },
+
+  /* ------------------------- Quick Actions ------------------------- */
   quickActions: {
     flexDirection: "row",
-    paddingHorizontal: 16,
-    marginTop: 24,
+    paddingHorizontal: 20,
+    marginTop: 28,
     justifyContent: "space-between",
   },
   quickActionItem: { alignItems: "center", flex: 1 },
   quickActionIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 8,
   },
   quickActionText: {
     fontSize: 13,
-    color: "#6B7280",
-    fontWeight: "500",
+    color: "#4B5563",
+    fontWeight: "600",
     textAlign: "center",
   },
-  newsSection: { paddingHorizontal: 16, marginTop: 24, marginBottom: 30 },
+
+  /* ------------------------- News Section ------------------------- */
+  newsSection: { paddingHorizontal: 20, marginTop: 28, marginBottom: 32 },
   newsSectionHeader: {
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 16,
   },
   sectionTitle: {
-    fontSize: 17,
-    fontWeight: "600",
+    fontSize: 18,
+    fontWeight: "700",
     color: "#1C2526",
     marginLeft: 8,
   },
   newsItem: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 14,
+    backgroundColor: "#fff",
+    borderRadius: 18,
     padding: 16,
-    marginBottom: 8,
+    marginBottom: 10,
     borderWidth: 0.5,
     borderColor: "#E5E7EB",
-    elevation: 2,
   },
   newsIndicator: { width: 4, height: 36, borderRadius: 2, marginRight: 12 },
-  newsLogo: { width: 24, height: 24, marginRight: 8, borderRadius: 4 },
+  newsLogo: { width: 28, height: 28, marginRight: 8, borderRadius: 6 },
   newsContent: { flex: 1 },
   newsTitle: {
     fontSize: 15,
-    fontWeight: "500",
+    fontWeight: "600",
     color: "#1C2526",
     marginBottom: 4,
     lineHeight: 20,
@@ -209,6 +238,7 @@ const styles = StyleSheet.create({
   newsTime: { fontSize: 13, color: "#8E8E93", marginLeft: 8 },
 });
 
+/* ------------------------- Components ------------------------- */
 const Header = ({ riskColor }) => (
   <View style={styles.header}>
     <View style={styles.headerLeft}>
@@ -454,6 +484,7 @@ const HomeScreen = () => {
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 32 }}
       >
         <LocationBanner location={currentLocation} />
         <RiskCard crimeProbability={crimeProbability} />
