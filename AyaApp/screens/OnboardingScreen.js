@@ -1,401 +1,311 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, useCallback, memo } from "react";
 import {
   View,
   Text,
   Image,
   StyleSheet,
-  TouchableOpacity,
   Dimensions,
   SafeAreaView,
-  ScrollView,
   Animated,
+  FlatList,
+  TouchableOpacity,
   Easing,
-} from 'react-native';
-import { ChevronRight, Mic, Shield, MapPin, Smartphone, AlertTriangle, Wifi, WifiOff } from 'lucide-react-native';
-import { useNavigation } from '@react-navigation/native';
-import { LinearGradient } from 'expo-linear-gradient';
+} from "react-native";
+import { ChevronRight } from "lucide-react-native";
+import { useNavigation } from "@react-navigation/native";
+import { LinearGradient } from "expo-linear-gradient";
+import * as Haptics from "expo-haptics";
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get("window");
+
+const screens = [
+  {
+    id: "voice-activation",
+    title: "Your Voice is Your Shield",
+    subtitle: "Instant emergency response with just your voice",
+    description:
+      'Simply say "Dear Lord" or "Aya" and we\'ll immediately activate emergency assistance - even when you can\'t reach your phone.',
+    image: require("../assets/2.png"),
+    gradient: ["#d63384", "#e55fa8"],
+  },
+  {
+    id: "smart-detection",
+    title: "AI-Powered Protection",
+    subtitle: "Advanced sensors detect danger automatically",
+    description:
+      "Our intelligent system monitors for falls, assaults, and emergencies using cutting-edge AI models and sensor technology.",
+    image: require("../assets/3.png"),
+    gradient: ["#d63384", "#e55fa8"],
+  },
+  {
+    id: "crime-aware-routing",
+    title: "Stay One Step Ahead",
+    subtitle: "Real-time crime data keeps you safer",
+    description:
+      "Navigate confidently with routes optimized using real SAPS crime data, helping you avoid high-risk areas day and night.",
+    image: require("../assets/2.png"),
+    gradient: ["#d63384", "#e55fa8"],
+  },
+  {
+    id: "ai-emergency-assistant",
+    title: "Automated Help on Call",
+    subtitle: "AI contacts authorities instantly",
+    description:
+      "Aya can automatically call emergency contacts or authorities if you’re unable to do so.",
+    image: require("../assets/2.png"),
+    gradient: ["#d63384", "#e55fa8"],
+  },
+  {
+    id: "offline-mode",
+    title: "Always Ready, Online or Offline",
+    subtitle: "Safety features work without internet",
+    description:
+      "Aya ensures your safety even in areas with no internet connectivity by using offline emergency protocols.",
+    image: require("../assets/2.png"),
+    gradient: ["#d63384", "#e55fa8"],
+  },
+];
+
+const ProgressDots = memo(({ total, current }) => (
+  <View style={styles.progressContainer}>
+    {Array.from({ length: total }).map((_, index) => {
+      const isActive = index === current;
+      return (
+        <Animated.View
+          key={index}
+          style={[
+            styles.progressDot,
+            {
+              backgroundColor: isActive ? "#d63384" : "#afafaf",
+              transform: [{ scale: isActive ? 1.2 : 1 }],
+            },
+          ]}
+        />
+      );
+    })}
+  </View>
+));
 
 const OnboardingScreen = () => {
-  const [currentScreen, setCurrentScreen] = useState(0);
-  const pulseAnim = new Animated.Value(1);
-  const bounceAnim = new Animated.Value(0);
   const navigation = useNavigation();
+  const scrollX = useRef(new Animated.Value(0)).current;
+  const [currentScreen, setCurrentScreen] = useState(0);
 
-  // Animation setup
-  React.useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.2,
-          duration: 1000,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 1000,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true
-        })
-      ])
-    ).start();
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const bounceAnim = useRef(new Animated.Value(0)).current;
+  const imageBounce = useRef(new Animated.Value(0)).current;
 
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(bounceAnim, {
-          toValue: 15,
-          duration: 1000,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true
-        }),
-        Animated.timing(bounceAnim, {
-          toValue: 0,
-          duration: 1000,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true
-        })
-      ])
-    ).start();
+  useEffect(() => {
+    const createLoop = (anim, toValue, duration, type = "scale") =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(anim, {
+            toValue,
+            duration,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(anim, {
+            toValue: type === "scale" ? 1 : 0,
+            duration,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+
+    createLoop(pulseAnim, 1.2, 1000, "scale");
+    createLoop(bounceAnim, 15, 1000, "translate");
+    createLoop(imageBounce, -10, 1000, "translate");
   }, []);
 
-  const screens = [
-  {
-    id: 'voice-activation',
-    title: 'Your Voice is Your Shield',
-    subtitle: 'Instant emergency response with just your voice',
-    description: 'Simply say "Dear Lord" or "Aya" and we\'ll immediately activate emergency assistance - even when you can\'t reach your phone.',
-    image: require('../assets/2.png'),
-    gradient: ['#7c5db9ff', '#a47df1'], 
-  },
-  {
-    id: 'smart-detection',
-    title: 'AI-Powered Protection',
-    subtitle: 'Advanced sensors detect danger automatically',
-    description: 'Our intelligent system monitors for falls, assaults, and emergencies using cutting-edge AI models and sensor technology.',
-    image: require('../assets/3.png'),
-    gradient: ['#7c5db9ff', '#a47df1'],
-  },
-  {
-    id: 'crime-aware-routing',
-    title: 'Stay One Step Ahead',
-    subtitle: 'Real-time crime data keeps you safer',
-    description: 'Navigate confidently with routes optimized using real SAPS crime data, helping you avoid high-risk areas day and night.',
-    image: require('../assets/4.png'),
-    gradient: ['#7c5db9ff', '#a47df1'],
-  }
+  const renderScreen = useCallback(
+    ({ item, index }) => {
+      const inputRange = [
+        (index - 1) * width,
+        index * width,
+        (index + 1) * width,
+      ];
+
+      const fade = scrollX.interpolate({
+        inputRange,
+        outputRange: [0, 1, 0],
+        extrapolate: "clamp",
+      });
+
+      return (
+        <View style={styles.screenContainer}>
+          <Animated.View
+            style={{
+              transform: [{ translateY: imageBounce }],
+              flex: 0.6,
+              justifyContent: "center",
+            }}
+          >
+            <Image
+              source={item.image}
+              style={styles.screenImage}
+              resizeMode="contain"
+            />
+          </Animated.View>
+
+          <View style={[styles.textContainer, { flex: 0.4 }]}>
+            <Animated.Text style={[styles.title, { opacity: fade }]}>
+              {item.title}
+            </Animated.Text>
+
+            <Animated.Text style={[styles.description, { opacity: fade }]}>
+              {item.description}
+            </Animated.Text>
+            {currentScreen < screens.length - 1 && index === currentScreen && (
+              <Text style={styles.swipeHint}>Swipe →</Text>
+            )}
+          </View>
+        </View>
+      );
+    },
+    [currentScreen]
+  );
+
+  const circles = [
+    { top: 40, left: 40, size: 128, anim: pulseAnim, animType: "pulse" },
+    { top: 128, right: 64, size: 80, anim: bounceAnim, animType: "bounce" },
+    { bottom: 80, left: 80, size: 96, anim: bounceAnim, animType: "bounce" },
+    { bottom: 160, right: 40, size: 64, anim: pulseAnim, animType: "pulse" },
   ];
-
-
-  const nextScreen = () => {
-    if (currentScreen < screens.length - 1) {
-      setCurrentScreen(currentScreen + 1);
-    } else {
-      navigation.navigate('Login');
-    }
-  };
-
-  const prevScreen = () => {
-    if (currentScreen > 0) {
-      setCurrentScreen(currentScreen - 1);
-    }
-  };
-
-  const currentScreenData = screens[currentScreen];
 
   return (
     <SafeAreaView style={styles.container}>
-      
-      {/* Animated background pattern */}
-      <View style={styles.backgroundPattern}>
-        <Animated.View style={[
-          styles.circle,
-          { 
-            top: 40, 
-            left: 40, 
-            width: 128, 
-            height: 128, 
-            transform: [{ scale: pulseAnim }],
-            borderColor: currentScreenData.gradient[0]
-          }
-        ]} />
-        <Animated.View style={[
-          styles.circle,
-          { 
-            top: 128, 
-            right: 64, 
-            width: 80, 
-            height: 80, 
-            opacity: bounceAnim.interpolate({
-              inputRange: [0, 15],
-              outputRange: [0.5, 0]
-            }),
-            borderColor: currentScreenData.gradient[1]
-          }
-        ]} />
-        <Animated.View style={[
-          styles.circle,
-          { 
-            bottom: 80, 
-            left: 80, 
-            width: 96, 
-            height: 96, 
-            transform: [{ translateY: bounceAnim }],
-            borderColor: currentScreenData.gradient[0]
-          }
-        ]} />
-        <Animated.View style={[
-          styles.circle,
-          { 
-            bottom: 160, 
-            right: 40, 
-            width: 64, 
-            height: 64, 
-            transform: [{ scale: pulseAnim }],
-            borderColor: currentScreenData.gradient[1]
-          }
-        ]} />
+      <View style={styles.header}>
+        <Image
+          source={require("../assets/Logos/Aya_AI_Logo.png")}
+          style={styles.logoImage}
+        />
+        <Text style={styles.appTagline}>Your Personal Safety Guardian</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.appName}>AYA</Text>
-          <Text style={styles.appTagline}>Your Personal Safety Guardian</Text>
-        </View>
+      <Animated.FlatList
+        data={screens}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        renderItem={renderScreen}
+        keyExtractor={(item) => item.id}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+          { useNativeDriver: true }
+        )}
+        onMomentumScrollEnd={(e) => {
+          const index = Math.round(e.nativeEvent.contentOffset.x / width);
+          setCurrentScreen(index);
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }}
+      />
 
-        {/* Main content */}
-        <View style={styles.contentContainer}>
-          {/* Icon */}
-          <View>
-            <LinearGradient
-              colors={currentScreenData.gradient}
-              style={[styles.iconBackground, { opacity: 0.2 }]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            />
-            <View style={styles.iconWrapper}>
-              <Image
-                source={currentScreenData.image}
-                style={styles.screenImage}
-                resizeMode="contain"
-              />
-            </View>
+      <ProgressDots total={screens.length} current={currentScreen} />
 
-          </View>
-
-          {/* Title and description */}
-          <View style={styles.textContainer}>
-            <Text style={styles.title}>{currentScreenData.title}</Text>
-            <Text style={styles.subtitle}>{currentScreenData.subtitle}</Text>
-            <Text style={styles.description}>{currentScreenData.description}</Text>
-          </View>
-        </View>
-
-        {/* Progress indicators */}
-        <View style={styles.progressContainer}>
-          {screens.map((_, index) => (
-            <View
-              key={index}
-              style={[
-                styles.progressDot,
-                index === currentScreen 
-                  ? { backgroundColor: currentScreenData.gradient[0] }
-                  : index < currentScreen 
-                    ? { backgroundColor: '#afafafff' }
-                    : { backgroundColor: '#afafafff' }
-              ]}
-            />
-          ))}
-        </View>
-      </ScrollView>
-
-      {/* Navigation */}
-      <View style={styles.navigationContainer}>
-        <View style={styles.buttonRow}>
-          {currentScreen === 0 ? (
-            <TouchableOpacity 
-              onPress={() => setCurrentScreen(screens.length - 1)}
-              style={styles.navButton}
-            >
-              <Text style={styles.skipButtonText}>Skip</Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              onPress={prevScreen}
-              style={styles.navButton}
-            >
-              <Text style={styles.backButtonText}>Back</Text>
-            </TouchableOpacity>
-          )}
-
-          {/* Next/Get Started button */}
+      {currentScreen === screens.length - 1 && (
+        <View style={styles.navigationContainer}>
           <TouchableOpacity
-            onPress={nextScreen}
-            style={[
-              styles.navButton,
-              styles.nextButton,
-              { backgroundColor: currentScreenData.gradient[0] },
-              currentScreen === screens.length - 1 && styles.getStartedButton
-            ]}
+            onPress={() => {
+              Haptics.notificationAsync(
+                Haptics.NotificationFeedbackType.Success
+              );
+              navigation.replace("CreateCredential");
+            }}
+            style={[styles.nextButton, { backgroundColor: "#d63384" }]}
           >
-            <Text style={styles.nextButtonText}>
-              {currentScreen === screens.length - 1 ? 'Get Started' : 'Continue'}
-            </Text>
+            <Text style={styles.nextButtonText}>Get Started</Text>
             <ChevronRight size={16} color="white" />
           </TouchableOpacity>
         </View>
-      </View>
+      )}
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: 'white',
-  },
-  scrollContainer: {
-    flexGrow: 1,
-    paddingBottom: 120,
-  },
-  backgroundGradient: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
+  container: { flex: 1, backgroundColor: "white" },
   backgroundPattern: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
     opacity: 0.1,
   },
-  circle: {
-    position: 'absolute',
-    borderRadius: 9999,
-    borderWidth: 1,
-  },
-  header: {
-    paddingTop: 64,
-    paddingBottom: 32,
-    alignItems: 'center',
-  },
-  appName: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#1f2937',
-    marginBottom: 4,
-  },
-  appTagline: {
-    fontSize: 14,
-    color: '#6b7280',
-  },
-  progressContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginBottom: 48,
-    paddingHorizontal: 16,
-  },
-  progressDot: {
-    width: 25,
-    height: 8,
-    borderRadius: 6,
-    marginHorizontal: 6,
-  },
-  contentContainer: {
+  header: { paddingTop: 64, paddingBottom: 32, alignItems: "center" },
+  logoImage: { width: 44, height: 44, resizeMode: "contain" },
+  appTagline: { fontSize: 14, color: "#6b7280" },
+  screenContainer: {
+    width,
     flex: 1,
-    paddingHorizontal: 32,
-    alignItems: 'center',
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 10,
   },
+  iconBackground: {
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    marginBottom: 10,
+  },
+  screenImage: { width: 200, height: 250 },
   textContainer: {
-    marginBottom: 48,
-    maxWidth: width * 0.8,
+    width: width * 0.8,
+    alignItems: "center",
+    justifyContent: "flex-start",
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#111827',
-    textAlign: 'center',
+    fontWeight: "bold",
+    textAlign: "center",
     marginBottom: 12,
+    color: "#111827",
   },
   subtitle: {
     fontSize: 18,
-    color: '#4b5563',
-    textAlign: 'center',
+    fontWeight: "500",
+    textAlign: "center",
     marginBottom: 16,
-    fontWeight: '500',
+    color: "#4b5563",
   },
   description: {
     fontSize: 14,
-    color: '#6b7280',
-    textAlign: 'center',
+    color: "#6b7280",
+    textAlign: "center",
     lineHeight: 20,
   },
-  navigationContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 32,
-    paddingBottom: 48,
-    backgroundColor: 'white',
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  navButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 9999,
-  },
-  disabledButton: {
-    opacity: 0.5,
-  },
-  navButtonText: {
+  swipeHint: {
     fontSize: 14,
-    fontWeight: '500',
+    color: "#d63384",
+    marginTop: 24,
+    fontWeight: "600",
   },
-  backButtonText: {
-    color: '#6b7280',
+  progressContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginBottom: 48,
   },
-  disabledButtonText: {
-    color: '#d1d5db',
+  progressDot: { width: 25, height: 8, borderRadius: 6, marginHorizontal: 6 },
+  navigationContainer: {
+    position: "absolute",
+    bottom: 40,
+    left: 32,
+    right: 32,
   },
   nextButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  getStartedButton: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 14,
+    borderRadius: 9999,
   },
   nextButtonText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '600',
+    color: "white",
+    fontSize: 16,
+    fontWeight: "600",
     marginRight: 8,
-  },
-  skipButton: {
-    alignSelf: 'center',
-  },
-  skipButtonText: {
-    color: '#9ca3af',
-    fontSize: 12,
-  },
-  screenImage: {
-    width: 200,
-    height: 250,
   },
 });
 

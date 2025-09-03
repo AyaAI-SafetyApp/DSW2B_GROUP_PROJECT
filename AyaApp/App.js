@@ -1,4 +1,4 @@
-import React, { useCallback } from "react";
+import React from "react";
 import { StyleSheet } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -16,15 +16,18 @@ import ReactionGame from "./screens/Learning/ReactionGame";
 import PoliceGame from "./screens/Learning/PoliceGame";
 import EmergencyScreen from "./screens/EmergencyScreen";
 import MapViewScreen from "./screens/MapViewScreen";
+import OnboardingScreen from "./screens/OnboardingScreen";
+import WelcomeScreen from "./screens/WelcomeScreen";
+import GetAssertion from "./screens/Auth/GetAssertion";
+import CreateCredential from "./screens/Auth/CreateCredential";
+import AccountForm from "./screens/Auth/AccountForm";
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
-// Colors & Tab Bar constants
 const COLORS = { ACTIVE: "#de0973ff", INACTIVE: "gray" };
 const TAB_BAR = { HEIGHT: 60, PADDING: 5 };
 
-// Bottom Tab Configuration
 const TABS = [
   {
     name: "Home",
@@ -74,7 +77,6 @@ const styles = StyleSheet.create({
   },
 });
 
-// Tab Bar Icon Renderer
 const getTabBarIcon = ({ route, focused, color, size }) => {
   const tabConfig = TABS.find((tab) => tab.name === route.name);
   const icon = tabConfig?.icons || {
@@ -90,7 +92,6 @@ const getTabBarIcon = ({ route, focused, color, size }) => {
   );
 };
 
-// Bottom Tabs Navigator
 const TabsNavigator = () => (
   <Tab.Navigator
     screenOptions={({ route }) => ({
@@ -119,15 +120,22 @@ const TabsNavigator = () => (
   </Tab.Navigator>
 );
 
-// Root Stack Navigator
 const App = () => (
   <NavigationContainer>
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="Tabs" component={TabsNavigator} />
+    <Stack.Navigator
+      screenOptions={{ headerShown: false }}
+      initialRouteName="Onboarding"
+    >
+      <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+      <Stack.Screen name="Welcome" component={WelcomeScreen} />
+      <Stack.Screen name="GetAssertion" component={GetAssertion} />
+      <Stack.Screen name="CreateCredential" component={CreateCredential} />
+      <Stack.Screen name="MainTabs" component={TabsNavigator} />
       <Stack.Screen name="Health" component={HealthScreen} />
       <Stack.Screen name="ReactionGame" component={ReactionGame} />
       <Stack.Screen name="PoliceGame" component={PoliceGame} />
-      <Stack.Screen name="EmergancyScreen" component={EmergencyScreen} />
+      <Stack.Screen name="EmergencyScreen" component={EmergencyScreen} />
+      <Stack.Screen name="AccountForm" component={AccountForm} />
       <Stack.Screen name="MapViewScreen" component={MapViewScreen} />
     </Stack.Navigator>
   </NavigationContainer>

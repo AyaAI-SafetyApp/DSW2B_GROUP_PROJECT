@@ -13,13 +13,18 @@
   "type": "commonjs",
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
+    "@simplewebauthn/server": "^13.1.2",
+    "base64url": "^3.0.1",
     "body-parser": "^2.2.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
+    "express-session": "^1.18.2",
+    "firebase-admin": "^13.5.0",
     "multer": "^2.0.2",
     "react-native-svg": "^15.12.1",
     "sqlite3": "^5.1.7",
-    "twilio": "^5.8.0"
+    "twilio": "^5.8.0",
+    "uuid": "^11.1.0"
   }
 }

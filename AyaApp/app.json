@@ -30,7 +30,8 @@
     },
     "plugins": [
       "expo-av",
-      "react-native-video"
+      "react-native-video",
+      "expo-web-browser"
     ]
   }
 }
