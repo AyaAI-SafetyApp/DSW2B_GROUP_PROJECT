@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -10,6 +10,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
+  LayoutAnimation,
+  UIManager,
 } from "react-native";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 
@@ -21,53 +23,86 @@ const suggestedPrompts = [
   "Severe bleeding",
 ];
 
-export default function App() {
+const API_BASE = "http://172.16.26.108:3000";
+
+if (Platform.OS === "android") {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+export default function EmergencyChat() {
   const [message, setMessage] = useState("");
   const [chat, setChat] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(true);
+  const [typing, setTyping] = useState(false);
+  const flatListRef = useRef(null);
 
   const sendMessage = async (text) => {
     if (!text.trim()) return;
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
 
     const userMsg = { id: Date.now().toString(), text, from: "user" };
-    setChat((prev) => [...prev, userMsg]);
+    setChat((prev) => [userMsg, ...prev]);
     setMessage("");
     setLoading(true);
-    setShowSuggestions(false); // Hide suggestions after first message
+    setShowSuggestions(false);
+    setTyping(true);
 
     try {
-      const res = await fetch("http://172.16.26.108:3000/chat", {
+      const res = await fetch(`${API_BASE}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: text }),
       });
       const data = await res.json();
+
       const botMsg = {
         id: (Date.now() + 1).toString(),
         text: data.incident
           ? data.incident.instructions.join("\n")
-          : "No response",
+          : "No response from server",
         from: "bot",
       };
-      setChat((prev) => [...prev, botMsg]);
+
+      setTimeout(() => {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        setChat((prev) => [botMsg, ...prev]);
+        setTyping(false);
+        setLoading(false);
+      }, 800);
     } catch (e) {
       const errorMsg = {
         id: (Date.now() + 2).toString(),
         text: "Error: could not reach server",
         from: "bot",
       };
-      setChat((prev) => [...prev, errorMsg]);
-    } finally {
+      setChat((prev) => [errorMsg, ...prev]);
+      setTyping(false);
       setLoading(false);
     }
   };
 
-  const handleSuggestionPress = (prompt) => {
-    setMessage(prompt);
-    // Optionally auto-send the message
-    // sendMessage(prompt);
-  };
+  const handleSuggestionPress = (prompt) => setMessage(prompt);
+
+  const renderChatBubble = ({ item }) => (
+    <View
+      style={[styles.bubble, item.from === "user" ? styles.user : styles.bot]}
+    >
+      <Text style={styles.text}>{item.text}</Text>
+    </View>
+  );
+
+  const renderPromptButton = (prompt, index) => (
+    <TouchableOpacity
+      key={index}
+      style={styles.promptButton}
+      activeOpacity={0.7}
+      onPress={() => handleSuggestionPress(prompt)}
+    >
+      <Icon name="alert-circle" size={16} color="#d32f2f" />
+      <Text style={styles.promptText}>{prompt}</Text>
+    </TouchableOpacity>
+  );
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -77,52 +112,36 @@ export default function App() {
         keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
       >
         {/* Header */}
-        <View style={styles.header}></View>
+        <View style={styles.header}>
+          <Icon name="alert-circle-outline" size={24} color="#d32f2f" />
+          <Text style={styles.headerTitle}>Emergency Chat</Text>
+        </View>
 
         {/* Chat Messages */}
         <FlatList
+          ref={flatListRef}
           data={chat}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <View
-              style={[
-                styles.bubble,
-                item.from === "user" ? styles.user : styles.bot,
-              ]}
-            >
-              <Text style={styles.text}>{item.text}</Text>
-            </View>
-          )}
-          contentContainerStyle={{
-            paddingBottom: 10,
-            paddingTop: 10,
-            flexGrow: 1,
-          }}
+          renderItem={renderChatBubble}
+          contentContainerStyle={{ paddingVertical: 10 }}
           style={styles.chatContainer}
+          inverted
         />
 
-        {loading && (
-          <View style={styles.loading}>
+        {/* Typing Indicator */}
+        {typing && (
+          <View style={styles.typingIndicator}>
             <ActivityIndicator size="small" color="#d32f2f" />
-            <Text style={styles.loadingText}>Aya is analyzing...</Text>
+            <Text style={styles.loadingText}>Aya is typing...</Text>
           </View>
         )}
 
         {/* Suggested Prompts Section */}
-        {showSuggestions && (
+        {showSuggestions && !loading && (
           <View style={styles.promptSection}>
             <Text style={styles.promptSectionTitle}>Emergency Prompts</Text>
             <View style={styles.promptGrid}>
-              {suggestedPrompts.map((prompt, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={styles.promptButton}
-                  onPress={() => handleSuggestionPress(prompt)}
-                >
-                  <Icon name="alert-circle" size={16} color="#d32f2f" />
-                  <Text style={styles.promptText}>{prompt}</Text>
-                </TouchableOpacity>
-              ))}
+              {suggestedPrompts.map(renderPromptButton)}
             </View>
           </View>
         )}
@@ -136,11 +155,15 @@ export default function App() {
             onChangeText={setMessage}
             multiline
             maxLength={500}
+            editable={!loading}
           />
           <TouchableOpacity
-            style={[styles.sendButton, { opacity: message.trim() ? 1 : 0.5 }]}
+            style={[
+              styles.sendButton,
+              { opacity: message.trim() && !loading ? 1 : 0.5 },
+            ]}
             onPress={() => sendMessage(message)}
-            disabled={!message.trim()}
+            disabled={!message.trim() || loading}
           >
             <Icon name="send" size={20} color="#fff" />
           </TouchableOpacity>
@@ -151,103 +174,106 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: "#f5f5f5",
-  },
-  container: {
-    flex: 1,
-    paddingHorizontal: 15,
-  },
+  safeArea: { flex: 1, backgroundColor: "#f8f8f8" },
+  container: { flex: 1, paddingHorizontal: 19 },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 25,
+    paddingVertical: 20,
     paddingHorizontal: 5,
     borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
+    borderBottomColor: "#e5e5e5",
+    backgroundColor: "#fff",
+    shadowColor: "#000",
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 2,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 19,
     fontWeight: "600",
-    color: "#333",
+    color: "#222",
     marginLeft: 10,
   },
-  chatContainer: {
-    flex: 1,
-    marginVertical: 10,
-  },
+  chatContainer: { flex: 1 },
   inputContainer: {
     flexDirection: "row",
-    marginVertical: 10,
+    marginVertical: 12,
     alignItems: "flex-end",
   },
   input: {
     flex: 1,
     borderWidth: 1,
     borderColor: "#ddd",
-    borderRadius: 25,
+    borderRadius: 30,
     paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingVertical: 14,
     backgroundColor: "#fff",
     fontSize: 16,
-    maxHeight: 100,
+    maxHeight: 120,
     textAlignVertical: "top",
-  },
-  sendButton: {
-    backgroundColor: "#d32f2f",
-    padding: 12,
-    marginLeft: 10,
-    borderRadius: 25,
-    justifyContent: "center",
-    alignItems: "center",
-    minWidth: 48,
-    minHeight: 48,
-  },
-  bubble: {
-    marginVertical: 3,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    maxWidth: "85%",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.05,
     shadowRadius: 2,
-    elevation: 2,
+    elevation: 1,
+  },
+  sendButton: {
+    backgroundColor: "#de0973",
+    padding: 14,
+    marginLeft: 10,
+    borderRadius: 28,
+    justifyContent: "center",
+    alignItems: "center",
+    minWidth: 50,
+    minHeight: 50,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  bubble: {
+    marginVertical: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 22,
+    maxWidth: "80%",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 1,
   },
   user: {
     alignSelf: "flex-end",
-    backgroundColor: "#e3f2fd",
-    borderBottomRightRadius: 5,
+    backgroundColor: "#e1f5fe",
+    borderBottomRightRadius: 8,
   },
   bot: {
     alignSelf: "flex-start",
     backgroundColor: "#fff",
-    borderBottomLeftRadius: 5,
+    borderBottomLeftRadius: 8,
   },
-  text: {
-    color: "#333",
-    fontSize: 15,
-    lineHeight: 20,
-  },
-  loading: {
-    alignItems: "center",
-    marginVertical: 10,
-    paddingVertical: 5,
-  },
+  text: { color: "#333", fontSize: 16, lineHeight: 22 },
   loadingText: {
     color: "#888",
     fontSize: 13,
-    marginTop: 5,
+    marginLeft: 6,
     fontStyle: "italic",
   },
+  typingIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+  },
   promptSection: {
-    marginVertical: 10,
-    paddingVertical: 15,
-    paddingHorizontal: 5,
+    marginVertical: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 8,
     backgroundColor: "#fff",
-    borderRadius: 12,
+    borderRadius: 14,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
@@ -255,10 +281,10 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   promptSectionTitle: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: "600",
-    color: "#333",
-    marginBottom: 12,
+    color: "#222",
+    marginBottom: 14,
     textAlign: "center",
   },
   promptGrid: {
@@ -269,20 +295,20 @@ const styles = StyleSheet.create({
   promptButton: {
     flexDirection: "row",
     backgroundColor: "#fafafa",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginBottom: 8,
-    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 10,
+    borderRadius: 22,
     alignItems: "center",
     borderWidth: 1,
     borderColor: "#e0e0e0",
-    width: "48%", // Two columns
-    minHeight: 40,
+    width: "48%",
+    minHeight: 42,
   },
   promptText: {
     color: "#555",
-    fontSize: 13,
-    marginLeft: 6,
+    fontSize: 14,
+    marginLeft: 8,
     flex: 1,
     flexWrap: "wrap",
   },

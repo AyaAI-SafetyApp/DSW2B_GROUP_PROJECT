@@ -355,7 +355,7 @@ const QuickActions = () => {
       icon: "call-outline",
       color: "#e1170cff",
       text: "Emergency",
-      onPress: () => navigation.navigate("EmergancyScreen"),
+      onPress: () => navigation.navigate("EmergencyScreen"),
     },
     {
       icon: "medkit-outline",

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -10,6 +10,12 @@ import {
   Animated,
   Pressable,
   TouchableWithoutFeedback,
+  Share,
+  LayoutAnimation,
+  UIManager,
+  Platform,
+  RefreshControl,
+  ScrollView,
 } from "react-native";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
 import { Video } from "expo-av";
@@ -30,14 +36,25 @@ const REACTIONS = [
   { type: "fun", icon: "emoticon-happy", label: "Fun", color: "#F59E0B" },
 ];
 
+if (
+  Platform.OS === "android" &&
+  UIManager.setLayoutAnimationEnabledExperimental
+) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
 const PostCard = ({ post, onAddReaction }) => {
   const [expanded, setExpanded] = useState(false);
   const [reactionPickerVisible, setReactionPickerVisible] = useState(false);
   const [userReaction, setUserReaction] = useState(null);
   const [animation] = useState(new Animated.Value(0));
   const pickerAnim = useRef(new Animated.Value(0)).current;
+  const [reactionCount, setReactionCount] = useState(
+    post?.reactions?.length || 0
+  );
 
   const toggleComments = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     const finalValue = expanded ? 0 : 1;
     setExpanded(!expanded);
     Animated.timing(animation, {
@@ -53,9 +70,14 @@ const PostCard = ({ post, onAddReaction }) => {
   });
 
   const handleLikePress = () => {
-    const type = userReaction || "like"; // default like
+    const type = userReaction || "like";
     onAddReaction?.(post.id, type);
     setUserReaction(type);
+    setReactionCount((prev) => prev + 1);
+    Animated.sequence([
+      Animated.timing(animation, { toValue: 1.1, duration: 100, useNativeDriver: true }),
+      Animated.timing(animation, { toValue: 1, duration: 100, useNativeDriver: true }),
+    ]).start();
   };
 
   const handleLongPress = () => {
@@ -70,12 +92,21 @@ const PostCard = ({ post, onAddReaction }) => {
   const handleSelectReaction = (type) => {
     onAddReaction?.(post.id, type);
     setUserReaction(type);
+    setReactionCount((prev) => prev + 1);
+    Animated.timing(pickerAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start(() =>
+      setReactionPickerVisible(false)
+    );
+  };
 
-    Animated.timing(pickerAnim, {
-      toValue: 0,
-      duration: 200,
-      useNativeDriver: true,
-    }).start(() => setReactionPickerVisible(false));
+  const handleShare = async () => {
+    try {
+      await Share.share({
+        message: `Check out this post: ${post.content || ""}`,
+        url: post.media?.[0]?.uri || "",
+      });
+    } catch (e) {
+      console.log("Share error:", e);
+    }
   };
 
   const currentReaction =
@@ -96,14 +127,8 @@ const PostCard = ({ post, onAddReaction }) => {
           <Text style={styles.username}>{post.username || "Anonymous"}</Text>
           {post.isVerifiedIncident && (
             <View style={styles.rewardBadge}>
-              <MaterialCommunityIcons
-                name="star"
-                size={14}
-                color={COLORS.text}
-              />
-              <Text style={styles.rewardText}>
-                {post.rewardPoints || 0} Points
-              </Text>
+              <MaterialCommunityIcons name="star" size={14} color={COLORS.text} />
+              <Text style={styles.rewardText}>{post.rewardPoints || 0} Points</Text>
             </View>
           )}
         </View>
@@ -128,8 +153,7 @@ const PostCard = ({ post, onAddReaction }) => {
                 source={{ uri: item.uri }}
                 style={styles.media}
                 resizeMode="cover"
-                shouldPlay
-                isLooping
+                useNativeControls
               />
             )
           }
@@ -140,7 +164,6 @@ const PostCard = ({ post, onAddReaction }) => {
 
       {/* Reaction Bar */}
       <View style={styles.reactionBar}>
-        {/* Like Button */}
         <Pressable
           style={styles.reactionButton}
           onPress={handleLikePress}
@@ -151,38 +174,25 @@ const PostCard = ({ post, onAddReaction }) => {
             size={20}
             color={userReaction ? currentReaction.color : COLORS.textSecondary}
           />
-          <Text
-            style={[
-              styles.reactionText,
-              userReaction && {
-                color: currentReaction.color,
-                fontWeight: "600",
-              },
-            ]}
-          >
-            {currentReaction.label}
+          <Text style={[styles.reactionText, userReaction && { color: currentReaction.color, fontWeight: "600" }]}>
+            {currentReaction.label} {reactionCount > 0 && `(${reactionCount})`}
           </Text>
         </Pressable>
 
-        {/* Comment Button */}
-        <TouchableOpacity
-          onPress={toggleComments}
-          style={styles.reactionButton}
-        >
-          <MaterialCommunityIcons
-            name="comment-outline"
-            size={20}
-            color={COLORS.textSecondary}
-          />
+        <TouchableOpacity onPress={toggleComments} style={styles.reactionButton}>
+          <MaterialCommunityIcons name="comment-outline" size={20} color={COLORS.textSecondary} />
           <Text style={styles.reactionText}>{post.comments?.length || 0}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={handleShare} style={styles.reactionButton}>
+          <MaterialCommunityIcons name="share-outline" size={20} color={COLORS.textSecondary} />
+          <Text style={styles.reactionText}>Share</Text>
         </TouchableOpacity>
       </View>
 
       {/* Reaction Picker Overlay */}
       {reactionPickerVisible && (
-        <TouchableWithoutFeedback
-          onPress={() => setReactionPickerVisible(false)}
-        >
+        <TouchableWithoutFeedback onPress={() => setReactionPickerVisible(false)}>
           <View style={styles.overlay}>
             <Animated.View
               style={[
@@ -190,10 +200,7 @@ const PostCard = ({ post, onAddReaction }) => {
                 {
                   transform: [
                     {
-                      scale: pickerAnim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [0.7, 1],
-                      }),
+                      scale: pickerAnim.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] }),
                     },
                   ],
                   opacity: pickerAnim,
@@ -201,19 +208,9 @@ const PostCard = ({ post, onAddReaction }) => {
               ]}
             >
               {REACTIONS.map((r) => (
-                <TouchableOpacity
-                  key={r.type}
-                  style={styles.reactionOption}
-                  onPress={() => handleSelectReaction(r.type)}
-                >
-                  <MaterialCommunityIcons
-                    name={r.icon}
-                    size={28}
-                    color={r.color}
-                  />
-                  <Text style={[styles.reactionLabel, { color: r.color }]}>
-                    {r.label}
-                  </Text>
+                <TouchableOpacity key={r.type} style={styles.reactionOption} onPress={() => handleSelectReaction(r.type)}>
+                  <MaterialCommunityIcons name={r.icon} size={28} color={r.color} />
+                  <Text style={[styles.reactionLabel, { color: r.color }]}>{r.label}</Text>
                 </TouchableOpacity>
               ))}
             </Animated.View>
@@ -226,11 +223,7 @@ const PostCard = ({ post, onAddReaction }) => {
         {expanded &&
           post.comments?.map((c) => (
             <View key={c.id} style={styles.commentItem}>
-              <MaterialCommunityIcons
-                name="account-circle"
-                size={28}
-                color={COLORS.primary}
-              />
+              <MaterialCommunityIcons name="account-circle" size={28} color={COLORS.primary} />
               <Text style={styles.commentText}>{c.text}</Text>
             </View>
           ))}
@@ -263,32 +256,14 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     marginLeft: 8,
   },
-  rewardText: {
-    color: COLORS.text,
-    fontSize: 12,
-    fontWeight: "600",
-    marginLeft: 4,
-  },
+  rewardText: { color: COLORS.text, fontSize: 12, fontWeight: "600", marginLeft: 4 },
   location: { color: COLORS.textSecondary, fontSize: 12 },
   content: { marginTop: 8, fontSize: 14, color: COLORS.text, lineHeight: 20 },
-  media: {
-    width: width * 0.9,
-    height: width * 0.5,
-    borderRadius: 12,
-    marginRight: 12,
-  },
+  media: { width: width * 0.9, height: width * 0.5, borderRadius: 12, marginRight: 12 },
   reactionBar: { flexDirection: "row", marginTop: 12, alignItems: "center" },
-  reactionButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginRight: 16,
-  },
+  reactionButton: { flexDirection: "row", alignItems: "center", marginRight: 16 },
   reactionText: { marginLeft: 6, fontSize: 14, color: COLORS.textSecondary },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: "flex-end",
-    alignItems: "center",
-  },
+  overlay: { ...StyleSheet.absoluteFillObject, justifyContent: "flex-end", alignItems: "center" },
   reactionPicker: {
     flexDirection: "row",
     backgroundColor: "#fff",
