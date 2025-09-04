@@ -5,191 +5,121 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   Image,
   TouchableOpacity,
   Dimensions,
   RefreshControl,
-  Alert,
+  StatusBar,
 } from "react-native";
 import PostCard from "./PostCard";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
 
 const { width } = Dimensions.get("window");
 
+// Clean neutral colors
+const COLORS = {
+  background: "#FFFFFF",
+  text: "#262626",
+  textSecondary: "#8E8E8E",
+  border: "#EFEFEF",
+  black: "#000000",
+};
+
 const DUMMY_POSTS = [
   {
+    id: "2",
+    username: "community_watch",
+    timestamp: Date.now() - 7200000,
+    location: "Greenside Park",
+    content: "Community gathering at the park. Everyone welcome! 🌳",
+    media: [
+      {
+        type: "image",
+        uri: "https://images.theconversation.com/files/423587/original/file-20210928-22-12e4587.jpg?ixlib=rb-4.1.0&q=45&auto=format&w=926&fit=clip",
+      },
+    ],
+    reactions: [{ type: "like", count: 156 }],
+    comments: [
+      { id: "c3", username: "park_visitor", text: "Great turnout today!" },
+    ],
+  },
+  {
     id: "1",
-    username: "SafetyFirst",
-    verified: true,
-    isVerifiedIncident: true,
+    username: "safetyfirst",
     timestamp: Date.now() - 3600000,
     location: "Sandton City",
-    category: "Safety Alert",
     content: "Security incident resolved. Area is now safe for pedestrians.",
     media: [
       {
         type: "video",
-        uri: "https://www.tiktok.com/@5fm/video/7509412669825355014?is_from_webapp=1&sender_device=pc",
-        thumbnail:
-          "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQktZDwcoRhh3QXrQzBchkHSr7QmpyllsVcAai4yashk-WtonuR7TDrVXjPy8GP&s&ec=73086141",
-        duration: 120,
+        uri: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
       },
     ],
-    reactions: { like: 15, heart: 8, fun: 2 },
+    reactions: [{ type: "like", count: 23 }],
     comments: [
-      { id: "c1", username: "Anonymous", text: "Thanks for the update!" },
+      { id: "c1", username: "anonymous_user", text: "Thanks for the update!" },
       {
         id: "c2",
-        username: "LocalResident",
+        username: "local_resident",
         text: "Good to know it's safe now.",
       },
     ],
   },
-  {
-    id: "2",
-    username: "Anonymous",
-    verified: false,
-    isVerifiedIncident: false,
-    rewardPoints: 0,
-    timestamp: Date.now() - 7200000,
-    location: "Greenside Park",
-    category: "Event",
-    content: "Community gathering at the park.",
-    media: [
-      {
-        type: "image",
-        uri: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ3e-lcQf5cRQspWDxl-DKsVkNDnMKlaAw8fQ&s",
-      },
-    ],
-    reactions: { like: 3, heart: 2, fun: 1 },
-    comments: [],
-  },
+
   {
     id: "3",
-    username: "SafetyPatrol",
-    verified: true,
-    isVerifiedIncident: true,
-    rewardPoints: 250,
+    username: "neighborhood_patrol",
     timestamp: Date.now() - 1800000,
     location: "Main Street",
-    category: "Crime Alert",
     content:
-      "Attempted robbery reported near Main Street. Suspect fled on foot.",
+      "Attempted robbery reported near Main Street. Suspect fled on foot. Stay alert.",
     media: [],
-    reactions: { like: 10, heart: 4, fun: 0 },
+    reactions: [{ type: "like", count: 89 }],
     comments: [
       {
-        id: "c3",
-        username: "Anonymous",
+        id: "c4",
+        username: "witness",
         text: "I saw police cars rushing there.",
       },
-      { id: "c4", username: "CommunityWatch", text: "Stay alert, folks!" },
+      { id: "c5", username: "safety_advocate", text: "Stay safe everyone!" },
     ],
   },
   {
     id: "4",
-    username: "Neighborhood Watch",
-    verified: true,
-    isVerifiedIncident: false,
-    rewardPoints: 50,
+    username: "local_news",
     timestamp: Date.now() - 5400000,
     location: "Hillbrow Station",
-    category: "Safety Tip",
     content: "Reminder: Avoid dark alleys at night. Stick to well-lit areas.",
     media: [
       {
         type: "image",
-        uri: "https://images.unsplash.com/photo-1574515171624-0e6e0b9b5f7c?w=800",
+        uri: "https://hsrc.ac.za/wp-content/uploads/2024/11/Screenshot-2024-11-18-113921.jpg",
       },
     ],
-    reactions: { like: 8, heart: 6, fun: 2 },
+    reactions: [{ type: "like", count: 234 }],
     comments: [
-      { id: "c5", username: "Anonymous", text: "Good reminder, thanks." },
+      { id: "c6", username: "safety_tips", text: "Good reminder, thanks." },
     ],
   },
   {
     id: "5",
-    username: "Anonymous",
-    verified: false,
-    isVerifiedIncident: false,
-    rewardPoints: 10,
+    username: "student_life",
     timestamp: Date.now() - 300000,
     location: "UJ Campus",
-    category: "Lost & Found",
     content:
-      "Lost wallet near the library. Black leather, contains student card.",
+      "Lost wallet near the library. Black leather, contains student card. Please DM if found.",
     media: [
       {
         type: "image",
-        uri: "https://ww1.clms.ukzn.ac.za/wp-content/uploads/2021/09/College-Hosts-Colloquium-on-Eradicating-Gender-Based-Violence.png",
+        uri: "https://www.svai.africa/wp-content/uploads/2022/03/svai-nl_mar22_blog3-NSP-GBVF_WEB2.png",
       },
     ],
-    reactions: { like: 1, heart: 3, fun: 0 },
+    reactions: [{ type: "like", count: 45 }],
     comments: [
       {
-        id: "c6",
-        username: "Anonymous",
-        text: "I think I saw it near the cafeteria.",
-      },
-    ],
-  },
-  {
-    id: "6",
-    username: "Community Hero",
-    verified: true,
-    isVerifiedIncident: false,
-    rewardPoints: 500,
-    timestamp: Date.now() - 10800000,
-    location: "City Hall",
-    category: "Celebration",
-    content: "Honoring volunteers who kept our community safe this year 🎉",
-    media: [
-      {
-        type: "image",
-        uri: "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=800",
-      },
-      {
-        type: "video",
-        uri: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
-        thumbnail: "https://i.ytimg.com/vi/YE7VzlLtp-4/maxresdefault.jpg",
-        duration: 654,
-      },
-    ],
-    reactions: { like: 20, heart: 15, fun: 5 },
-    comments: [
-      { id: "c7", username: "Anonymous", text: "Amazing work 👏" },
-      {
-        id: "c8",
-        username: "SafeLife",
-        text: "Proud to be part of this community!",
-      },
-    ],
-  },
-  {
-    id: "7",
-    username: "NewsReporter",
-    verified: true,
-    isVerifiedIncident: false,
-    rewardPoints: 100,
-    timestamp: Date.now() - 14400000,
-    location: "Downtown",
-    category: "News",
-    content: "Live coverage of the community safety initiative launch.",
-    media: [
-      {
-        type: "video",
-        uri: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
-        thumbnail: "https://i.ytimg.com/vi/gKAT2tGAInA/maxresdefault.jpg",
-        duration: 15,
-      },
-    ],
-    reactions: { like: 25, heart: 12, fun: 3 },
-    comments: [
-      {
-        id: "c9",
-        username: "CityMayor",
-        text: "Excited about this initiative!",
+        id: "c7",
+        username: "helpful_student",
+        text: "Check with campus security too.",
       },
     ],
   },
@@ -198,66 +128,39 @@ const DUMMY_POSTS = [
 const DUMMY_STORIES = [
   {
     id: "s1",
-    username: "Katlego",
-    uri: "https://www.vukuzenzele.gov.za/sites/default/files/images_2022_12/GBVF%202.jpg",
-    hasVideo: false,
+    username: "your_story",
+    uri: "https://media.licdn.com/dms/image/v2/D5603AQGA7NcHFrxS5w/profile-displayphoto-crop_800_800/B56Zgi.6WqG4AM-/0/1752933579945?e=1759968000&v=beta&t=7nvwTlFBAtS-TYd6YTyc0biS1k2SCnULRWijKhvgBUY",
+    isAddStory: true,
   },
   {
     id: "s2",
-    username: "Steve Jobs",
-    uri: "https://www.vukuzenzele.gov.za/sites/default/files/images_2022_12/GBVF%202.jpg",
-    hasVideo: true,
+    username: "katlego_m",
+    uri: "https://ifp.org.za/wp-content/uploads/2021/09/Stopgbv-v2.jpg",
+    viewed: false,
   },
   {
     id: "s3",
-    username: "Malema",
-    uri: "https://www.vukuzenzele.gov.za/sites/default/files/images_2022_12/GBVF%202.jpg",
-    hasVideo: false,
+    username: "safety_patrol",
+    uri: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400",
+    viewed: true,
   },
   {
     id: "s4",
-    username: "Dana",
-    uri: "https://www.vukuzenzele.gov.za/sites/default/files/images_2022_12/GBVF%202.jpg",
-    hasVideo: true,
+    username: "community_hero",
+    uri: "https://bolandcollege.com/wp-content/uploads/2023/02/stop-gender-based-violence.jpg",
+    viewed: false,
   },
   {
     id: "s5",
-    username: "Alex",
-    uri: "https://www.vukuzenzele.gov.za/sites/default/files/images_2022_12/GBVF%202.jpg",
-    hasVideo: false,
-  },
-  {
-    id: "s6",
-    username: "Maya",
-    uri: "https://www.vukuzenzele.gov.za/sites/default/files/images_2022_12/GBVF%202.jpg",
-    hasVideo: true,
+    username: "local_news",
+    uri: "https://media.licdn.com/dms/image/v2/D5603AQGA7NcHFrxS5w/profile-displayphoto-crop_800_800/B56Zgi.6WqG4AM-/0/1752933579945?e=1759968000&v=beta&t=7nvwTlFBAtS-TYd6YTyc0biS1k2SCnULRWijKhvgBUY",
+    viewed: true,
   },
 ];
 
 const Newsfeed = () => {
   const [posts, setPosts] = useState(DUMMY_POSTS);
-  const [bitcoinBalance, setBitcoinBalance] = useState(2.34);
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState("All");
-
-  const categories = useMemo(
-    () => [
-      "All",
-      "Safety Alert",
-      "Crime Alert",
-      "Event",
-      "Safety Tip",
-      "Lost & Found",
-      "Celebration",
-      "News",
-    ],
-    []
-  );
-
-  const filteredPosts = useMemo(() => {
-    if (selectedCategory === "All") return posts;
-    return posts.filter((post) => post.category === selectedCategory);
-  }, [posts, selectedCategory]);
 
   const handleAddReaction = useCallback((postId, type) => {
     setPosts((prevPosts) =>
@@ -265,87 +168,67 @@ const Newsfeed = () => {
         post.id === postId
           ? {
               ...post,
-              reactions: {
-                ...post.reactions,
-                [type]: (post.reactions[type] || 0) + 1,
-              },
+              reactions: [
+                { type, count: (post.reactions?.[0]?.count || 0) + 1 },
+              ],
             }
           : post
       )
     );
   }, []);
 
-  const handleCreatePost = useCallback(() => {
-    Alert.alert("Create Post", "Choose post type", [
-      { text: "Text Post", onPress: () => console.log("Text post") },
-      { text: "Photo Post", onPress: () => console.log("Photo post") },
-      { text: "Video Post", onPress: () => console.log("Video post") },
-      { text: "Cancel", style: "cancel" },
-    ]);
-  }, []);
-
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    // Simulate API call
     await new Promise((resolve) => setTimeout(resolve, 1000));
-    // In real app, fetch new posts here
     setRefreshing(false);
   }, []);
 
   const handleStoryPress = useCallback((story) => {
-    console.log(`Viewing story: ${story.username}`);
-    // Navigate to story viewer
-  }, []);
-
-  const handleCategoryPress = useCallback((category) => {
-    setSelectedCategory(category);
+    if (story.isAddStory) {
+      console.log("Add story");
+    } else {
+      console.log(`Viewing story: ${story.username}`);
+    }
   }, []);
 
   const renderStoryItem = useCallback(
     ({ item: story }) => (
       <TouchableOpacity
-        key={story.id}
         style={styles.storyItem}
         onPress={() => handleStoryPress(story)}
         activeOpacity={0.7}
       >
-        <View style={styles.storyImageContainer}>
-          <Image source={{ uri: story.uri }} style={styles.storyImage} />
-          {story.hasVideo && (
-            <View style={styles.videoIndicator}>
-              <MaterialCommunityIcons name="play" size={12} color="#fff" />
+        {story.isAddStory ? (
+          <View style={styles.addStoryContainer}>
+            <View style={styles.addStoryPlus}>
+              <MaterialCommunityIcons
+                name="plus"
+                size={20}
+                color={COLORS.text}
+              />
             </View>
-          )}
-        </View>
-        <Text style={styles.storyUsername} numberOfLines={1}>
-          {story.username}
-        </Text>
+            <Text style={styles.storyUsername}>Your Story</Text>
+          </View>
+        ) : (
+          <>
+            <View
+              style={[
+                styles.storyBorder,
+                story.viewed
+                  ? styles.storyBorderViewed
+                  : styles.storyBorderUnviewed,
+              ]}
+            >
+              <Image source={{ uri: story.uri }} style={styles.storyImage} />
+            </View>
+            <Text style={styles.storyUsername} numberOfLines={1}>
+              {story.username}
+            </Text>
+          </>
+        )}
       </TouchableOpacity>
     ),
     [handleStoryPress]
-  );
-
-  const renderCategoryItem = useCallback(
-    ({ item: category }) => (
-      <TouchableOpacity
-        style={[
-          styles.categoryItem,
-          selectedCategory === category && styles.selectedCategoryItem,
-        ]}
-        onPress={() => handleCategoryPress(category)}
-        activeOpacity={0.7}
-      >
-        <Text
-          style={[
-            styles.categoryText,
-            selectedCategory === category && styles.selectedCategoryText,
-          ]}
-        >
-          {category}
-        </Text>
-      </TouchableOpacity>
-    ),
-    [selectedCategory, handleCategoryPress]
   );
 
   const renderPostItem = useCallback(
@@ -357,76 +240,59 @@ const Newsfeed = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Bitcoin Balance Header */}
-      <View style={styles.balanceContainer}>
-        <View style={styles.balanceContent}>
-          <MaterialCommunityIcons name="bitcoin" size={24} color="#F7931A" />
-          <Text style={styles.balanceText}>
-            {bitcoinBalance.toFixed(4)} BTC
-          </Text>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.logo}>SafeLife</Text>
+        <View style={styles.headerIcons}>
+          <TouchableOpacity style={styles.headerIcon}>
+            <MaterialCommunityIcons
+              name="heart-outline"
+              size={24}
+              color={COLORS.text}
+            />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.headerIcon}>
+            <MaterialCommunityIcons
+              name="send-outline"
+              size={24}
+              color={COLORS.text}
+            />
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity style={styles.walletButton}>
-          <MaterialCommunityIcons name="wallet" size={20} color="#374151" />
-        </TouchableOpacity>
       </View>
 
-      {/* Stories Carousel */}
-      <View style={styles.storiesContainer}>
-        <FlatList
-          data={DUMMY_STORIES}
-          renderItem={renderStoryItem}
-          keyExtractor={getKeyExtractor}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.storiesContent}
-        />
-      </View>
-
-      {/* Categories Filter */}
-      <View style={styles.categoriesContainer}>
-        <FlatList
-          data={categories}
-          renderItem={renderCategoryItem}
-          keyExtractor={(item) => item}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categoriesContent}
-        />
-      </View>
-
-      {/* Posts Feed */}
       <FlatList
-        data={filteredPosts}
+        data={posts}
         keyExtractor={getKeyExtractor}
         renderItem={renderPostItem}
-        contentContainerStyle={styles.feedContent}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            colors={["#E91E63"]}
-            tintColor="#E91E63"
+            tintColor={COLORS.text}
           />
         }
-        initialNumToRender={5}
-        maxToRenderPerBatch={10}
+        ListHeaderComponent={
+          <View style={styles.storiesContainer}>
+            <FlatList
+              data={DUMMY_STORIES}
+              renderItem={renderStoryItem}
+              keyExtractor={getKeyExtractor}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.storiesContent}
+            />
+          </View>
+        }
+        contentContainerStyle={styles.feedContent}
+        initialNumToRender={3}
+        maxToRenderPerBatch={5}
         windowSize={10}
         removeClippedSubviews={true}
-        getItemLayout={(data, index) => ({
-          length: 400, // Approximate item height
-          offset: 400 * index,
-          index,
-        })}
       />
-
-      {/* Floating Action Button */}
-      <TouchableOpacity
-        style={styles.floatingButton}
-        onPress={handleCreatePost}
-        activeOpacity={0.8}
-      >
-        <MaterialCommunityIcons name="plus" size={28} color="#fff" />
-      </TouchableOpacity>
     </SafeAreaView>
   );
 };
@@ -434,122 +300,151 @@ const Newsfeed = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F9FAFB",
+    backgroundColor: COLORS.background,
   },
-  balanceContainer: {
+
+  header: {
     flexDirection: "row",
-    alignItems: "center",
     justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: "#fff",
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
-    elevation: 2,
+    borderBottomWidth: 0.5,
+    borderBottomColor: COLORS.border,
+    backgroundColor: COLORS.background,
+  },
+
+  logo: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: COLORS.text,
+    letterSpacing: -0.5,
+  },
+
+  headerIcons: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  headerIcon: {
+    marginLeft: 16,
+    padding: 4,
+  },
+
+  storiesContainer: {
+    paddingVertical: 16,
+    borderBottomWidth: 0.5,
+    borderBottomColor: COLORS.border,
+    backgroundColor: COLORS.background,
+  },
+
+  storiesContent: {
+    paddingHorizontal: 16,
+  },
+
+  storyItem: {
+    marginRight: 16,
+    alignItems: "center",
+    width: 66,
+  },
+
+  addStoryContainer: {
+    alignItems: "center",
+  },
+
+  addStoryPlus: {
+    width: 64,
+    height: 64,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderStyle: "dashed",
+    marginBottom: 4,
+  },
+
+  storiesContainer: {
+    paddingVertical: 16,
+    borderBottomWidth: 0.5,
+    borderBottomColor: COLORS.border,
+    backgroundColor: COLORS.background,
+  },
+
+  storiesContent: {
+    paddingHorizontal: 16,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  storyItem: {
+    marginRight: 16,
+    alignItems: "center",
+    width: 70,
+  },
+
+  addStoryContainer: {
+    alignItems: "center",
+  },
+
+  addStoryPlus: {
+    width: 64,
+    height: 64,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: COLORS.border,
+    borderStyle: "dashed",
+    borderRadius: 32,
+    marginBottom: 4,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
+    elevation: 2,
   },
-  balanceContent: {
-    flexDirection: "row",
-    alignItems: "center",
+
+  storyBorder: {
+    padding: 2,
+    marginBottom: 4,
+    borderRadius: 34,
   },
-  balanceText: {
-    marginLeft: 8,
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#1F2937",
+
+  storyBorderUnviewed: {
+    borderWidth: 2,
+    borderColor: "#E91E63",
+    padding: 2,
+    borderRadius: 34,
   },
-  walletButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: "#F3F4F6",
+
+  storyBorderViewed: {
+    borderWidth: 2,
+    borderColor: COLORS.textSecondary,
+    padding: 2,
+    borderRadius: 34,
   },
-  storiesContainer: {
-    paddingVertical: 12,
-    backgroundColor: "#fff",
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
-  },
-  storiesContent: {
-    paddingHorizontal: 12,
-  },
-  storyItem: {
-    marginHorizontal: 4,
-    alignItems: "center",
-    width: 70,
-  },
-  storyImageContainer: {
-    position: "relative",
-  },
+
   storyImage: {
     width: 60,
     height: 60,
     borderRadius: 30,
-    borderWidth: 2,
-    borderColor: "#E91E63",
-  },
-  videoIndicator: {
-    position: "absolute",
-    bottom: 2,
-    right: 2,
-    backgroundColor: "#E91E63",
-    borderRadius: 8,
-    padding: 2,
-  },
-  storyUsername: {
-    marginTop: 4,
-    fontSize: 12,
-    color: "#374151",
-    textAlign: "center",
-  },
-  categoriesContainer: {
-    paddingVertical: 8,
-    backgroundColor: "#fff",
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
-  },
-  categoriesContent: {
-    paddingHorizontal: 12,
-  },
-  categoryItem: {
-    marginHorizontal: 4,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: "#F3F4F6",
-  },
-  selectedCategoryItem: {
-    backgroundColor: "#E91E63",
-  },
-  categoryText: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: "#374151",
-  },
-  selectedCategoryText: {
-    color: "#fff",
-  },
-  feedContent: {
-    padding: 16,
-    paddingBottom: 100,
-  },
-  floatingButton: {
-    position: "absolute",
-    bottom: 80,
-    right: 16,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "#E91E63",
-    justifyContent: "center",
-    alignItems: "center",
-    elevation: 8,
+    backgroundColor: COLORS.border,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+
+  storyUsername: {
+    fontSize: 12,
+    color: COLORS.text,
+    textAlign: "center",
+    width: 70,
+    marginTop: 4,
+  },
+
+  feedContent: {
+    paddingBottom: 20,
   },
 });
 

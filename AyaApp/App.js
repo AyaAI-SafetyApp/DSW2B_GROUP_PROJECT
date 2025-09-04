@@ -16,10 +16,6 @@ import ReactionGame from "./screens/Learning/ReactionGame";
 import PoliceGame from "./screens/Learning/PoliceGame";
 import EmergencyScreen from "./screens/EmergencyScreen";
 import MapViewScreen from "./screens/MapViewScreen";
-import OnboardingScreen from "./screens/OnboardingScreen";
-import WelcomeScreen from "./screens/WelcomeScreen";
-import GetAssertion from "./screens/Auth/GetAssertion";
-import CreateCredential from "./screens/Auth/CreateCredential";
 import AccountForm from "./screens/Auth/AccountForm";
 
 const Tab = createBottomTabNavigator();
@@ -29,36 +25,11 @@ const COLORS = { ACTIVE: "#de0973ff", INACTIVE: "gray" };
 const TAB_BAR = { HEIGHT: 60, PADDING: 5 };
 
 const TABS = [
-  {
-    name: "Home",
-    component: HomeScreen,
-    icons: { active: "home", inactive: "home-outline" },
-    accessibilityLabel: "Home Screen",
-  },
-  {
-    name: "Newsfeed",
-    component: CommunityScreen,
-    icons: { active: "newspaper", inactive: "newspaper-outline" },
-    accessibilityLabel: "Newsfeed Screen",
-  },
-  {
-    name: "SOS",
-    component: SOSScreen,
-    icons: { active: "alert-circle", inactive: "alert-circle-outline" },
-    accessibilityLabel: "SOS Screen",
-  },
-  {
-    name: "Learning",
-    component: LearningScreen,
-    icons: { active: "book", inactive: "book-outline" },
-    accessibilityLabel: "Learning Screen",
-  },
-  {
-    name: "Therapist",
-    component: TherapistScreen,
-    icons: { active: "chatbubbles", inactive: "chatbubbles-outline" },
-    accessibilityLabel: "Therapist Screen",
-  },
+  { name: "Home", component: HomeScreen, icons: { active: "home", inactive: "home-outline" }, accessibilityLabel: "Home Screen" },
+  { name: "Newsfeed", component: CommunityScreen, icons: { active: "newspaper", inactive: "newspaper-outline" }, accessibilityLabel: "Newsfeed Screen" },
+  { name: "SOS", component: SOSScreen, icons: { active: "alert-circle", inactive: "alert-circle-outline" }, accessibilityLabel: "SOS Screen" },
+  { name: "Learning", component: LearningScreen, icons: { active: "book", inactive: "book-outline" }, accessibilityLabel: "Learning Screen" },
+  { name: "Therapist", component: TherapistScreen, icons: { active: "chatbubbles", inactive: "chatbubbles-outline" }, accessibilityLabel: "Therapist Screen" },
 ];
 
 const styles = StyleSheet.create({
@@ -79,25 +50,15 @@ const styles = StyleSheet.create({
 
 const getTabBarIcon = ({ route, focused, color, size }) => {
   const tabConfig = TABS.find((tab) => tab.name === route.name);
-  const icon = tabConfig?.icons || {
-    active: "alert",
-    inactive: "alert-outline",
-  };
-  return (
-    <Ionicons
-      name={focused ? icon.active : icon.inactive}
-      size={size}
-      color={color}
-    />
-  );
+  const icon = tabConfig?.icons || { active: "alert", inactive: "alert-outline" };
+  return <Ionicons name={focused ? icon.active : icon.inactive} size={size} color={color} />;
 };
 
 const TabsNavigator = () => (
   <Tab.Navigator
     screenOptions={({ route }) => ({
       headerShown: false,
-      tabBarIcon: ({ focused, color, size }) =>
-        getTabBarIcon({ route, focused, color, size }),
+      tabBarIcon: ({ focused, color, size }) => getTabBarIcon({ route, focused, color, size }),
       tabBarActiveTintColor: COLORS.ACTIVE,
       tabBarInactiveTintColor: COLORS.INACTIVE,
       tabBarStyle: styles.tabBar,
@@ -111,10 +72,7 @@ const TabsNavigator = () => (
         key={tab.name}
         name={tab.name}
         component={tab.component}
-        options={{
-          tabBarAccessibilityLabel: tab.accessibilityLabel,
-          unmountOnBlur: true,
-        }}
+        options={{ tabBarAccessibilityLabel: tab.accessibilityLabel, unmountOnBlur: true }}
       />
     ))}
   </Tab.Navigator>
@@ -122,14 +80,7 @@ const TabsNavigator = () => (
 
 const App = () => (
   <NavigationContainer>
-    <Stack.Navigator
-      screenOptions={{ headerShown: false }}
-      initialRouteName="Onboarding"
-    >
-      <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-      <Stack.Screen name="Welcome" component={WelcomeScreen} />
-      <Stack.Screen name="GetAssertion" component={GetAssertion} />
-      <Stack.Screen name="CreateCredential" component={CreateCredential} />
+    <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName="MainTabs">
       <Stack.Screen name="MainTabs" component={TabsNavigator} />
       <Stack.Screen name="Health" component={HealthScreen} />
       <Stack.Screen name="ReactionGame" component={ReactionGame} />

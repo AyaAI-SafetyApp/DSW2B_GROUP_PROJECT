@@ -2,283 +2,511 @@ import React, { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
-  TouchableOpacity,
   FlatList,
-  Image,
   StyleSheet,
   Dimensions,
+  TouchableOpacity,
   Animated,
   Pressable,
   TouchableWithoutFeedback,
   Share,
-  LayoutAnimation,
-  UIManager,
+  Easing,
   Platform,
-  RefreshControl,
-  ScrollView,
+  Image,
 } from "react-native";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
 import { Video } from "expo-av";
 
-const { width } = Dimensions.get("window");
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+
+// Clean, neutral Instagram-inspired colors
 const COLORS = {
-  primary: "#E91E63",
-  background: "#F9FAFB",
-  card: "#fff",
-  text: "#1F2937",
-  textSecondary: "#6B7280",
-  reward: "#FFD700",
+  background: "#FFFFFF",
+  text: "#262626",
+  textSecondary: "#8E8E8E",
+  textTertiary: "#C7C7C7",
+  border: "#EFEFEF",
+  divider: "#EFEFEF",
+  heart: "#ED4956",
+  overlay: "rgba(0, 0, 0, 0.3)",
 };
 
 const REACTIONS = [
-  { type: "like", icon: "thumb-up", label: "Like", color: "#1877F2" },
-  { type: "heart", icon: "heart", label: "Love", color: "#E91E63" },
-  { type: "fun", icon: "emoticon-happy", label: "Fun", color: "#F59E0B" },
+  { type: "like", icon: "heart-outline", iconFilled: "heart", color: COLORS.heart },
+  { type: "bookmark", icon: "bookmark-outline", iconFilled: "bookmark", color: COLORS.text },
 ];
 
-if (
-  Platform.OS === "android" &&
-  UIManager.setLayoutAnimationEnabledExperimental
-) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
-
-const PostCard = ({ post, onAddReaction }) => {
+const PostCard = ({ post, onAddReaction, style }) => {
   const [expanded, setExpanded] = useState(false);
-  const [reactionPickerVisible, setReactionPickerVisible] = useState(false);
   const [userReaction, setUserReaction] = useState(null);
-  const [animation] = useState(new Animated.Value(0));
-  const pickerAnim = useRef(new Animated.Value(0)).current;
-  const [reactionCount, setReactionCount] = useState(
-    post?.reactions?.length || 0
-  );
+  const [reactionCount, setReactionCount] = useState(post?.reactions?.length || 0);
+  const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
 
-  const toggleComments = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    const finalValue = expanded ? 0 : 1;
-    setExpanded(!expanded);
-    Animated.timing(animation, {
-      toValue: finalValue,
-      duration: 300,
-      useNativeDriver: false,
-    }).start();
-  };
+  // Animation refs
+  const doubleTapAnim = useRef(new Animated.Value(0)).current;
+  const reactionCountAnim = useRef(new Animated.Value(1)).current;
+  const fadeAnim = useRef(new Animated.Value(1)).current;
 
-  const animatedHeight = animation.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, (post?.comments?.length || 0) * 55 + 20],
-  });
-
-  const handleLikePress = () => {
-    const type = userReaction || "like";
-    onAddReaction?.(post.id, type);
-    setUserReaction(type);
-    setReactionCount((prev) => prev + 1);
-    Animated.sequence([
-      Animated.timing(animation, { toValue: 1.1, duration: 100, useNativeDriver: true }),
-      Animated.timing(animation, { toValue: 1, duration: 100, useNativeDriver: true }),
-    ]).start();
-  };
-
-  const handleLongPress = () => {
-    setReactionPickerVisible(true);
-    Animated.spring(pickerAnim, {
+  useEffect(() => {
+    // Simple fade in
+    fadeAnim.setValue(0);
+    Animated.timing(fadeAnim, {
       toValue: 1,
-      friction: 5,
+      duration: 200,
       useNativeDriver: true,
     }).start();
-  };
+  }, []);
 
-  const handleSelectReaction = (type) => {
+  const handleReaction = (type = "like") => {
     onAddReaction?.(post.id, type);
-    setUserReaction(type);
-    setReactionCount((prev) => prev + 1);
-    Animated.timing(pickerAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start(() =>
-      setReactionPickerVisible(false)
-    );
+    
+    const wasReacted = userReaction === type;
+    setUserReaction(wasReacted ? null : type);
+    setReactionCount(prev => wasReacted ? Math.max(0, prev - 1) : prev + 1);
+
+    // Simple scale animation
+    Animated.sequence([
+      Animated.timing(reactionCountAnim, {
+        toValue: 1.1,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(reactionCountAnim, {
+        toValue: 1,
+        duration: 100,
+        useNativeDriver: true,
+      })
+    ]).start();
   };
 
   const handleShare = async () => {
     try {
       await Share.share({
         message: `Check out this post: ${post.content || ""}`,
-        url: post.media?.[0]?.uri || "",
       });
-    } catch (e) {
-      console.log("Share error:", e);
+    } catch (error) {
+      console.log("Share error:", error);
     }
   };
 
-  const currentReaction =
-    REACTIONS.find((r) => r.type === userReaction) || REACTIONS[0];
+  const handleDoubleTap = () => {
+    handleReaction("like");
+    
+    // Simple double tap animation
+    doubleTapAnim.setValue(0);
+    Animated.timing(doubleTapAnim, {
+      toValue: 1,
+      duration: 500,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: true,
+    }).start(() => {
+      doubleTapAnim.setValue(0);
+    });
+  };
 
-  if (!post) return null;
+  const renderMediaItem = ({ item }) => {
+    if (item.type === "image") {
+      return (
+        <TouchableWithoutFeedback onPress={handleDoubleTap}>
+          <Image
+            source={{ uri: item.uri }}
+            style={styles.mediaImage}
+            resizeMode="cover"
+          />
+        </TouchableWithoutFeedback>
+      );
+    } else {
+      return (
+        <Video
+          source={{ uri: item.uri }}
+          style={styles.mediaVideo}
+          resizeMode="cover"
+          useNativeControls
+          shouldPlay={false}
+        />
+      );
+    }
+  };
 
   return (
-    <View style={styles.postCard}>
+    <Animated.View 
+      style={[
+        styles.postCard, 
+        style,
+        { opacity: fadeAnim }
+      ]}
+    >
       {/* Header */}
-      <View style={styles.postHeader}>
-        <View style={styles.postHeaderLeft}>
-          <MaterialCommunityIcons
-            name="account-circle"
-            size={36}
-            color={COLORS.primary}
-          />
-          <Text style={styles.username}>{post.username || "Anonymous"}</Text>
-          {post.isVerifiedIncident && (
-            <View style={styles.rewardBadge}>
-              <MaterialCommunityIcons name="star" size={14} color={COLORS.text} />
-              <Text style={styles.rewardText}>{post.rewardPoints || 0} Points</Text>
-            </View>
-          )}
+      <View style={styles.header}>
+        <View style={styles.userInfo}>
+          <View style={styles.avatar}>
+            <Image 
+              source={{ uri: post.userAvatar || `https://ui-avatars.com/api/?name=${post.username}&background=f0f0f0&color=262626` }}
+              style={styles.avatarImage}
+            />
+          </View>
+          <View style={styles.userDetails}>
+            <Text style={styles.username}>{post.username || "user"}</Text>
+            {post.location && (
+              <Text style={styles.location}>{post.location}</Text>
+            )}
+          </View>
         </View>
-        <Text style={styles.location}>{post.location || "Unknown"}</Text>
+        
+        <TouchableOpacity style={styles.moreButton}>
+          <MaterialCommunityIcons 
+            name="dots-horizontal" 
+            size={20} 
+            color={COLORS.text} 
+          />
+        </TouchableOpacity>
       </View>
-
-      {/* Content */}
-      <Text style={styles.content}>{post.content || ""}</Text>
 
       {/* Media */}
       {post.media?.length > 0 && (
-        <FlatList
-          horizontal
-          pagingEnabled
-          data={post.media}
-          keyExtractor={(item, index) => `${post.id}_${index}`}
-          renderItem={({ item }) =>
-            item.type === "image" ? (
-              <Image source={{ uri: item.uri }} style={styles.media} />
-            ) : (
-              <Video
-                source={{ uri: item.uri }}
-                style={styles.media}
-                resizeMode="cover"
-                useNativeControls
-              />
-            )
-          }
-          showsHorizontalScrollIndicator={false}
-          style={{ marginTop: 12 }}
-        />
+        <View style={styles.mediaContainer}>
+          <FlatList
+            horizontal
+            pagingEnabled
+            data={post.media}
+            keyExtractor={(item, index) => `${post.id}_media_${index}`}
+            renderItem={renderMediaItem}
+            showsHorizontalScrollIndicator={false}
+            onScroll={({ nativeEvent }) => {
+              const index = Math.round(nativeEvent.contentOffset.x / SCREEN_WIDTH);
+              setCurrentMediaIndex(index);
+            }}
+            scrollEventThrottle={16}
+          />
+          
+          {/* Media dots */}
+          {post.media.length > 1 && (
+            <View style={styles.dotsContainer}>
+              {post.media.map((_, index) => (
+                <View
+                  key={index}
+                  style={[
+                    styles.dot,
+                    index === currentMediaIndex ? styles.dotActive : styles.dotInactive
+                  ]}
+                />
+              ))}
+            </View>
+          )}
+        </View>
       )}
 
-      {/* Reaction Bar */}
-      <View style={styles.reactionBar}>
-        <Pressable
-          style={styles.reactionButton}
-          onPress={handleLikePress}
-          onLongPress={handleLongPress}
+      {/* Double-tap heart */}
+      <Animated.View
+        style={[
+          styles.doubleTapHeart,
+          {
+            opacity: doubleTapAnim.interpolate({
+              inputRange: [0, 0.2, 0.8, 1],
+              outputRange: [0, 1, 1, 0],
+            }),
+            transform: [
+              {
+                scale: doubleTapAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0.8, 1.3],
+                }),
+              },
+            ],
+          },
+        ]}
+      >
+        <MaterialCommunityIcons name="heart" size={80} color={COLORS.heart} />
+      </Animated.View>
+
+      {/* Actions */}
+      <View style={styles.actions}>
+        <View style={styles.leftActions}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => handleReaction("like")}
+          >
+            <MaterialCommunityIcons
+              name={userReaction === "like" ? "heart" : "heart-outline"}
+              size={24}
+              color={userReaction === "like" ? COLORS.heart : COLORS.text}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => setExpanded(!expanded)}
+          >
+            <MaterialCommunityIcons
+              name="chat-outline"
+              size={24}
+              color={COLORS.text}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={handleShare}
+          >
+            <MaterialCommunityIcons
+              name="send-outline"
+              size={24}
+              color={COLORS.text}
+            />
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => handleReaction("bookmark")}
         >
           <MaterialCommunityIcons
-            name={currentReaction.icon}
-            size={20}
-            color={userReaction ? currentReaction.color : COLORS.textSecondary}
+            name={userReaction === "bookmark" ? "bookmark" : "bookmark-outline"}
+            size={24}
+            color={COLORS.text}
           />
-          <Text style={[styles.reactionText, userReaction && { color: currentReaction.color, fontWeight: "600" }]}>
-            {currentReaction.label} {reactionCount > 0 && `(${reactionCount})`}
-          </Text>
-        </Pressable>
-
-        <TouchableOpacity onPress={toggleComments} style={styles.reactionButton}>
-          <MaterialCommunityIcons name="comment-outline" size={20} color={COLORS.textSecondary} />
-          <Text style={styles.reactionText}>{post.comments?.length || 0}</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={handleShare} style={styles.reactionButton}>
-          <MaterialCommunityIcons name="share-outline" size={20} color={COLORS.textSecondary} />
-          <Text style={styles.reactionText}>Share</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Reaction Picker Overlay */}
-      {reactionPickerVisible && (
-        <TouchableWithoutFeedback onPress={() => setReactionPickerVisible(false)}>
-          <View style={styles.overlay}>
-            <Animated.View
-              style={[
-                styles.reactionPicker,
-                {
-                  transform: [
-                    {
-                      scale: pickerAnim.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] }),
-                    },
-                  ],
-                  opacity: pickerAnim,
-                },
-              ]}
-            >
-              {REACTIONS.map((r) => (
-                <TouchableOpacity key={r.type} style={styles.reactionOption} onPress={() => handleSelectReaction(r.type)}>
-                  <MaterialCommunityIcons name={r.icon} size={28} color={r.color} />
-                  <Text style={[styles.reactionLabel, { color: r.color }]}>{r.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </Animated.View>
-          </View>
-        </TouchableWithoutFeedback>
+      {/* Likes count */}
+      {reactionCount > 0 && (
+        <View style={styles.likesContainer}>
+          <Animated.Text 
+            style={[
+              styles.likesText,
+              { transform: [{ scale: reactionCountAnim }] }
+            ]}
+          >
+            {reactionCount === 1 ? "1 like" : `${reactionCount} likes`}
+          </Animated.Text>
+        </View>
+      )}
+
+      {/* Caption */}
+      {post.content && (
+        <View style={styles.captionContainer}>
+          <Text style={styles.caption}>
+            <Text style={styles.captionUsername}>{post.username}</Text>
+            {" "}{post.content}
+          </Text>
+        </View>
       )}
 
       {/* Comments */}
-      <Animated.View style={{ height: animatedHeight, overflow: "hidden" }}>
-        {expanded &&
-          post.comments?.map((c) => (
-            <View key={c.id} style={styles.commentItem}>
-              <MaterialCommunityIcons name="account-circle" size={28} color={COLORS.primary} />
-              <Text style={styles.commentText}>{c.text}</Text>
+      {post.comments?.length > 0 && (
+        <>
+          <TouchableOpacity
+            style={styles.viewCommentsButton}
+            onPress={() => setExpanded(!expanded)}
+          >
+            <Text style={styles.viewCommentsText}>
+              View all {post.comments.length} comments
+            </Text>
+          </TouchableOpacity>
+
+          {expanded && (
+            <View style={styles.commentsContainer}>
+              {post.comments.slice(0, 2).map((comment, index) => (
+                <View key={comment.id || index} style={styles.comment}>
+                  <Text style={styles.commentText}>
+                    <Text style={styles.commentUsername}>{comment.username}</Text>
+                    {" "}{comment.text}
+                  </Text>
+                </View>
+              ))}
             </View>
-          ))}
-      </Animated.View>
-    </View>
+          )}
+        </>
+      )}
+
+      {/* Timestamp */}
+      <View style={styles.timestampContainer}>
+        <Text style={styles.timestamp}>2 hours ago</Text>
+      </View>
+    </Animated.View>
   );
 };
 
+export default PostCard;
+
 const styles = StyleSheet.create({
   postCard: {
-    backgroundColor: COLORS.card,
-    borderRadius: 16,
-    padding: 16,
-    marginVertical: 8,
+    backgroundColor: COLORS.background,
+    marginBottom: 12,
   },
-  postHeader: {
+
+  header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
-  postHeaderLeft: { flexDirection: "row", alignItems: "center" },
-  username: { fontWeight: "700", fontSize: 16, marginLeft: 8 },
-  rewardBadge: {
+
+  userInfo: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: COLORS.reward,
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    marginLeft: 8,
+    flex: 1,
   },
-  rewardText: { color: COLORS.text, fontSize: 12, fontWeight: "600", marginLeft: 4 },
-  location: { color: COLORS.textSecondary, fontSize: 12 },
-  content: { marginTop: 8, fontSize: 14, color: COLORS.text, lineHeight: 20 },
-  media: { width: width * 0.9, height: width * 0.5, borderRadius: 12, marginRight: 12 },
-  reactionBar: { flexDirection: "row", marginTop: 12, alignItems: "center" },
-  reactionButton: { flexDirection: "row", alignItems: "center", marginRight: 16 },
-  reactionText: { marginLeft: 6, fontSize: 14, color: COLORS.textSecondary },
-  overlay: { ...StyleSheet.absoluteFillObject, justifyContent: "flex-end", alignItems: "center" },
-  reactionPicker: {
-    flexDirection: "row",
-    backgroundColor: "#fff",
-    padding: 12,
-    borderRadius: 40,
-    marginBottom: 80,
-    elevation: 6,
-    shadowColor: "#000",
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-  },
-  reactionOption: { alignItems: "center", marginHorizontal: 10 },
-  reactionLabel: { fontSize: 12, marginTop: 4 },
-  commentItem: { flexDirection: "row", alignItems: "center", marginTop: 8 },
-  commentText: { marginLeft: 8, color: COLORS.textSecondary },
-});
 
-export default PostCard;
+  avatar: {
+    marginRight: 12,
+  },
+
+  avatarImage: {
+    width: 32,
+    height: 32,
+    backgroundColor: COLORS.border,
+  },
+
+  userDetails: {
+    flex: 1,
+  },
+
+  username: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: COLORS.text,
+  },
+
+  location: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
+
+  moreButton: {
+    padding: 8,
+  },
+
+  mediaContainer: {
+    position: "relative",
+  },
+
+  mediaImage: {
+    width: SCREEN_WIDTH,
+    height: SCREEN_WIDTH,
+    backgroundColor: COLORS.border,
+  },
+
+  mediaVideo: {
+    width: SCREEN_WIDTH,
+    height: SCREEN_WIDTH,
+  },
+
+  dotsContainer: {
+    position: "absolute",
+    top: 8,
+    left: 0,
+    right: 0,
+    flexDirection: "row",
+    justifyContent: "center",
+  },
+
+  dot: {
+    width: 6,
+    height: 6,
+    marginHorizontal: 2,
+  },
+
+  dotActive: {
+    backgroundColor: COLORS.background,
+  },
+
+  dotInactive: {
+    backgroundColor: COLORS.textTertiary,
+  },
+
+  doubleTapHeart: {
+    position: "absolute",
+    top: "45%",
+    left: "50%",
+    marginLeft: -40,
+    marginTop: -40,
+    zIndex: 1000,
+  },
+
+  actions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+
+  leftActions: {
+    flexDirection: "row",
+  },
+
+  actionButton: {
+    marginRight: 16,
+    padding: 4,
+  },
+
+  likesContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 4,
+  },
+
+  likesText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: COLORS.text,
+  },
+
+  captionContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 4,
+  },
+
+  caption: {
+    fontSize: 14,
+    color: COLORS.text,
+    lineHeight: 18,
+  },
+
+  captionUsername: {
+    fontWeight: "600",
+  },
+
+  viewCommentsButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 2,
+  },
+
+  viewCommentsText: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+  },
+
+  commentsContainer: {
+    paddingHorizontal: 16,
+  },
+
+  comment: {
+    paddingVertical: 2,
+  },
+
+  commentText: {
+    fontSize: 14,
+    color: COLORS.text,
+    lineHeight: 16,
+  },
+
+  commentUsername: {
+    fontWeight: "600",
+  },
+
+  timestampContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+    borderBottomWidth: 0.5,
+    borderBottomColor: COLORS.border,
+  },
+
+  timestamp: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    textTransform: "uppercase",
+  },
+});
