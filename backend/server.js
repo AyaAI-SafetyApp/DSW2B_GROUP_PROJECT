@@ -2,13 +2,17 @@ const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
+const axios = require('axios');
+const bodyParser = require('body-parser');
+const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Middleware
-app.use(cors());
+app.use(cors({ origin: '*' })); // allow all origins for testing
 app.use(express.json());
+app.use(bodyParser.json());
 
 // Load SAPS data
 let sapsData = [];
@@ -32,6 +36,28 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     const distance = R * c;
     return Math.round(distance * 100) / 100; 
+}
+
+// PayPal sandbox credentials
+const PAYPAL_CLIENT = "AdbWBuyZ4lFfgLA__ilCjdoGOcPOVn7UO6CvSfeXBnHO1aawqyB5YCYp0O1qJY-B5QqyksODsOi5QvFG";
+const PAYPAL_SECRET = "EI6U2x4gRe5Xj7EeX8g-TQX1eAAvTBvA-7n_PhjuB7U1_dLwRG9dPTLodWk9KPp4FKPE4Gut_5rCqnIs";
+const PAYPAL_BASE = "https://api-m.sandbox.paypal.com";
+
+// Supabase client setup
+const SUPABASE_URL = "https://mcjjabajtfodvmixklfj.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1jamphYmFqdGZvZHZtaXhrbGZqIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NjQ3NTg0MywiZXhwIjoyMDcyMDUxODQzfQ.NbVNBTcC3Cr9ili0EFa9o4IiMhdZRREKlthVJjMW0Xg";
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// Generate PayPal access token
+async function generateAccessToken() {
+    const response = await axios({
+        url: `${PAYPAL_BASE}/v1/oauth2/token`,
+        method: "post",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        auth: { username: PAYPAL_CLIENT, password: PAYPAL_SECRET },
+        data: "grant_type=client_credentials",
+    });
+    return response.data.access_token;
 }
 
 // Routes
@@ -244,6 +270,85 @@ app.get('/api/health', (req, res) => {
         dataLoaded: sapsData.length > 0,
         recordCount: sapsData.length
     });
+});
+
+// Testing endpoint
+app.get("/ping", (req, res) => {
+    res.send("pong 🏓");
+});
+
+// Create PayPal subscription
+app.post("/create-subscription", async (req, res) => {
+    try {
+        const accessToken = await generateAccessToken();
+        const { planId, userId } = req.body;
+
+        const response = await axios.post(
+            `${PAYPAL_BASE}/v1/billing/subscriptions`,
+            {
+                plan_id: planId,
+                application_context: {
+                    brand_name: "Aya App",
+                    return_url: "http://localhost:3000/success",
+                    cancel_url: "http://localhost:3000/cancel",
+                },
+            },
+            { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+
+        const approvalUrl = response.data.links.find((link) => link.rel === "approve").href;
+
+        // Save all transaction details in Supabase
+        await supabase.from("subscriptions").insert([
+            {
+                user_id: userId,
+                plan_id: planId,
+                paypal_subscription_id: response.data.id,
+                status: "PENDING",
+            },
+        ]);
+
+        res.json({ approvalUrl });
+    } catch (error) {
+        console.error("Subscription Error:", error.response?.data || error.message);
+        res.status(500).json({ error: "Failed to create subscription" });
+    }
+});
+
+// Handle PayPal webhooks
+app.post("/webhook/paypal", async (req, res) => {
+    try {
+        const event = req.body;
+        console.log("📩 Webhook event:", event.event_type);
+
+        if (event.event_type === "BILLING.SUBSCRIPTION.ACTIVATED") {
+            await supabase.from("subscriptions")
+                .update({ status: "ACTIVE" })
+                .eq("paypal_subscription_id", event.resource.id);
+        }
+        if (event.event_type === "BILLING.SUBSCRIPTION.CANCELLED") {
+            await supabase.from("subscriptions")
+                .update({ status: "CANCELLED" })
+                .eq("paypal_subscription_id", event.resource.id);
+        }
+        if (event.event_type === "BILLING.SUBSCRIPTION.EXPIRED") {
+            await supabase.from("subscriptions")
+                .update({ status: "EXPIRED" })
+                .eq("paypal_subscription_id", event.resource.id);
+        }
+        if (event.event_type === "PAYMENT.SALE.COMPLETED") {
+            console.log("💰 Payment received for subscription:", event.resource.billing_agreement_id);
+        }
+        res.sendStatus(200);
+    } catch (error) {
+        console.error("Webhook Error:", error.message);
+        res.sendStatus(500);
+    }
+});
+
+// Notify user of successful subscription (optional)
+app.get("/success", (req, res) => {
+    res.send("Subscription successful! You can close this window.");
 });
 
 // Helper functions
