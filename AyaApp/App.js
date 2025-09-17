@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet } from "react-native";
+import { StyleSheet, View, Platform } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
@@ -16,13 +16,13 @@ import ReactionGame from "./screens/Learning/ReactionGame";
 import PoliceGame from "./screens/Learning/PoliceGame";
 import EmergencyScreen from "./screens/EmergencyScreen";
 import MapViewScreen from "./screens/MapViewScreen";
-import AccountForm from "./screens/Auth/AccountForm";
+//import AccountForm from "./screens/Auth/AccountForm";
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
 const COLORS = { ACTIVE: "#de0973ff", INACTIVE: "gray" };
-const TAB_BAR = { HEIGHT: 60, PADDING: 5 };
+const TAB_BAR = { HEIGHT: 70, PADDING: Platform.OS === 'android' ? 20 : 5 };
 
 const TABS = [
   { name: "Home", component: HomeScreen, icons: { active: "home", inactive: "home-outline" }, accessibilityLabel: "Home Screen" },
@@ -33,6 +33,10 @@ const TABS = [
 ];
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#fff",
+  },
   tabBar: {
     backgroundColor: "#fff",
     height: TAB_BAR.HEIGHT,
@@ -45,6 +49,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 10,
     elevation: 5,
+    bottom: Platform.OS === 'android' ? 40 : 0,
+    left: Platform.OS === 'android' ? 10 : 0,
+    right: Platform.OS === 'android' ? 10 : 0,
   },
 });
 
@@ -67,9 +74,9 @@ const TabsNavigator = () => (
       lazy: true,
     })}
   >
-    {TABS.map((tab) => (
+    {TABS.map((tab, index) => (
       <Tab.Screen
-        key={tab.name}
+        key={`${tab.name}-${index}`}
         name={tab.name}
         component={tab.component}
         options={{ tabBarAccessibilityLabel: tab.accessibilityLabel, unmountOnBlur: true }}
@@ -79,17 +86,19 @@ const TabsNavigator = () => (
 );
 
 const App = () => (
-  <NavigationContainer>
-    <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName="MainTabs">
-      <Stack.Screen name="MainTabs" component={TabsNavigator} />
-      <Stack.Screen name="Health" component={HealthScreen} />
-      <Stack.Screen name="ReactionGame" component={ReactionGame} />
-      <Stack.Screen name="PoliceGame" component={PoliceGame} />
-      <Stack.Screen name="EmergencyScreen" component={EmergencyScreen} />
-      <Stack.Screen name="AccountForm" component={AccountForm} />
-      <Stack.Screen name="MapViewScreen" component={MapViewScreen} />
-    </Stack.Navigator>
-  </NavigationContainer>
+  <View style={styles.container}>
+    <NavigationContainer>
+      <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName="MainTabs">
+        <Stack.Screen name="MainTabs" component={TabsNavigator} />
+        <Stack.Screen name="Health" component={HealthScreen} />
+        <Stack.Screen name="ReactionGame" component={ReactionGame} />
+        <Stack.Screen name="PoliceGame" component={PoliceGame} />
+        <Stack.Screen name="EmergencyScreen" component={EmergencyScreen} />
+        {/*<Stack.Screen name="AccountForm" component={AccountForm} />*/}
+        <Stack.Screen name="MapViewScreen" component={MapViewScreen} />
+      </Stack.Navigator>
+    </NavigationContainer>
+  </View>
 );
 
 export default App;
