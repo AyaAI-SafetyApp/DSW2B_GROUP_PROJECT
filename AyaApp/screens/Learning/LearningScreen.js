@@ -90,6 +90,12 @@ const games = [
     description: "Rescue victims ",
     image: require("../../assets/Games/Mt_icon.webp"),
   },
+  {
+    id: 3,
+    title: "Safety Game",
+    description: "Rescue victims ",
+    image: require("../../assets/Games/safety.png"),
+  },
 ];
 
 export default function LearningScreen() {
@@ -101,6 +107,8 @@ export default function LearningScreen() {
       navigation.navigate("ReactionGame", { game });
     } else if (game.id === 2) {
       navigation.navigate("PoliceGame", { game });
+    } else if (game.id === 3) {
+      navigation.navigate("Safety", { game });
     }
   };
 

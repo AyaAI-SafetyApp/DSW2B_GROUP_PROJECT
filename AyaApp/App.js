@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet, View, Platform } from "react-native";
+import { StyleSheet } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
@@ -14,29 +14,55 @@ import TherapistScreen from "./screens/TherapistScreen";
 import HealthScreen from "./screens/HealthScreen";
 import ReactionGame from "./screens/Learning/ReactionGame";
 import PoliceGame from "./screens/Learning/PoliceGame";
+import Safety from "./screens/Learning/SafetyGame";
 import EmergencyScreen from "./screens/EmergencyScreen";
 import MapViewScreen from "./screens/MapViewScreen";
-//import AccountForm from "./screens/Auth/AccountForm";
+import OnboardingScreen from "./screens/OnboardingScreen";
+import AccountForm from "./screens/Auth/AccountForm";
+import GetAssertion from "./screens/Auth/GetAssertion";
+import CreateCredential from "./screens/Auth/CreateCredential";
+import subscription from "./screens/Subscription/subscriptionScreen.js";
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
 const COLORS = { ACTIVE: "#de0973ff", INACTIVE: "gray" };
-const TAB_BAR = { HEIGHT: 70, PADDING: Platform.OS === 'android' ? 20 : 5 };
+const TAB_BAR = { HEIGHT: 60, PADDING: 5 };
 
 const TABS = [
-  { name: "Home", component: HomeScreen, icons: { active: "home", inactive: "home-outline" }, accessibilityLabel: "Home Screen" },
-  { name: "Newsfeed", component: CommunityScreen, icons: { active: "newspaper", inactive: "newspaper-outline" }, accessibilityLabel: "Newsfeed Screen" },
-  { name: "SOS", component: SOSScreen, icons: { active: "alert-circle", inactive: "alert-circle-outline" }, accessibilityLabel: "SOS Screen" },
-  { name: "Learning", component: LearningScreen, icons: { active: "book", inactive: "book-outline" }, accessibilityLabel: "Learning Screen" },
-  { name: "Therapist", component: TherapistScreen, icons: { active: "chatbubbles", inactive: "chatbubbles-outline" }, accessibilityLabel: "Therapist Screen" },
+  {
+    name: "Home",
+    component: HomeScreen,
+    icons: { active: "home", inactive: "home-outline" },
+    accessibilityLabel: "Home Screen",
+  },
+  {
+    name: "Newsfeed",
+    component: CommunityScreen,
+    icons: { active: "newspaper", inactive: "newspaper-outline" },
+    accessibilityLabel: "Newsfeed Screen",
+  },
+  {
+    name: "SOS",
+    component: SOSScreen,
+    icons: { active: "alert-circle", inactive: "alert-circle-outline" },
+    accessibilityLabel: "SOS Screen",
+  },
+  {
+    name: "Learning",
+    component: LearningScreen,
+    icons: { active: "book", inactive: "book-outline" },
+    accessibilityLabel: "Learning Screen",
+  },
+  {
+    name: "Therapist",
+    component: TherapistScreen,
+    icons: { active: "chatbubbles", inactive: "chatbubbles-outline" },
+    accessibilityLabel: "Therapist Screen",
+  },
 ];
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#fff",
-  },
   tabBar: {
     backgroundColor: "#fff",
     height: TAB_BAR.HEIGHT,
@@ -49,23 +75,30 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 10,
     elevation: 5,
-    bottom: Platform.OS === 'android' ? 40 : 0,
-    left: Platform.OS === 'android' ? 10 : 0,
-    right: Platform.OS === 'android' ? 10 : 0,
   },
 });
 
 const getTabBarIcon = ({ route, focused, color, size }) => {
   const tabConfig = TABS.find((tab) => tab.name === route.name);
-  const icon = tabConfig?.icons || { active: "alert", inactive: "alert-outline" };
-  return <Ionicons name={focused ? icon.active : icon.inactive} size={size} color={color} />;
+  const icon = tabConfig?.icons || {
+    active: "alert",
+    inactive: "alert-outline",
+  };
+  return (
+    <Ionicons
+      name={focused ? icon.active : icon.inactive}
+      size={size}
+      color={color}
+    />
+  );
 };
 
 const TabsNavigator = () => (
   <Tab.Navigator
     screenOptions={({ route }) => ({
       headerShown: false,
-      tabBarIcon: ({ focused, color, size }) => getTabBarIcon({ route, focused, color, size }),
+      tabBarIcon: ({ focused, color, size }) =>
+        getTabBarIcon({ route, focused, color, size }),
       tabBarActiveTintColor: COLORS.ACTIVE,
       tabBarInactiveTintColor: COLORS.INACTIVE,
       tabBarStyle: styles.tabBar,
@@ -74,31 +107,40 @@ const TabsNavigator = () => (
       lazy: true,
     })}
   >
-    {TABS.map((tab, index) => (
+    {TABS.map((tab) => (
       <Tab.Screen
-        key={`${tab.name}-${index}`}
+        key={tab.name}
         name={tab.name}
         component={tab.component}
-        options={{ tabBarAccessibilityLabel: tab.accessibilityLabel, unmountOnBlur: true }}
+        options={{
+          tabBarAccessibilityLabel: tab.accessibilityLabel,
+          unmountOnBlur: true,
+        }}
       />
     ))}
   </Tab.Navigator>
 );
 
 const App = () => (
-  <View style={styles.container}>
-    <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName="MainTabs">
-        <Stack.Screen name="MainTabs" component={TabsNavigator} />
-        <Stack.Screen name="Health" component={HealthScreen} />
-        <Stack.Screen name="ReactionGame" component={ReactionGame} />
-        <Stack.Screen name="PoliceGame" component={PoliceGame} />
-        <Stack.Screen name="EmergencyScreen" component={EmergencyScreen} />
-        {/*<Stack.Screen name="AccountForm" component={AccountForm} />*/}
-        <Stack.Screen name="MapViewScreen" component={MapViewScreen} />
-      </Stack.Navigator>
-    </NavigationContainer>
-  </View>
+  <NavigationContainer>
+    <Stack.Navigator
+      screenOptions={{ headerShown: false }}
+      initialRouteName="OnboardingScreen"
+    >
+      <Stack.Screen name="OnboardingScreen" component={OnboardingScreen} />
+      <Stack.Screen name="subscription" component={subscription} />
+      <Stack.Screen name="MainTabs" component={TabsNavigator} />
+      <Stack.Screen name="Health" component={HealthScreen} />
+      <Stack.Screen name="ReactionGame" component={ReactionGame} />
+      <Stack.Screen name="PoliceGame" component={PoliceGame} />
+      <Stack.Screen name="Safety" component={Safety} />
+      <Stack.Screen name="EmergencyScreen" component={EmergencyScreen} />
+      <Stack.Screen name="AccountForm" component={AccountForm} />
+      <Stack.Screen name="GetAssertion" component={GetAssertion} />
+      <Stack.Screen name="CreateCredential" component={CreateCredential} />
+      <Stack.Screen name="MapViewScreen" component={MapViewScreen} />
+    </Stack.Navigator>
+  </NavigationContainer>
 );
 
 export default App;

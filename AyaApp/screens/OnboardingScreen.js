@@ -7,13 +7,11 @@ import {
   Dimensions,
   SafeAreaView,
   Animated,
-  FlatList,
   TouchableOpacity,
   Easing,
 } from "react-native";
 import { ChevronRight } from "lucide-react-native";
 import { useNavigation } from "@react-navigation/native";
-import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 
 const { width } = Dimensions.get("window");
@@ -25,8 +23,7 @@ const screens = [
     subtitle: "Instant emergency response with just your voice",
     description:
       'Simply say "Dear Lord" or "Aya" and we\'ll immediately activate emergency assistance - even when you can\'t reach your phone.',
-    image: require("../assets/2.png"),
-    gradient: ["#d63384", "#e55fa8"],
+    image: require("../assets/9.png"),
   },
   {
     id: "smart-detection",
@@ -34,8 +31,7 @@ const screens = [
     subtitle: "Advanced sensors detect danger automatically",
     description:
       "Our intelligent system monitors for falls, assaults, and emergencies using cutting-edge AI models and sensor technology.",
-    image: require("../assets/3.png"),
-    gradient: ["#d63384", "#e55fa8"],
+    image: require("../assets/10.png"),
   },
   {
     id: "crime-aware-routing",
@@ -43,17 +39,7 @@ const screens = [
     subtitle: "Real-time crime data keeps you safer",
     description:
       "Navigate confidently with routes optimized using real SAPS crime data, helping you avoid high-risk areas day and night.",
-    image: require("../assets/2.png"),
-    gradient: ["#d63384", "#e55fa8"],
-  },
-  {
-    id: "ai-emergency-assistant",
-    title: "Automated Help on Call",
-    subtitle: "AI contacts authorities instantly",
-    description:
-      "Aya can automatically call emergency contacts or authorities if you’re unable to do so.",
-    image: require("../assets/2.png"),
-    gradient: ["#d63384", "#e55fa8"],
+    image: require("../assets/11.png"),
   },
   {
     id: "offline-mode",
@@ -61,8 +47,7 @@ const screens = [
     subtitle: "Safety features work without internet",
     description:
       "Aya ensures your safety even in areas with no internet connectivity by using offline emergency protocols.",
-    image: require("../assets/2.png"),
-    gradient: ["#d63384", "#e55fa8"],
+    image: require("../assets/12.png"),
   },
 ];
 
@@ -133,13 +118,32 @@ const OnboardingScreen = () => {
         extrapolate: "clamp",
       });
 
+      // 🔥 Circular rotation + scale
+        const rotateY = scrollX.interpolate({
+        inputRange,
+        outputRange: ["60deg", "0deg", "-60deg"],
+        extrapolate: "clamp",
+        });
+
+        const scale = scrollX.interpolate({
+        inputRange,
+        outputRange: [0.5, 1.1, 0.5], // 👈 more dramatic difference
+        extrapolate: "clamp",
+        });
+
+
       return (
         <View style={styles.screenContainer}>
           <Animated.View
             style={{
-              transform: [{ translateY: imageBounce }],
               flex: 0.6,
               justifyContent: "center",
+              transform: [
+                { perspective: 1000 }, // depth for 3D rotation
+                { rotateY },
+                { scale },
+                { translateY: imageBounce },
+              ],
             }}
           >
             <Image
@@ -166,13 +170,6 @@ const OnboardingScreen = () => {
     },
     [currentScreen]
   );
-
-  const circles = [
-    { top: 40, left: 40, size: 128, anim: pulseAnim, animType: "pulse" },
-    { top: 128, right: 64, size: 80, anim: bounceAnim, animType: "bounce" },
-    { bottom: 80, left: 80, size: 96, anim: bounceAnim, animType: "bounce" },
-    { bottom: 160, right: 40, size: 64, anim: pulseAnim, animType: "pulse" },
-  ];
 
   return (
     <SafeAreaView style={styles.container}>
@@ -226,14 +223,6 @@ const OnboardingScreen = () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "white" },
-  backgroundPattern: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    opacity: 0.1,
-  },
   header: { paddingTop: 64, paddingBottom: 32, alignItems: "center" },
   logoImage: { width: 44, height: 44, resizeMode: "contain" },
   appTagline: { fontSize: 14, color: "#6b7280" },
@@ -243,12 +232,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 10,
-  },
-  iconBackground: {
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    marginBottom: 10,
   },
   screenImage: { width: 200, height: 250 },
   textContainer: {
@@ -262,13 +245,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 12,
     color: "#111827",
-  },
-  subtitle: {
-    fontSize: 18,
-    fontWeight: "500",
-    textAlign: "center",
-    marginBottom: 16,
-    color: "#4b5563",
   },
   description: {
     fontSize: 14,

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1030464773571",
+    "project_id": "ayaai-18161",
+    "storage_bucket": "ayaai-18161.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1030464773571:android:9decc4cc62792960c63176",
+        "android_client_info": {
+          "package_name": "sabios.aya"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB87k03LIq4QQpqYvWuHNVhoQoIZVARCuk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
