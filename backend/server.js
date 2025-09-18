@@ -351,6 +351,65 @@ app.get("/success", (req, res) => {
     res.send("Subscription successful! You can close this window.");
 });
 
+// CRUD Endpoints for Community Posts
+app.post("/posts", async (req, res) => {
+    const { title, content, author } = req.body;
+    const { data, error } = await supabase
+        .from("community_posts")
+        .insert([{ title, content, author }])
+        .select();
+
+    if (error) return res.status(400).json({ error: error.message });
+    res.json(data);
+});
+
+// Get all posts
+app.get("/posts", async (req, res) => {
+    const { data, error } = await supabase.from("community_posts").select("*");
+    if (error) return res.status(400).json({ error: error.message });
+    res.json(data);
+});
+
+// Get posts from user
+app.get("/posts/:id", async (req, res) => {
+    const { id } = req.params;
+    const { data, error } = await supabase
+        .from("community_posts")
+        .select("*")
+        .eq("id", id)
+        .single();
+
+    if (error) return res.status(404).json({ error: error.message });
+    res.json(data);
+});
+
+// Update post
+app.put("/posts/:id", async (req, res) => {
+    const { id } = req.params;
+    const { title, content, author } = req.body;
+
+    const { data, error } = await supabase
+        .from("community_posts")
+        .update({ title, content, author, updated_at: new Date() })
+        .eq("id", id)
+        .select();
+
+    if (error) return res.status(400).json({ error: error.message });
+    res.json(data);
+});
+
+// Delete post
+app.delete("/posts/:id", async (req, res) => {
+    const { id } = req.params;
+    const { error } = await supabase
+        .from("community_posts")
+        .delete()
+        .eq("id", id);
+
+    if (error) return res.status(400).json({ error: error.message });
+    res.json({ message: "Post deleted successfully" });
+});
+
 // Helper functions
 function getRiskLevel(dangerPercentage) {
     if (dangerPercentage >= 90) return 'EXTREME';
