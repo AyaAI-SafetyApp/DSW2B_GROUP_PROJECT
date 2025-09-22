@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
   SafeAreaView,
   FlatList,
@@ -10,120 +10,28 @@ import {
   Dimensions,
   RefreshControl,
   StatusBar,
+  Alert,
+  ActivityIndicator,
+  Platform,
+  KeyboardAvoidingView,
 } from "react-native";
 import PostCard from "./PostCard";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
+import { fetchPosts, createPost, updatePost, deletePost } from "../../NewsfeedCRUD/api/posts";
+import { pickMedia } from "../../NewsfeedCRUD/api/media";
+import Modal from "react-native-modal";
+import { TextInput, Button, FAB } from "react-native-paper";
 
 const { width } = Dimensions.get("window");
 
-// Clean neutral colors
 const COLORS = {
   background: "#FFFFFF",
   text: "#262626",
   textSecondary: "#8E8E8E",
   border: "#EFEFEF",
   black: "#000000",
+  accent: "#E91E63",
 };
-
-const DUMMY_POSTS = [
-  {
-    id: "2",
-    username: "community_watch",
-    timestamp: Date.now() - 7200000,
-    location: "Greenside Park",
-    content: "Community gathering at the park. Everyone welcome! 🌳",
-    media: [
-      {
-        type: "image",
-        uri: "https://images.theconversation.com/files/423587/original/file-20210928-22-12e4587.jpg?ixlib=rb-4.1.0&q=45&auto=format&w=926&fit=clip",
-      },
-    ],
-    reactions: [{ type: "like", count: 156 }],
-    comments: [
-      { id: "c3", username: "park_visitor", text: "Great turnout today!" },
-    ],
-  },
-  {
-    id: "1",
-    username: "safetyfirst",
-    timestamp: Date.now() - 3600000,
-    location: "Sandton City",
-    content: "Security incident resolved. Area is now safe for pedestrians.",
-    media: [
-      {
-        type: "video",
-        uri: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
-      },
-    ],
-    reactions: [{ type: "like", count: 23 }],
-    comments: [
-      { id: "c1", username: "anonymous_user", text: "Thanks for the update!" },
-      {
-        id: "c2",
-        username: "local_resident",
-        text: "Good to know it's safe now.",
-      },
-    ],
-  },
-
-  {
-    id: "3",
-    username: "neighborhood_patrol",
-    timestamp: Date.now() - 1800000,
-    location: "Main Street",
-    content:
-      "Attempted robbery reported near Main Street. Suspect fled on foot. Stay alert.",
-    media: [],
-    reactions: [{ type: "like", count: 89 }],
-    comments: [
-      {
-        id: "c4",
-        username: "witness",
-        text: "I saw police cars rushing there.",
-      },
-      { id: "c5", username: "safety_advocate", text: "Stay safe everyone!" },
-    ],
-  },
-  {
-    id: "4",
-    username: "local_news",
-    timestamp: Date.now() - 5400000,
-    location: "Hillbrow Station",
-    content: "Reminder: Avoid dark alleys at night. Stick to well-lit areas.",
-    media: [
-      {
-        type: "image",
-        uri: "https://hsrc.ac.za/wp-content/uploads/2024/11/Screenshot-2024-11-18-113921.jpg",
-      },
-    ],
-    reactions: [{ type: "like", count: 234 }],
-    comments: [
-      { id: "c6", username: "safety_tips", text: "Good reminder, thanks." },
-    ],
-  },
-  {
-    id: "5",
-    username: "student_life",
-    timestamp: Date.now() - 300000,
-    location: "UJ Campus",
-    content:
-      "Lost wallet near the library. Black leather, contains student card. Please DM if found.",
-    media: [
-      {
-        type: "image",
-        uri: "https://www.svai.africa/wp-content/uploads/2022/03/svai-nl_mar22_blog3-NSP-GBVF_WEB2.png",
-      },
-    ],
-    reactions: [{ type: "like", count: 45 }],
-    comments: [
-      {
-        id: "c7",
-        username: "helpful_student",
-        text: "Check with campus security too.",
-      },
-    ],
-  },
-];
 
 const DUMMY_STORIES = [
   {
@@ -159,35 +67,117 @@ const DUMMY_STORIES = [
 ];
 
 const Newsfeed = () => {
-  const [posts, setPosts] = useState(DUMMY_POSTS);
+  const [posts, setPosts] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const handleAddReaction = useCallback((postId, type) => {
-    setPosts((prevPosts) =>
-      prevPosts.map((post) =>
-        post.id === postId
-          ? {
-              ...post,
-              reactions: [
-                { type, count: (post.reactions?.[0]?.count || 0) + 1 },
-              ],
-            }
-          : post
-      )
-    );
+  // Modal state
+  const [modalVisible, setModalVisible] = useState(false);
+  const [postType, setPostType] = useState("text"); // text, image, video
+  const [postContent, setPostContent] = useState("");
+  const [mediaUri, setMediaUri] = useState(null);
+  const [editingPostId, setEditingPostId] = useState(null);
+
+  // Fetch posts from Supabase
+  const loadPosts = async () => {
+    setLoading(true);
+    try {
+      const data = await fetchPosts();
+      setPosts(data);
+    } catch (e) {
+      Alert.alert("Error", e.message);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    loadPosts();
   }, []);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await loadPosts();
     setRefreshing(false);
   }, []);
 
+  // Add Reaction (example: likes)
+  const handleAddReaction = useCallback(async (postId, type) => {
+    await loadPosts();
+  }, []);
+
+  // Open modal to create post
+  const handleAddPost = () => {
+    setPostType("text");
+    setPostContent("");
+    setMediaUri(null);
+    setEditingPostId(null);
+    setModalVisible(true);
+  };
+
+  // Open modal to edit post
+  const handleEditPost = (postId, updates) => {
+    setEditingPostId(postId);
+    setPostContent(updates.content || "");
+    setPostType(updates.media_type || "text");
+    setMediaUri(updates.media_url || null);
+    setModalVisible(true);
+  };
+
+  // Pick media for image/video post
+  const handlePickMedia = async (type) => {
+    const uri = await pickMedia(type);
+    if (uri) {
+      setMediaUri(uri);
+      setPostType(type);
+    }
+  };
+
+  // Submit post (create or update)
+  const handleSubmitPost = async () => {
+    if (!postContent && !mediaUri) {
+      Alert.alert("Please enter text or select media.");
+      return;
+    }
+    try {
+      if (editingPostId) {
+        await updatePost(editingPostId, {
+          content: postContent,
+          media_type: mediaUri ? postType : "none",
+          media_url: mediaUri,
+        });
+      } else {
+        await createPost({
+          username: "current_user",
+          content: postContent,
+          media_type: mediaUri ? postType : "none",
+          media_url: mediaUri,
+        });
+      }
+      setModalVisible(false);
+      setPostContent("");
+      setMediaUri(null);
+      setEditingPostId(null);
+      await loadPosts();
+    } catch (e) {
+      Alert.alert("Error", e.message);
+    }
+  };
+
+  // Delete Post
+  const handleDeletePost = async (postId) => {
+    try {
+      await deletePost(postId);
+      await loadPosts();
+    } catch (e) {
+      Alert.alert("Error", e.message);
+    }
+  };
+
   const handleStoryPress = useCallback((story) => {
     if (story.isAddStory) {
-      console.log("Add story");
+      Alert.alert("Add story", "Feature coming soon!");
     } else {
-      console.log(`Viewing story: ${story.username}`);
+      Alert.alert("View story", `Viewing story: ${story.username}`);
     }
   }, []);
 
@@ -232,8 +222,15 @@ const Newsfeed = () => {
   );
 
   const renderPostItem = useCallback(
-    ({ item }) => <PostCard post={item} onAddReaction={handleAddReaction} />,
-    [handleAddReaction]
+    ({ item }) => (
+      <PostCard
+        post={item}
+        onAddReaction={handleAddReaction}
+        onEdit={(id, updates) => handleEditPost(id, updates)}
+        onDelete={handleDeletePost}
+      />
+    ),
+    [handleAddReaction, handleEditPost, handleDeletePost]
   );
 
   const getKeyExtractor = useCallback((item) => item.id, []);
@@ -246,6 +243,13 @@ const Newsfeed = () => {
       <View style={styles.header}>
         <Text style={styles.logo}>SafeLife</Text>
         <View style={styles.headerIcons}>
+          <TouchableOpacity style={styles.headerIcon} onPress={handleAddPost}>
+            <MaterialCommunityIcons
+              name="plus-box"
+              size={24}
+              color={COLORS.text}
+            />
+          </TouchableOpacity>
           <TouchableOpacity style={styles.headerIcon}>
             <MaterialCommunityIcons
               name="heart-outline"
@@ -263,36 +267,133 @@ const Newsfeed = () => {
         </View>
       </View>
 
-      <FlatList
-        data={posts}
-        keyExtractor={getKeyExtractor}
-        renderItem={renderPostItem}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            tintColor={COLORS.text}
-          />
-        }
-        ListHeaderComponent={
-          <View style={styles.storiesContainer}>
-            <FlatList
-              data={DUMMY_STORIES}
-              renderItem={renderStoryItem}
-              keyExtractor={getKeyExtractor}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.storiesContent}
+      {loading ? (
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+          <ActivityIndicator size="large" color={COLORS.text} />
+        </View>
+      ) : posts.length === 0 ? (
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+          <Text style={{ color: COLORS.textSecondary, fontSize: 16, marginBottom: 16 }}>
+            No posts yet. Be the first to post!
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={posts}
+          keyExtractor={getKeyExtractor}
+          renderItem={renderPostItem}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={COLORS.text}
             />
-          </View>
-        }
-        contentContainerStyle={styles.feedContent}
-        initialNumToRender={3}
-        maxToRenderPerBatch={5}
-        windowSize={10}
-        removeClippedSubviews={true}
+          }
+          ListHeaderComponent={
+            <View style={styles.storiesContainer}>
+              <FlatList
+                data={DUMMY_STORIES}
+                renderItem={renderStoryItem}
+                keyExtractor={getKeyExtractor}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.storiesContent}
+              />
+            </View>
+          }
+          contentContainerStyle={styles.feedContent}
+          initialNumToRender={3}
+          maxToRenderPerBatch={5}
+          windowSize={10}
+          removeClippedSubviews={true}
+        />
+      )}
+
+      {/* Floating Create Post Button */}
+      <FAB
+        style={styles.fab}
+        icon="plus"
+        color="#fff"
+        onPress={handleAddPost}
+        label="Create Post"
       />
+
+      {/* Create/Edit Post Modal */}
+      <Modal
+        isVisible={modalVisible}
+        onBackdropPress={() => setModalVisible(false)}
+        style={{ margin: 0, justifyContent: "center" }}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={styles.modalContainer}
+        >
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>
+              {editingPostId ? "Edit Post" : "Create Post"}
+            </Text>
+            <View style={styles.modalTypeRow}>
+              <Button
+                mode={postType === "text" ? "contained" : "outlined"}
+                onPress={() => {
+                  setPostType("text");
+                  setMediaUri(null);
+                }}
+                style={styles.typeButton}
+              >
+                Text
+              </Button>
+              <Button
+                mode={postType === "image" ? "contained" : "outlined"}
+                onPress={() => handlePickMedia("image")}
+                style={styles.typeButton}
+              >
+                Image
+              </Button>
+              <Button
+                mode={postType === "video" ? "contained" : "outlined"}
+                onPress={() => handlePickMedia("video")}
+                style={styles.typeButton}
+              >
+                Video
+              </Button>
+            </View>
+            <TextInput
+              label="Write something..."
+              value={postContent}
+              onChangeText={setPostContent}
+              multiline
+              style={styles.textInput}
+              mode="outlined"
+              theme={{ colors: { primary: COLORS.text } }}
+            />
+            {mediaUri && postType === "image" && (
+              <Image
+                source={{ uri: mediaUri }}
+                style={styles.previewImage}
+                resizeMode="cover"
+              />
+            )}
+            {mediaUri && postType === "video" && (
+              <View style={styles.previewVideoContainer}>
+                <Text style={{ color: COLORS.textSecondary, marginBottom: 8 }}>
+                  Video selected
+                </Text>
+                {/* You can use expo-av or react-native-video for preview */}
+              </View>
+            )}
+            <Button
+              mode="contained"
+              onPress={handleSubmitPost}
+              style={styles.submitButton}
+              contentStyle={{ paddingVertical: 6 }}
+            >
+              {editingPostId ? "Update" : "Post"}
+            </Button>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -302,7 +403,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -313,79 +413,39 @@ const styles = StyleSheet.create({
     borderBottomColor: COLORS.border,
     backgroundColor: COLORS.background,
   },
-
   logo: {
     fontSize: 24,
     fontWeight: "700",
     color: COLORS.text,
     letterSpacing: -0.5,
   },
-
   headerIcons: {
     flexDirection: "row",
     alignItems: "center",
   },
-
   headerIcon: {
     marginLeft: 16,
     padding: 4,
   },
-
   storiesContainer: {
     paddingVertical: 16,
     borderBottomWidth: 0.5,
     borderBottomColor: COLORS.border,
     backgroundColor: COLORS.background,
   },
-
-  storiesContent: {
-    paddingHorizontal: 16,
-  },
-
-  storyItem: {
-    marginRight: 16,
-    alignItems: "center",
-    width: 66,
-  },
-
-  addStoryContainer: {
-    alignItems: "center",
-  },
-
-  addStoryPlus: {
-    width: 64,
-    height: 64,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderStyle: "dashed",
-    marginBottom: 4,
-  },
-
-  storiesContainer: {
-    paddingVertical: 16,
-    borderBottomWidth: 0.5,
-    borderBottomColor: COLORS.border,
-    backgroundColor: COLORS.background,
-  },
-
   storiesContent: {
     paddingHorizontal: 16,
     flexDirection: "row",
     alignItems: "center",
   },
-
   storyItem: {
     marginRight: 16,
     alignItems: "center",
     width: 70,
   },
-
   addStoryContainer: {
     alignItems: "center",
   },
-
   addStoryPlus: {
     width: 64,
     height: 64,
@@ -402,27 +462,23 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
-
   storyBorder: {
     padding: 2,
     marginBottom: 4,
     borderRadius: 34,
   },
-
   storyBorderUnviewed: {
     borderWidth: 2,
-    borderColor: "#E91E63",
+    borderColor: COLORS.accent,
     padding: 2,
     borderRadius: 34,
   },
-
   storyBorderViewed: {
     borderWidth: 2,
     borderColor: COLORS.textSecondary,
     padding: 2,
     borderRadius: 34,
   },
-
   storyImage: {
     width: 60,
     height: 60,
@@ -434,7 +490,6 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
-
   storyUsername: {
     fontSize: 12,
     color: COLORS.text,
@@ -442,10 +497,68 @@ const styles = StyleSheet.create({
     width: 70,
     marginTop: 4,
   },
-
   feedContent: {
     paddingBottom: 20,
   },
+  // Modal styles
+  modalContainer: {
+    flex: 1,
+    justifyContent: "center",
+    backgroundColor: "rgba(0,0,0,0.2)",
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 20,
+    marginHorizontal: 24,
+    alignItems: "stretch",
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: COLORS.text,
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  modalTypeRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
+  typeButton: {
+    marginHorizontal: 4,
+  },
+  textInput: {
+    marginBottom: 12,
+    backgroundColor: "#fff",
+  },
+  previewImage: {
+    width: "100%",
+    height: 200,
+    borderRadius: 8,
+    marginBottom: 12,
+    backgroundColor: COLORS.border,
+  },
+  previewVideoContainer: {
+    alignItems: "center",
+    marginBottom: 12,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: COLORS.border,
+  },
+  submitButton: {
+    marginTop: 8,
+    backgroundColor: COLORS.text,
+  },
+  // ...existing styles...
+fab: {
+  position: "absolute",
+  right: 24,
+  bottom: 90, // Increased so it's above the tab bar
+  backgroundColor: COLORS.accent,
+  zIndex: 100,
+},
+// ...existing styles...
 });
 
 export default Newsfeed;
