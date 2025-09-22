@@ -10,6 +10,7 @@ import {
   Switch,
   SafeAreaView,
   StatusBar,
+  Animated,
 } from "react-native";
 import * as Location from "expo-location";
 import { Accelerometer } from "expo-sensors";
@@ -29,6 +30,7 @@ export default function App() {
   const [newContact, setNewContact] = useState("");
   const countdownRef = useRef(null);
   const webview = useRef(null);
+  const progressAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     (async () => {
@@ -54,9 +56,10 @@ export default function App() {
   }, [location, fallDetectionEnabled]);
 
   const handleFall = async () => {
-    setStatus("⚠️ Fall detected! Sending alert...");
+    setStatus("Fall detected! Sending alert...");
     const loc = location || (await Location.getCurrentPositionAsync({}));
     sendAlert("fall", loc);
+    triggerSOS();
   };
 
   const sendAlert = async (type, loc) => {
@@ -82,7 +85,7 @@ export default function App() {
     } catch (err) {
       console.warn("Offline or failed, adding to queue:", err);
       setOfflineQueue((prev) => [...prev, { type, payload }]);
-      setStatus("📡 Alert queued - Will retry when online");
+      setStatus("Alert queued - Will retry when online");
     }
   };
 
@@ -101,7 +104,7 @@ export default function App() {
             body: JSON.stringify(item.payload),
           });
           setOfflineQueue((prev) => prev.filter((_, i) => i !== index));
-          setStatus(`✅ Queued ${item.type} alert sent`);
+          setStatus(`Queued ${item.type} alert sent`);
         } catch {}
       });
     }, 30000);
@@ -157,9 +160,13 @@ export default function App() {
 
   const startSOSCountdown = async () => {
     if (sosCountdown > 0) {
-      // Cancel countdown if already running
       clearInterval(countdownRef.current);
       setSosCountdown(0);
+      Animated.timing(progressAnim, {
+        toValue: 0,
+        duration: 0,
+        useNativeDriver: false,
+      }).start();
       setStatus("SOS cancelled");
       return;
     }
@@ -170,7 +177,14 @@ export default function App() {
     }
 
     setSosCountdown(SOS_COUNTDOWN);
-    setStatus("🚨 SOS countdown started...");
+    setStatus("SOS countdown started...");
+
+    progressAnim.setValue(0);
+    Animated.timing(progressAnim, {
+      toValue: 1,
+      duration: SOS_COUNTDOWN * 1000,
+      useNativeDriver: false,
+    }).start();
 
     countdownRef.current = setInterval(() => {
       setSosCountdown((prev) => {
@@ -186,14 +200,14 @@ export default function App() {
 
   const triggerSOS = async () => {
     const loc = location || (await Location.getCurrentPositionAsync({}));
-    setStatus("🚨 SOS alert triggered! Contacting emergency contacts...");
+    setStatus("SOS alert triggered! Contacting emergency contacts...");
     sendAlert("sos", loc);
   };
 
   const getStatusColor = () => {
-    if (status.includes("⚠️") || status.includes("🚨")) return "#FF3B30";
-    if (status.includes("✅")) return "#34C759";
-    if (status.includes("📡")) return "#FF9500";
+    if (status.includes("Fall") || status.includes("SOS")) return "#FF3B30";
+    if (status.includes("sent")) return "#34C759";
+    if (status.includes("queued")) return "#FF9500";
     return "#666";
   };
 
@@ -206,7 +220,7 @@ export default function App() {
         originWhitelist={["*"]}
         source={{ html: webviewHtml }}
         onMessage={() => {
-          setStatus("🎤 Voice command detected!");
+          setStatus("Voice command detected!");
           triggerSOS();
         }}
         javaScriptEnabled
@@ -234,7 +248,7 @@ export default function App() {
         </View>
       </View>
 
-      {/* Warning Banner */}
+      {/* Offline Queue Warning */}
       {offlineQueue.length > 0 && (
         <View style={styles.warningBanner}>
           <Ionicons name="warning" size={20} color="#FF9500" />
@@ -245,7 +259,7 @@ export default function App() {
         </View>
       )}
 
-      {/* Fall Detection Section */}
+      {/* Fall Detection */}
       <View style={styles.card}>
         <View style={styles.cardHeader}>
           <View style={styles.cardTitleContainer}>
@@ -270,7 +284,7 @@ export default function App() {
         </Text>
       </View>
 
-      {/* Emergency Contacts Section */}
+      {/* Emergency Contacts */}
       <View style={styles.card}>
         <View style={styles.cardHeader}>
           <View style={styles.cardTitleContainer}>
@@ -338,6 +352,12 @@ export default function App() {
 
       {/* SOS Button */}
       <View style={styles.sosContainer}>
+        <Animated.View
+          style={[
+            styles.progressRing,
+            { transform: [{ scale: progressAnim }] },
+          ]}
+        />
         <TouchableOpacity
           style={[styles.sosButton, sosCountdown > 0 && styles.sosButtonActive]}
           onPress={startSOSCountdown}
@@ -367,31 +387,19 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-  },
-
+  container: { flex: 1, backgroundColor: "#FFFFFF" },
   header: {
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: "#F2F2F7",
   },
-
   titleContainer: {
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 12,
   },
-
-  title: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: "#1D1D1F",
-    marginLeft: 12,
-  },
-
+  title: { fontSize: 28, fontWeight: "700", color: "#1D1D1F", marginLeft: 12 },
   statusContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -399,19 +407,8 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 16,
   },
-
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 8,
-  },
-
-  status: {
-    fontSize: 14,
-    fontWeight: "500",
-  },
-
+  statusDot: { width: 8, height: 8, borderRadius: 4, marginRight: 8 },
+  status: { fontSize: 14, fontWeight: "500" },
   warningBanner: {
     flexDirection: "row",
     alignItems: "center",
@@ -424,14 +421,12 @@ const styles = StyleSheet.create({
     marginVertical: 8,
     borderRadius: 8,
   },
-
   warningText: {
     color: "#D1940C",
     fontSize: 14,
     fontWeight: "500",
     marginLeft: 8,
   },
-
   card: {
     backgroundColor: "#FFFFFF",
     marginHorizontal: 20,
@@ -446,61 +441,30 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#F2F2F7",
   },
-
   cardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 8,
   },
-
-  cardTitleContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-  },
-
+  cardTitleContainer: { flexDirection: "row", alignItems: "center", flex: 1 },
   cardTitle: {
     fontSize: 18,
     fontWeight: "600",
     color: "#1D1D1F",
     marginLeft: 8,
   },
-
-  contactCount: {
-    fontSize: 14,
-    color: "#999",
-    marginLeft: 4,
-  },
-
-  cardDescription: {
-    fontSize: 14,
-    color: "#666",
-    marginTop: 4,
-  },
-
-  emptyState: {
-    alignItems: "center",
-    paddingVertical: 32,
-  },
-
+  contactCount: { fontSize: 14, color: "#999", marginLeft: 4 },
+  cardDescription: { fontSize: 14, color: "#666", marginTop: 4 },
+  emptyState: { alignItems: "center", paddingVertical: 32 },
   emptyStateText: {
     fontSize: 16,
     fontWeight: "500",
     color: "#999",
     marginTop: 12,
   },
-
-  emptyStateSubtext: {
-    fontSize: 14,
-    color: "#999",
-    marginTop: 4,
-  },
-
-  contactsList: {
-    maxHeight: 150,
-  },
-
+  emptyStateSubtext: { fontSize: 14, color: "#999", marginTop: 4 },
+  contactsList: { maxHeight: 150 },
   contactRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -509,32 +473,15 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#F2F2F7",
   },
-
-  contactInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-  },
-
-  contactNumber: {
-    fontSize: 16,
-    color: "#1D1D1F",
-    marginLeft: 12,
-  },
-
-  removeButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: "#FFF2F2",
-  },
-
+  contactInfo: { flexDirection: "row", alignItems: "center", flex: 1 },
+  contactNumber: { fontSize: 16, color: "#1D1D1F", marginLeft: 12 },
+  removeButton: { padding: 8, borderRadius: 20, backgroundColor: "#FFF2F2" },
   addContactContainer: {
     flexDirection: "row",
     alignItems: "center",
     marginTop: 16,
     gap: 12,
   },
-
   input: {
     flex: 1,
     borderWidth: 1,
@@ -545,7 +492,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     backgroundColor: "#FAFAFA",
   },
-
   addButton: {
     backgroundColor: "#007AFF",
     width: 48,
@@ -554,11 +500,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-
-  addButtonDisabled: {
-    backgroundColor: "#F2F2F7",
-  },
-
+  addButtonDisabled: { backgroundColor: "#F2F2F7" },
   sosContainer: {
     flex: 1,
     justifyContent: "center",
@@ -566,7 +508,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 32,
   },
-
   sosButton: {
     backgroundColor: "#FF3B30",
     width: 160,
@@ -580,44 +521,39 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 8,
   },
-
-  sosButtonActive: {
-    backgroundColor: "#FF9500",
-    shadowColor: "#FF9500",
-  },
-
+  sosButtonActive: { backgroundColor: "#FF9500", shadowColor: "#FF9500" },
   sosButtonText: {
     color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "600",
     marginTop: 8,
   },
-
-  sosCountdownText: {
-    color: "#FFFFFF",
-    fontSize: 48,
-    fontWeight: "700",
-  },
-
+  sosCountdownText: { color: "#FFFFFF", fontSize: 48, fontWeight: "700" },
   sosCancelText: {
     color: "#FFFFFF",
     fontSize: 12,
     fontWeight: "500",
     marginTop: 4,
   },
-
   sosInstructions: {
     flexDirection: "row",
     alignItems: "center",
     marginTop: 20,
     paddingHorizontal: 20,
   },
-
   sosInstructionsText: {
     fontSize: 12,
     color: "#999",
     textAlign: "center",
     marginLeft: 6,
     lineHeight: 16,
+  },
+  progressRing: {
+    position: "absolute",
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    borderWidth: 4,
+    borderColor: "#FF9500",
   },
 });
