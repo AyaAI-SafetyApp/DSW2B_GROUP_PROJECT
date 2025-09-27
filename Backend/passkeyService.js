@@ -1,7 +1,7 @@
-import { doc, setDoc, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
-import { db } from "../AyaApp/screens/Auth/firebaseConfig";
+const { doc, setDoc, getDoc, updateDoc, arrayUnion } = require("firebase/firestore");
+const { db } = require("../AyaApp/screens/Auth/firebaseConfig");
 
-export const storePasskey = async (userId, credentialId, publicKey) => {
+const storePasskey = async (userId, credentialId, publicKey) => {
   const userRef = doc(db, "users", userId);
   const userSnap = await getDoc(userRef);
 
@@ -18,4 +18,8 @@ export const storePasskey = async (userId, credentialId, publicKey) => {
       passkeys: arrayUnion(passkeyData),
     });
   }
+};
+
+module.exports = {
+  storePasskey
 };
