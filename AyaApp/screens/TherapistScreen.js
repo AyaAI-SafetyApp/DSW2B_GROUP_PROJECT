@@ -15,7 +15,7 @@ import { Audio } from "expo-av";
 import * as Speech from "expo-speech";
 import axios from "axios";
 
-const BACKEND_URL = "http://172.16.26.108:3000";
+const BACKEND_URL = "https://dsw2b-backend.onrender.com";
 
 export default function AyaTherapistScreen() {
   const [listening, setListening] = useState(false);
@@ -121,13 +121,13 @@ export default function AyaTherapistScreen() {
       const formData = new FormData();
       formData.append("audio", { uri, type: "audio/m4a", name: "voice.m4a" });
 
-      const res = await axios.post(`${BACKEND_URL}/voice-chat`, formData, {
+      const res = await axios.post(`${BACKEND_URL}/therapist/chat-audio`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
-      const { text, audioUrl, emotion } = res.data;
-      setEmotion(emotion || "neutral");
-      showAIResponse(text, audioUrl);
+      const { transcription, reply } = res.data;
+      setEmotion("supportive"); // Default emotion for therapist
+      showAIResponse(reply, null);
     } catch (e) {
       console.error(e);
       showAIResponse("I’m having trouble responding right now.", null);
@@ -141,12 +141,12 @@ export default function AyaTherapistScreen() {
     if (!message.trim()) return;
     setLoading(true);
     try {
-      const res = await axios.post(`${BACKEND_URL}/voice-chat-text`, {
+      const res = await axios.post(`${BACKEND_URL}/therapist/chat`, {
         message,
       });
-      const { text, audioUrl, emotion } = res.data;
-      setEmotion(emotion || "neutral");
-      showAIResponse(text, audioUrl);
+      const { reply } = res.data;
+      setEmotion("supportive");
+      showAIResponse(reply, null);
       setMessage("");
     } catch (e) {
       console.error(e);

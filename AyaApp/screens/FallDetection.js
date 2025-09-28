@@ -2,12 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, Alert, Platform } from 'react-native';
 import { Accelerometer } from 'expo-sensors';
 import * as Location from 'expo-location';
-import * as Linking from 'expo-linking';
 
-const WHATSAPP_CONTACTS = [
-  '+27123456789', // Contact 1 (replace with real number)
-  '+27987654321', // Contact 2
-];
+const API_BASE = 'https://dsw2b-backend.onrender.com';
 
 export default function FallDetector() {
   const [fallDetected, setFallDetected] = useState(false);
@@ -35,21 +31,28 @@ export default function FallDetector() {
     return await Location.getCurrentPositionAsync({});
   }
 
-  async function sendLocationToWhatsApp(location) {
+  async function sendFallAlert(location) {
     if (!location) return;
 
     const { latitude, longitude } = location.coords;
-    const message = Help me I fell! My location: https://maps.google.com/?q=${latitude},${longitude};
-
-    for (const phoneNumber of WHATSAPP_CONTACTS) {
-      const url = whatsapp://send?phone=${phoneNumber}&text=${encodeURIComponent(message)};
-      const supported = await Linking.canOpenURL(url);
-
-      if (supported) {
-        await Linking.openURL(url);
-      } else {
-        Alert.alert('WhatsApp is not installed or cannot open');
-      }
+    
+    try {
+      const response = await fetch(`${API_BASE}/api/send-location`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: 'user123', // You can make this dynamic
+          timestamp: Date.now(),
+          coords: { latitude, longitude }
+        })
+      });
+      
+      const result = await response.json();
+      Alert.alert('✅ Emergency Alert Sent', 'Your emergency contacts have been notified via WhatsApp and voice call.');
+      console.log('Fall alert sent:', result);
+    } catch (error) {
+      console.error('Failed to send fall alert:', error);
+      Alert.alert('❌ Alert Failed', 'Could not send emergency alert. Please contact help manually.');
     }
   }
 
@@ -71,7 +74,7 @@ export default function FallDetector() {
         setFallDetected(true);
         Alert.alert('⚠ Fall Detected!');
         const location = await getLocation();
-        await sendLocationToWhatsApp(location);
+        await sendFallAlert(location);
       }
       fallTimestamp = null;
     }

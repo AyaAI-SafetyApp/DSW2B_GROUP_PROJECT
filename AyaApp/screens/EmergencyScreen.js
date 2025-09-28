@@ -23,7 +23,7 @@ const suggestedPrompts = [
   "Severe bleeding",
 ];
 
-const API_BASE = "http://172.16.26.108:3000";
+const API_BASE = "https://dsw2b-backend.onrender.com";
 
 if (Platform.OS === "android") {
   UIManager.setLayoutAnimationEnabledExperimental(true);

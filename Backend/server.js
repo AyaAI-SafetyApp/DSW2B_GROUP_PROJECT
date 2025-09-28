@@ -7,14 +7,155 @@ const bodyParser = require('body-parser');
 const { createClient } = require('@supabase/supabase-js');
 const { doc, setDoc, getDoc, updateDoc, arrayUnion } = require("firebase/firestore");
 const { db } = require("./firebaseConfig");
+const dotenv = require('dotenv');
+const twilio = require("twilio");
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+const sqlite3 = require("sqlite3").verbose();
+const multer = require("multer");
 
+// Load environment variables
+dotenv.config();
+
+const upload = multer({ dest: "uploads/" });
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+// Gemini API setup for emergency chat
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+
+// Twilio setup for emergency alerts
+const accountSid = process.env.TWILIO_SID;
+const authToken = process.env.TWILIO_AUTH_TOKEN;
+const client = twilio(accountSid, authToken);
+
+// Initialize Google Generative AI for therapist chat
+const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+const therapistModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+// SQLite database for therapist conversations
+const therapistDb = new sqlite3.Database("conversations.db", (err) => {
+  if (err) {
+    console.error("Therapist DB connection failed:", err.message);
+  } else {
+    console.log("Therapist SQLite connected");
+  }
+});
+
+// Create therapist conversations table
+therapistDb.serialize(() => {
+  therapistDb.run(`
+    CREATE TABLE IF NOT EXISTS conversations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_message TEXT,
+      ai_response TEXT,
+      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+});
+
+// Emergency alert system
+const alerts = [];
+const TRUSTED_NUMBERS = ["+27712233272"];
+
+const users = [
+  { userId: "user123", name: "Lethabo", contacts: ["+27712233272"] },
+  { userId: "user456", name: "Thabo", contacts: ["+27719876543"] },
+];
+
+function getUser(userId) {
+  return (
+    users.find((u) => u.userId === userId) || {
+      name: "Someone",
+      contacts: TRUSTED_NUMBERS,
+    }
+  );
+}
 
 // Middleware
 app.use(cors({ origin: '*' })); // allow all origins for testing
 app.use(express.json());
 app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: false }));
+
+// Emergency alert functions
+async function sendWhatsApp(userId, messageBody, contacts = TRUSTED_NUMBERS) {
+  try {
+    const sendMessages = contacts.map((number) =>
+      client.messages.create({
+        body: messageBody,
+        from: "whatsapp:+14155238886",
+        to: `whatsapp:${number}`,
+      })
+    );
+    await Promise.all(sendMessages);
+    console.log(`✅ WhatsApp alerts sent for ${userId}`);
+    return true;
+  } catch (err) {
+    console.error("WhatsApp sending failed:", err.message);
+    return false;
+  }
+}
+
+async function makeSOSCall(userId, coords) {
+  const user = getUser(userId);
+  const locationUrl = `https://maps.google.com/?q=${coords.latitude},${coords.longitude}`;
+
+  try {
+    const response = await fetch("https://api.retell.ai/v1/call", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.RETELL_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: process.env.TWILIO_PHONE_NUMBER,
+        to: user.contacts,
+        system_prompt: `
+You are Aya Emergency Assistant.
+Call ${user.name}'s trusted contacts and say:
+"${user.name} might be in danger. Last known location: ${locationUrl}. 
+Please respond to help them immediately."
+Speak clearly and calmly.
+`,
+      }),
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Retell API failed: ${text}`);
+    }
+
+    console.log(`📞 Retell AI SOS call triggered for ${userId}`);
+    return true;
+  } catch (err) {
+    console.error("Failed to make Retell AI SOS call:", err.message);
+    return false;
+  }
+}
+
+async function retryAlerts() {
+  for (const alert of alerts) {
+    if (alert.status === "pending" && alert.retries < 5) {
+      const message = generateMessage(alert.userId, alert);
+      const success = await sendWhatsApp(alert.userId, message, alert.contacts);
+      if (success) alert.status = "active";
+      else alert.retries++;
+    }
+  }
+}
+
+function generateMessage(userId, alert) {
+  const user = getUser(userId);
+  const time = new Date(alert.timestamp).toLocaleString();
+  const locationUrl = `https://maps.google.com/?q=${alert.coords.latitude},${alert.coords.longitude}`;
+  return `⚠️ Emergency Alert ⚠️
+
+Hi there, this is an urgent message regarding ${user.name}.
+They might be in trouble as of ${time}.
+Last known location: ${locationUrl}
+
+Please check on them immediately!`;
+}
 
 // Load SAPS data
 let sapsData = [];
@@ -25,6 +166,38 @@ try {
     console.error('Error loading SAPS data:', error);
     sapsData = [];
 }
+
+// Aya Emergency system prompt
+const EMERGENCY_SYSTEM_PROMPT = `
+You are Aya, an advanced Emergency Responder chatbot developed by The Sabios team.
+Your role is to provide immediate, actionable help to users during any emergency.
+Do NOT refer users to external services. Instead, guide the user directly on what to do step by step.
+You must always try to help the user NOW, using any available advice, safety actions, or self-administered care.
+
+Return JSON ONLY with the following keys:
+- triage: category of emergency (critical, moderate, minor, unknown)
+- instructions: array of short, actionable steps the user can perform immediately
+- confidence: number between 0 and 1 indicating your confidence in the instructions
+- escalate: true/false if the situation is life-threatening or requires professional help
+- escalate_reason: short reason why escalation is needed
+
+Guidelines:
+- Make instructions clear, practical, and concise.
+- Format each instruction as a bullet with a bold title (e.g., "*Step 1:* Check responsiveness").
+- Focus on what the user can do immediately.
+- Include first-aid, safety, or emergency procedures whenever applicable.
+- Assume the user has no professional medical knowledge.
+- Always prioritize saving life, reducing harm, or stabilizing the situation until professional help arrives.
+`;
+
+// Therapist System Prompt
+const THERAPIST_SYSTEM_PROMPT = `
+You are Aya Therapist, a concise and empathetic virtual therapist for South African users. 
+Respond in short sentences, listening attentively. Provide guidance, emotional support, and safety advice.
+If user is in danger, advise contacting local emergency services:
+- South Africa: 10111 (Police), 0800 12 13 14 (Domestic Violence Helpline), 0800 567 567 (Childline)
+Always be calm, supportive, and concise.
+`;
 
 // Calculate GPS distance
 function calculateDistance(lat1, lon1, lat2, lon2) {
@@ -298,6 +471,383 @@ app.get('/api/health', (req, res) => {
 app.get("/ping", (req, res) => {
     res.send("pong 🏓");
 });
+
+// === EMERGENCY CHAT ENDPOINTS ===
+
+// Emergency chat endpoint
+app.post("/chat", async (req, res) => {
+    try {
+        const { message, location, user_profile } = req.body;
+
+        if (!GEMINI_API_KEY) {
+            return res.status(500).json({ 
+                ok: false, 
+                error: "Gemini API key not configured" 
+            });
+        }
+
+        // Combine user message with optional context
+        const userContext = JSON.stringify({ message, location, user_profile });
+
+        // Prepare AI request
+        const requestBody = {
+            contents: [
+                {
+                    role: "user",
+                    parts: [{ text: EMERGENCY_SYSTEM_PROMPT }, { text: userContext }],
+                },
+            ],
+        };
+
+        // Call Gemini API
+         const response = await axios.post(
+         "https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent",
+         requestBody,
+         {
+           headers: {
+             "Content-Type": "application/json",
+             "x-goog-api-key": GEMINI_API_KEY,
+           },
+         }
+       );
+        // Extract AI response text
+        let rawText = response.data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+        console.log("Raw AI response:", rawText);
+
+        // Clean formatting if AI wraps JSON in ```json blocks
+        rawText = rawText
+            .replace(/```json/g, "")
+            .replace(/```/g, "")
+            .trim();
+
+        console.log("Cleaned AI response:", rawText);
+
+        let parsed;
+        try {
+            // Parse JSON from AI response
+            parsed = JSON.parse(rawText);
+
+            // Format instructions as bullet-style with bolded step titles
+            if (parsed.instructions && Array.isArray(parsed.instructions)) {
+                parsed.instructions = parsed.instructions.map((step, index) => {
+                    // Convert to string if it's not already a string
+                    const stepText = typeof step === 'string' ? step : JSON.stringify(step);
+                    return `**Step ${index + 1}:** ${stepText.trim().replace(/\n+/g, " ")}`;
+                });
+            }
+        } catch (e) {
+            console.error("Failed to parse AI response:", e);
+            console.error("Raw AI response:", rawText);
+            // Default fallback if AI fails to return valid JSON
+            parsed = {
+                triage: "unknown",
+                instructions: [
+                    "**Attention:** Aya could not understand the situation clearly. Ensure safety and seek help immediately.",
+                ],
+                confidence: 0.3,
+                escalate: true,
+                escalate_reason: "AI response could not be parsed, treat as urgent emergency.",
+            };
+        }
+
+        // Return structured response
+        res.json({ ok: true, incident: parsed });
+    } catch (error) {
+        console.error("Emergency chat error:", error.response?.data || error.message);
+        res.status(500).json({ 
+            ok: false, 
+            error: "Emergency chat service temporarily unavailable" 
+        });
+    }
+});
+
+// List available Gemini models (for debugging)
+app.get("/models", async (req, res) => {
+    try {
+        if (!GEMINI_API_KEY) {
+            return res.status(500).json({ 
+                ok: false, 
+                error: "Gemini API key not configured" 
+            });
+        }
+
+        const response = await axios.get(
+            "https://generativelanguage.googleapis.com/v1/models",
+            {
+                headers: {
+                    "x-goog-api-key": GEMINI_API_KEY,
+                },
+            }
+        );
+        res.json(response.data);
+    } catch (error) {
+        console.error(error.response?.data || error.message);
+        res.status(500).json({ ok: false, error: "Failed to fetch models" });
+    }
+});
+
+// === SOS & EMERGENCY ALERT ENDPOINTS ===
+
+// Send location for emergency alerts
+app.post("/api/send-location", async (req, res) => {
+    const { userId, timestamp, coords } = req.body;
+    if (
+        !coords ||
+        typeof coords.latitude !== "number" ||
+        typeof coords.longitude !== "number"
+    ) {
+        return res.status(400).json({ error: "Invalid coordinates" });
+    }
+
+    const user = getUser(userId);
+    const messageBody = generateMessage(userId, { timestamp, coords });
+    const success = await sendWhatsApp(userId, messageBody, user.contacts);
+
+    alerts.push({
+        userId,
+        timestamp,
+        coords,
+        status: success ? "active" : "pending",
+        retries: success ? 0 : 1,
+        contacts: user.contacts,
+    });
+
+    // Trigger Retell AI call automatically
+    makeSOSCall(userId, coords);
+
+    res.json({
+        status: success
+            ? "WhatsApp sent + Retell AI call triggered"
+            : "Queued for retry",
+        coords,
+        contacts: user.contacts,
+    });
+});
+
+// Webhook for emergency responses
+app.post("/api/webhook", (req, res) => {
+    const from = req.body.From || "";
+    const body = req.body.Body || "";
+    console.log(`📩 Incoming message from ${from}: ${body}`);
+
+    if (body.toLowerCase().includes("cancel")) {
+        for (const alert of alerts) {
+            if (alert.status === "active") {
+                alert.status = "cancelled";
+                console.log(`❌ Alert for user ${alert.userId} cancelled by ${from}`);
+            }
+        }
+    }
+
+    res.set("Content-Type", "text/xml");
+    res.send(`<Response></Response>`);
+});
+
+// Get all alerts
+app.get("/api/alerts", (req, res) => {
+    res.json(alerts);
+});
+
+// === THERAPIST CHAT ENDPOINTS ===
+
+// Therapist text chat endpoint
+app.post("/therapist/chat", async (req, res) => {
+    const { message } = req.body;
+    if (!message || !message.trim()) {
+        return res.status(400).json({ error: "Message required" });
+    }
+
+    try {
+        const aiResult = await therapistModel.generateContent({
+            contents: [
+                { role: "model", parts: [{ text: THERAPIST_SYSTEM_PROMPT }] },
+                { role: "user", parts: [{ text: message }] },
+            ],
+            generationConfig: {
+                temperature: 0.6,
+                topP: 0.9,
+                maxOutputTokens: 300,
+                responseMimeType: "text/plain",
+            },
+        });
+
+        const aiReply = aiResult.response.text();
+        
+        // Store conversation in database
+        therapistDb.run(
+            "INSERT INTO conversations (user_message, ai_response) VALUES (?, ?)",
+            [message, aiReply],
+            (err) => {
+                if (err) {
+                    console.error("Failed to store therapist conversation:", err);
+                }
+            }
+        );
+        
+        res.json({ reply: aiReply });
+    } catch (err) {
+        console.error("Therapist AI chat error:", err.message);
+        res.status(500).json({ error: "Therapist AI failed to respond" });
+    }
+});
+
+// Therapist audio chat endpoint
+app.post("/therapist/chat-audio", upload.single("audio"), async (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ error: "Audio file required" });
+    }
+    
+    const audioPath = req.file.path;
+
+    try {
+        // Process audio file and get transcription + response
+        const transcriptionResult = await therapistModel.generateContent({
+            contents: [
+                { role: "model", parts: [{ text: THERAPIST_SYSTEM_PROMPT }] },
+                {
+                    role: "user",
+                    parts: [{ fileData: { mimeType: "audio/m4a", fileUri: audioPath } }],
+                },
+            ],
+            generationConfig: {
+                temperature: 0.6,
+                topP: 0.9,
+                maxOutputTokens: 300,
+                responseMimeType: "text/plain",
+            },
+        });
+
+        const transcription = transcriptionResult.response.text();
+
+        // Generate AI reply based on transcription
+        const replyResult = await therapistModel.generateContent({
+            contents: [
+                { role: "model", parts: [{ text: THERAPIST_SYSTEM_PROMPT }] },
+                { role: "user", parts: [{ text: transcription }] },
+            ],
+            generationConfig: {
+                temperature: 0.6,
+                topP: 0.9,
+                maxOutputTokens: 300,
+                responseMimeType: "text/plain",
+            },
+        });
+
+        const aiReply = replyResult.response.text();
+
+        // Store conversation
+        therapistDb.run(
+            "INSERT INTO conversations (user_message, ai_response) VALUES (?, ?)",
+            [transcription, aiReply],
+            (err) => {
+                if (err) {
+                    console.error("Failed to store audio therapist conversation:", err);
+                }
+            }
+        );
+
+        // Clean up audio file
+        fs.unlink(audioPath, (err) => {
+            if (err) console.error("Failed to delete audio file:", err);
+        });
+
+        res.json({ transcription, reply: aiReply });
+    } catch (err) {
+        console.error("Therapist audio processing error:", err.message);
+        res.status(500).json({ error: "Failed to process audio" });
+    }
+});
+
+// Therapist conversation summary endpoint
+app.get("/therapist/summary", async (req, res) => {
+    therapistDb.all(
+        "SELECT user_message, ai_response FROM conversations ORDER BY timestamp DESC LIMIT 20",
+        async (err, rows) => {
+            if (err) {
+                return res.status(500).json({ error: "Database error" });
+            }
+            
+            if (!rows.length) {
+                return res.json({ summary: "No recent conversations" });
+            }
+
+            const convoText = rows
+                .map((r) => `User: ${r.user_message}\nAI: ${r.ai_response}`)
+                .join("\n");
+
+            try {
+                const summary = await therapistModel.generateContent({
+                    contents: [
+                        {
+                            role: "model",
+                            parts: [{ text: THERAPIST_SYSTEM_PROMPT + "\nSummarize concisely:" }],
+                        },
+                        { role: "user", parts: [{ text: convoText }] },
+                    ],
+                    generationConfig: {
+                        temperature: 0.6,
+                        topP: 0.9,
+                        maxOutputTokens: 150,
+                    },
+                });
+
+                res.json({ summary: summary.response.text() });
+            } catch (err) {
+                console.error("Failed to generate therapist summary:", err);
+                res.status(500).json({ error: "Failed to generate summary" });
+            }
+        }
+    );
+});
+
+// Therapist feedback endpoint
+app.get("/therapist/feedback", async (req, res) => {
+    therapistDb.all(
+        "SELECT user_message, ai_response FROM conversations ORDER BY timestamp DESC LIMIT 20",
+        async (err, rows) => {
+            if (err) {
+                return res.status(500).json({ error: "Database error" });
+            }
+            
+            if (!rows.length) {
+                return res.json({ feedback: "No recent conversations" });
+            }
+
+            const convoText = rows
+                .map((r) => `User: ${r.user_message}\nAI: ${r.ai_response}`)
+                .join("\n");
+
+            try {
+                const feedback = await therapistModel.generateContent({
+                    contents: [
+                        {
+                            role: "model",
+                            parts: [
+                                {
+                                    text: THERAPIST_SYSTEM_PROMPT + "\nProvide concise, empathetic feedback:",
+                                },
+                            ],
+                        },
+                        { role: "user", parts: [{ text: convoText }] },
+                    ],
+                    generationConfig: {
+                        temperature: 0.6,
+                        topP: 0.9,
+                        maxOutputTokens: 150,
+                    },
+                });
+
+                res.json({ feedback: feedback.response.text() });
+            } catch (err) {
+                console.error("Failed to generate therapist feedback:", err);
+                res.status(500).json({ error: "Failed to generate feedback" });
+            }
+        }
+    );
+});
+
+// === PAYPAL SUBSCRIPTION ENDPOINTS ===
 
 // Create PayPal subscription
 app.post("/create-subscription", async (req, res) => {
@@ -826,12 +1376,16 @@ app.use((req, res) => {
     res.status(404).json({ error: 'Endpoint not found' });
 });
 
+// Start retry alerts interval
+setInterval(retryAlerts, 60 * 1000);
+
 // Start server
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`AyaAI Safety Server running on port ${PORT}`);
     console.log(`Loaded ${sapsData.length} SAPS records`);
     console.log(`API available at: http://localhost:${PORT}`);
     console.log(`Health check: http://localhost:${PORT}/api/health`);
+    console.log(`Emergency alerts: WhatsApp + Retell AI enabled`);
 });
 
 module.exports = app;
