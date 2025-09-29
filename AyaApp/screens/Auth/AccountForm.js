@@ -74,7 +74,7 @@ export default function PremiumMultiStepForm() {
   // Clear errors when gender is selected
   useEffect(() => {
     if (gender && step === 2) {
-      setErrors(prevErrors => {
+      setErrors((prevErrors) => {
         const newErrors = { ...prevErrors };
         delete newErrors.gender;
         return newErrors;
@@ -138,7 +138,7 @@ export default function PremiumMultiStepForm() {
   const validateStep = () => {
     const newErrors = {};
     console.log("Validating step:", step, "gender:", gender);
-    
+
     if (step === 0) {
       if (!fullName.trim()) newErrors.fullName = "Full name required";
       if (!username.trim()) newErrors.username = "Username required";
@@ -155,7 +155,7 @@ export default function PremiumMultiStepForm() {
         console.log("Gender validation passed - gender:", gender);
       }
     }
-    
+
     console.log("Validation errors:", newErrors);
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -223,15 +223,15 @@ export default function PremiumMultiStepForm() {
 
   const handleSubmit = async () => {
     console.log("Submit clicked, step:", step, "gender:", gender);
-    
+
     if (!validateStep()) {
       console.log("Validation failed, errors:", errors);
       return;
     }
-    
+
     setLoading(true);
     console.log("Starting submission...");
-    
+
     try {
       const accountData = {
         fullName,
@@ -242,17 +242,17 @@ export default function PremiumMultiStepForm() {
         location,
         profilePic,
       };
-      
+
       console.log("Sending account data:", accountData);
-      
+
       await axios.post(`https://dsw2b-backend.onrender.com/account`, {
         userID,
         account: accountData,
       });
-      
+
       console.log("Account created successfully");
       animateStepCompletion(step);
-      navigation.navigate("GetAssertion", { userID });
+      navigation.navigate("subscription", { userID });
     } catch (err) {
       console.error("Submit error:", err);
       setErrors({ submit: "Something went wrong. Try again." });
@@ -264,15 +264,22 @@ export default function PremiumMultiStepForm() {
   const isStepValid = () => {
     // Clear errors when checking validity
     const hasNoErrors = Object.keys(errors).length === 0;
-    
+
     if (step === 0) {
       return hasNoErrors && fullName.trim() && username.trim();
     } else if (step === 1) {
-      return hasNoErrors && phone.trim() && location.trim() && age && !isNaN(age) && age >= 13;
+      return (
+        hasNoErrors &&
+        phone.trim() &&
+        location.trim() &&
+        age &&
+        !isNaN(age) &&
+        age >= 13
+      );
     } else if (step === 2) {
       return hasNoErrors && gender && gender.length > 0;
     }
-    
+
     return false;
   };
 

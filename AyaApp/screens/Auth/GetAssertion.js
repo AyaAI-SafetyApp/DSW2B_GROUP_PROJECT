@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   View,
   TouchableOpacity,
@@ -17,11 +17,11 @@ const API_BASE = "https://dsw2b-backend.onrender.com";
 export default function GetAssertion() {
   const navigation = useNavigation();
   const route = useRoute();
-  const { userID } = route.params;
+  const userID = route?.params?.userID || "demo-user";
 
   const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
-  const fadeAnim = new Animated.Value(0);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
   const showStatus = (message) => {
     setStatusMessage(message);
@@ -69,14 +69,21 @@ export default function GetAssertion() {
       showStatus("Authenticated successfully");
 
       const fakeAssertion = { id: `${userID}-cred-${Date.now()}` };
-      await axios.post(`${API_BASE}/login/verify`, {
-        userID,
-        assertion: fakeAssertion,
-      });
+      try {
+        await axios.post(`${API_BASE}/login/verify`, {
+          userID,
+          assertion: fakeAssertion,
+        });
+      } catch (err) {
+        console.log("Backend error:", err);
+        showStatus("Failed to verify login");
+        setLoading(false);
+        return;
+      }
 
       navigation.reset({
         index: 0,
-        routes: [{ name: "subscription" }],
+        routes: [{ name: "MainTabs" }],
       });
     } catch (err) {
       console.log(err);
