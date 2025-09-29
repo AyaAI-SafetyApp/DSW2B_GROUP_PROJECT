@@ -71,6 +71,17 @@ export default function PremiumMultiStepForm() {
     ).start();
   }, []);
 
+  // Clear errors when gender is selected
+  useEffect(() => {
+    if (gender && step === 2) {
+      setErrors(prevErrors => {
+        const newErrors = { ...prevErrors };
+        delete newErrors.gender;
+        return newErrors;
+      });
+    }
+  }, [gender, step]);
+
   // ---------------- Image Upload ----------------
   const pickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -126,6 +137,8 @@ export default function PremiumMultiStepForm() {
   // ---------------- Validation ----------------
   const validateStep = () => {
     const newErrors = {};
+    console.log("Validating step:", step, "gender:", gender);
+    
     if (step === 0) {
       if (!fullName.trim()) newErrors.fullName = "Full name required";
       if (!username.trim()) newErrors.username = "Username required";
@@ -135,8 +148,15 @@ export default function PremiumMultiStepForm() {
       if (!location.trim()) newErrors.location = "Location required";
       if (!age || isNaN(age) || age < 13) newErrors.age = "Valid age (13+)";
     } else if (step === 2) {
-      if (!gender) newErrors.gender = "Please select gender";
+      if (!gender) {
+        newErrors.gender = "Please select gender";
+        console.log("Gender validation failed - no gender selected");
+      } else {
+        console.log("Gender validation passed - gender:", gender);
+      }
     }
+    
+    console.log("Validation errors:", newErrors);
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -202,8 +222,16 @@ export default function PremiumMultiStepForm() {
   };
 
   const handleSubmit = async () => {
-    if (!validateStep()) return;
+    console.log("Submit clicked, step:", step, "gender:", gender);
+    
+    if (!validateStep()) {
+      console.log("Validation failed, errors:", errors);
+      return;
+    }
+    
     setLoading(true);
+    console.log("Starting submission...");
+    
     try {
       const accountData = {
         fullName,
@@ -214,24 +242,39 @@ export default function PremiumMultiStepForm() {
         location,
         profilePic,
       };
-      await axios.post(`http://172.16.26.108:3000/account`, {
+      
+      console.log("Sending account data:", accountData);
+      
+      await axios.post(`https://dsw2b-backend.onrender.com/account`, {
         userID,
         account: accountData,
       });
+      
+      console.log("Account created successfully");
       animateStepCompletion(step);
       navigation.navigate("GetAssertion", { userID });
     } catch (err) {
+      console.error("Submit error:", err);
       setErrors({ submit: "Something went wrong. Try again." });
     } finally {
       setLoading(false);
     }
   };
 
-  const isStepValid = () =>
-    Object.keys(errors).length === 0 &&
-    ((step === 0 && fullName && username) ||
-      (step === 1 && phone && location && age) ||
-      (step === 2 && gender));
+  const isStepValid = () => {
+    // Clear errors when checking validity
+    const hasNoErrors = Object.keys(errors).length === 0;
+    
+    if (step === 0) {
+      return hasNoErrors && fullName.trim() && username.trim();
+    } else if (step === 1) {
+      return hasNoErrors && phone.trim() && location.trim() && age && !isNaN(age) && age >= 13;
+    } else if (step === 2) {
+      return hasNoErrors && gender && gender.length > 0;
+    }
+    
+    return false;
+  };
 
   // ---------------- Step icons + progress bar ----------------
   const renderStepIcons = () => {

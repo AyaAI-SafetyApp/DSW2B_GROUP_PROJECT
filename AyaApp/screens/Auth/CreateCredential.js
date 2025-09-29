@@ -18,7 +18,7 @@ import * as LocalAuthentication from "expo-local-authentication";
 import { useNavigation } from "@react-navigation/native";
 import axios from "axios";
 
-const API_BASE = "http://172.16.26.108:3000";
+const API_BASE = "https://dsw2b-backend.onrender.com";
 const CONFETTI_COUNT = 10;
 
 export default function CreateCredentials() {

@@ -14,19 +14,100 @@ import { WebView } from "react-native-webview";
 import axios from "axios";
 import { FontAwesome5, MaterialIcons } from "@expo/vector-icons";
 import * as Animatable from "react-native-animatable";
-import supabase from "../../lib/supabaseClient";
+import { supabase } from "../../lib/supabaseClient";
 
 const { width } = Dimensions.get("window");
 
 // Configuration
 const CONFIG = {
-  API_BASE_URL: "http://172.16.26.108:3000",
+  API_BASE_URL: "https://dsw2b-backend.onrender.com",
   DEMO_USER_ID: "demo-user-123",
   REQUEST_TIMEOUT: 10000,
 };
 
+// Plan data with real PayPal plan IDs (To be updated with new ZAR plan IDs)
+const PLANS = {
+  monthly: [
+    {
+      id: "P-1GN061938A031721GNC5CY4Q", // Will be replaced with new ZAR plan ID
+      title: "Personal",
+      price: "R350", // Correct South African Rand pricing
+      period: "month",
+      icon: "user",
+      iconColor: "#00a6ffff",
+      description:
+        "Individual safety with premium features and priority support.",
+      features: [
+        "Real-time alerts & notifications",
+        "Offline emergency support",
+        "AI-powered safe routes",
+        "24/7 priority support",
+        "Advanced location sharing",
+      ],
+      highlight: true,
+      savings: null,
+    },
+    {
+      id: "P-5PD448977L069480VNC5CZYY", // Will be replaced with new ZAR plan ID  
+      title: "Family",
+      price: "R900", // Correct South African Rand pricing
+      period: "3 months",
+      icon: "users",
+      iconColor: "#ff7b00ff",
+      description:
+        "Complete family protection with shared alerts and group features.",
+      features: [
+        "Up to 5 family members",
+        "Shared emergency alerts",
+        "Family location tracking",
+        "Group safety zones",
+        "Priority family support",
+      ],
+      isTrial: false,
+    },
+  ],
+  yearly: [
+    {
+      id: "P-9U8910582N234330WNC5C2OQ", // Will be replaced with new ZAR plan ID
+      title: "Personal",
+      price: "R3,500", // Correct South African Rand pricing
+      period: "year",
+      icon: "user",
+      iconColor: "#00a6ffff",
+      description: "Annual plan with significant savings and premium features.",
+      features: [
+        "All Personal monthly features",
+        "Annual billing discount",
+        "Extended offline maps",
+        "Advanced analytics",
+        "Priority feature access",
+      ],
+      savings: "Save R700",
+    },
+    {
+      id: "P-9L275883JF591292KNC5CX5I", // Will be replaced with new ZAR plan ID
+      title: "Premium",
+      price: "R8,000", // Correct South African Rand pricing
+      period: "year",
+      icon: "crown",
+      iconColor: "#ff7b00ff",
+      description:
+        "Premium annual plan with maximum savings and premium support.",
+      features: [
+        "All Family features",
+        "Up to 10 family members",
+        "Advanced family analytics",
+        "Dedicated family manager",
+        "Custom safety zones",
+      ],
+      highlight: true,
+      savings: "Save R2,800",
+    },
+  ],
+};
+
 // Custom hook for subscription management
-const useSubscription = () => {
+const useSubscription = (navigation) => {
   const [checkoutUrl, setCheckoutUrl] = useState(null);
   const [loading, setLoading] = useState(false);
   const [activePlan, setActivePlan] = useState(null);
@@ -39,28 +120,26 @@ const useSubscription = () => {
   }, []);
 
   const fetchCurrentSubscription = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("subscriptions")
-        .select("*")
-        .eq("user_id", CONFIG.DEMO_USER_ID)
-        .eq("status", "ACTIVE")
-        .single();
-
-      if (!error && data) {
-        setCurrentSubscription(data);
-      }
-    } catch (error) {
-      console.log("No active subscription found");
-    }
+    // Skip database check for now - assume no active subscription
+    console.log("Skipping database check - no active subscription");
+    setCurrentSubscription(null);
   };
 
   const createSubscription = async (planId) => {
-    if (!planId || planId === "trial") return;
+    // Don't process empty or invalid plan IDs
+    if (!planId || planId.trim() === "") {
+      Alert.alert("Error", "Please select a valid plan");
+      return;
+    }
 
     try {
       setLoading(true);
-      setActivePlan(planId);
+      
+      // Find the full plan object to store for later use
+      const selectedPlan = [...PLANS.monthly, ...PLANS.yearly].find(plan => plan.id === planId);
+      setActivePlan(selectedPlan);
+
+      console.log("Creating subscription with plan:", planId);
 
       const response = await axios.post(
         `${CONFIG.API_BASE_URL}/create-subscription`,
@@ -72,10 +151,13 @@ const useSubscription = () => {
         { timeout: CONFIG.REQUEST_TIMEOUT }
       );
 
+      console.log("Server response:", response.data);
+
       if (response.data?.approvalUrl) {
         setCheckoutUrl(response.data.approvalUrl);
+        console.log("Opening PayPal checkout:", response.data.approvalUrl);
       } else {
-        throw new Error("Invalid response from server");
+        throw new Error("Invalid response from server - no approval URL");
       }
     } catch (error) {
       console.error("Subscription creation error:", error);
@@ -100,36 +182,13 @@ const useSubscription = () => {
     status,
     subscriptionId = null
   ) => {
-    try {
-      const subscriptionData = {
-        user_id: CONFIG.DEMO_USER_ID,
-        plan_id: planId,
-        status,
-        billing_cycle: billingCycle,
-        created_at: new Date().toISOString(),
-      };
-
-      if (subscriptionId) {
-        subscriptionData.subscription_id = subscriptionId;
-      }
-
-      const { error } = await supabase
-        .from("subscriptions")
-        .upsert(subscriptionData, {
-          onConflict: "user_id,plan_id",
-          ignoreDuplicates: false,
-        });
-
-      if (error) {
-        console.error("Supabase error:", error);
-        throw error;
-      }
-
-      if (status === "ACTIVE") {
-        await fetchCurrentSubscription();
-      }
-    } catch (error) {
-      console.error("Failed to save subscription:", error);
+    // Skip database operations for now - PayPal handles the subscription
+    console.log(`✅ Subscription ${status} for plan ${planId} (Database recording skipped)`);
+    console.log("PayPal is handling the subscription - no database needed for now");
+    
+    if (status === "ACTIVE") {
+      // You can add local storage or other client-side tracking here if needed
+      console.log("🎉 Subscription is now ACTIVE!");
     }
   };
 
@@ -145,7 +204,16 @@ const useSubscription = () => {
           [
             {
               text: "OK",
-              onPress: () => saveSubscriptionToSupabase(activePlan, "ACTIVE"),
+              onPress: () => {
+                // Skip database saving for now
+                console.log(`✅ Subscription successful for plan: ${activePlan?.title}`);
+                
+                // Navigate to main app
+                navigation.reset({
+                  index: 0,
+                  routes: [{ name: 'MainTabs' }],
+                });
+              },
             },
           ]
         );
@@ -185,109 +253,6 @@ const useSubscription = () => {
   };
 };
 
-// Plan data with improved structure
-const PLANS = {
-  monthly: [
-    {
-      id: "trial",
-      title: "Free Trial",
-      price: "R0",
-      period: "7 days",
-      icon: "gift",
-      iconColor: "#ff00a2ff",
-      description: "Full access for 7 days. No credit card required.",
-      features: ["Real-time alerts", "Basic safety features", "Email support"],
-      isTrial: true,
-    },
-    {
-      id: "personal",
-      title: "Personal",
-      price: "R350",
-      period: "month",
-      icon: "user",
-      iconColor: "#00a6ffff",
-      description:
-        "Individual safety with premium features and priority support.",
-      features: [
-        "Real-time alerts & notifications",
-        "Offline emergency support",
-        "AI-powered safe routes",
-        "24/7 priority support",
-        "Advanced location sharing",
-      ],
-      highlight: true,
-      savings: null,
-    },
-    {
-      id: "family",
-      title: "Family",
-      price: "R900",
-      period: "3 months",
-      icon: "users",
-      iconColor: "#ff7b00ff",
-      description:
-        "Complete family protection with shared alerts and group features.",
-      features: [
-        "Up to 5 family members",
-        "Shared emergency alerts",
-        "Family location tracking",
-        "Group safety zones",
-        "Priority family support",
-      ],
-      isTrial: false,
-    },
-  ],
-  yearly: [
-    {
-      id: "trial",
-      title: "Free Trial",
-      price: "R0",
-      period: "7 days",
-      icon: "gift",
-      iconColor: "#ff00a2ff",
-      description: "Full access for 7 days. No credit card required.",
-      features: ["Real-time alerts", "Basic safety features", "Email support"],
-      isTrial: false,
-    },
-    {
-      id: "personal",
-      title: "Personal",
-      price: "R3,500",
-      period: "year",
-      icon: "user",
-      iconColor: "#00a6ffff",
-      description: "Annual plan with significant savings and premium features.",
-      features: [
-        "All Personal monthly features",
-        "Annual billing discount",
-        "Extended offline maps",
-        "Advanced analytics",
-        "Priority feature access",
-      ],
-      savings: "Save R700",
-    },
-    {
-      id: "family",
-      title: "Family",
-      price: "R8,000",
-      period: "year",
-      icon: "users",
-      iconColor: "#ff7b00ff",
-      description:
-        "Annual family plan with maximum savings and premium support.",
-      features: [
-        "All Family features",
-        "Up to 10 family members",
-        "Advanced family analytics",
-        "Dedicated family manager",
-        "Custom safety zones",
-      ],
-      highlight: true,
-      savings: "Save R2,800",
-    },
-  ],
-};
-
 // Plan Card Component
 const PlanCard = ({
   plan,
@@ -298,12 +263,11 @@ const PlanCard = ({
   index,
 }) => {
   const isCurrentPlan = currentSubscription?.plan_id === plan.id;
-  const isLoading = loading && activePlan === plan.id;
-  const isDisabled = plan.isTrial || isCurrentPlan || loading;
+  const isLoading = loading && activePlan?.id === plan.id;
+  const isDisabled = isCurrentPlan || loading;
 
   const getButtonText = () => {
     if (isCurrentPlan) return "Current Plan";
-    if (plan.isTrial) return "Start Free Trial";
     if (isLoading) return "Processing...";
     return "Subscribe";
   };
@@ -311,7 +275,6 @@ const PlanCard = ({
   const getButtonStyle = () => {
     if (isCurrentPlan)
       return [styles.subscribeButton, styles.currentPlanButton];
-    if (plan.isTrial) return [styles.subscribeButton, styles.trialButton];
     return styles.subscribeButton;
   };
 
@@ -395,7 +358,6 @@ const PlanCard = ({
             style={[
               styles.subscribeText,
               isCurrentPlan && styles.currentPlanButtonText,
-              plan.isTrial && styles.trialButtonText,
             ]}
           >
             {getButtonText()}
@@ -407,7 +369,7 @@ const PlanCard = ({
 };
 
 // Main Component
-export default function SubscriptionScreen() {
+export default function SubscriptionScreen({ navigation }) {
   const {
     checkoutUrl,
     loading,
@@ -417,7 +379,7 @@ export default function SubscriptionScreen() {
     setBillingCycle,
     createSubscription,
     handleWebViewNavigation,
-  } = useSubscription();
+  } = useSubscription(navigation);
 
   if (checkoutUrl) {
     return (

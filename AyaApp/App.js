@@ -11,7 +11,7 @@ import Animated, {
 } from "react-native-reanimated";
 
 // Screens
-import HomeScreen from "./screens/HomeScreen"; // scrollable example
+import HomeScreen from "./screens/HomeScreen";
 import CommunityScreen from "./screens/NewsFeed/Newsfeed";
 import SOSScreen from "./screens/SosScreen";
 import LearningScreen from "./screens/Learning/LearningScreen";
@@ -61,11 +61,10 @@ const TABS = [
 ];
 
 const TabsNavigator = () => {
-  const scrollY = useSharedValue(0); // shared scroll value
+  const scrollY = useSharedValue(0);
   const lastOffset = useSharedValue(0);
   const tabVisible = useSharedValue(true);
 
-  // Animate tab bar
   const PremiumTabBar = ({ state, descriptors, navigation }) => {
     const tabBarStyle = useAnimatedStyle(() => ({
       transform: [

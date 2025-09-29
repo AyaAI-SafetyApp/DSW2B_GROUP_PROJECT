@@ -12,7 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import axios from "axios";
 import { useNavigation, useRoute } from "@react-navigation/native";
 
-const API_BASE = "http://172.16.26.108:3000";
+const API_BASE = "https://dsw2b-backend.onrender.com";
 
 export default function GetAssertion() {
   const navigation = useNavigation();

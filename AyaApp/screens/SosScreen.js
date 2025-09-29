@@ -71,8 +71,8 @@ export default function App() {
     };
     const endpoint =
       type === "fall"
-        ? "https://e732255ca395.ngrok-free.app/api/send-location"
-        : "https://e732255ca395.ngrok-free.app/api/sos-call";
+        ? "https://dsw2b-backend.onrender.com/api/send-location"
+        : "https://dsw2b-backend.onrender.com/api/send-location";
 
     try {
       const response = await fetch(endpoint, {
@@ -96,8 +96,8 @@ export default function App() {
         try {
           const endpoint =
             item.type === "fall"
-              ? "https://e732255ca395.ngrok-free.app/api/send-location"
-              : "https://e732255ca395.ngrok-free.app/api/sos-call";
+              ?  "https://dsw2b-backend.onrender.com/api/send-location"
+              : "https://dsw2b-backend.onrender.com/api/send-location";
           await fetch(endpoint, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
