@@ -20,12 +20,12 @@ import { Ionicons, MaterialIcons, FontAwesome } from "@expo/vector-icons";
 const FALL_THRESHOLD = 2.5;
 const SOS_COUNTDOWN = 5;
 
-export default function App() {
+export default function AyaEmergencyApp() {
   const [location, setLocation] = useState(null);
   const [offlineQueue, setOfflineQueue] = useState([]);
-  const [fallDetectionEnabled, setFallDetectionEnabled] = useState(true);
+  const [fallDetectionEnabled, setFallDetectionEnabled] = useState(false);
   const [contacts, setContacts] = useState(["+27712233272"]);
-  const [status, setStatus] = useState("System initializing...");
+  const [status, setStatus] = useState("⚠️ Alerts inactive");
   const [sosCountdown, setSosCountdown] = useState(0);
   const [newContact, setNewContact] = useState("");
   const countdownRef = useRef(null);
@@ -41,7 +41,6 @@ export default function App() {
       }
       const loc = await Location.getCurrentPositionAsync({});
       setLocation(loc);
-      setStatus("System ready - Location obtained");
     })();
   }, []);
 
@@ -69,35 +68,26 @@ export default function App() {
       coords: loc.coords,
       contacts,
     };
-    const endpoint =
-      type === "fall"
-        ? "https://dsw2b-backend.onrender.com/api/send-location"
-        : "https://dsw2b-backend.onrender.com/api/send-location";
-
+    const endpoint = "https://dsw2b-backend.onrender.com/api/send-location";
     try {
-      const response = await fetch(endpoint, {
+      await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const result = await response.json();
-      setStatus(`✅ ${type.toUpperCase()} alert sent successfully`);
+      setStatus(`${type.toUpperCase()} alert sent`);
     } catch (err) {
-      console.warn("Offline or failed, adding to queue:", err);
       setOfflineQueue((prev) => [...prev, { type, payload }]);
-      setStatus("Alert queued - Will retry when online");
+      setStatus("Alert queued");
     }
   };
 
   useEffect(() => {
     const interval = setInterval(() => {
-      if (offlineQueue.length === 0) return;
       offlineQueue.forEach(async (item, index) => {
         try {
           const endpoint =
-            item.type === "fall"
-              ?  "https://dsw2b-backend.onrender.com/api/send-location"
-              : "https://dsw2b-backend.onrender.com/api/send-location";
+            "https://dsw2b-backend.onrender.com/api/send-location";
           await fetch(endpoint, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -133,29 +123,26 @@ export default function App() {
   `;
 
   const addContact = () => {
-    if (newContact && !contacts.includes(newContact)) {
-      if (newContact.match(/^\+?\d{10,15}$/)) {
-        setContacts([...contacts, newContact]);
-        setNewContact("");
-      } else {
-        Alert.alert("Invalid Number", "Please enter a valid phone number");
-      }
-    }
+    if (
+      newContact &&
+      !contacts.includes(newContact) &&
+      newContact.match(/^\+?\d{10,15}$/)
+    ) {
+      setContacts([...contacts, newContact]);
+      setNewContact("");
+    } else if (newContact)
+      Alert.alert("Invalid Number", "Please enter a valid phone number");
   };
 
   const removeContact = (contact) => {
-    Alert.alert(
-      "Remove Contact",
-      `Remove ${contact} from emergency contacts?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Remove",
-          style: "destructive",
-          onPress: () => setContacts(contacts.filter((c) => c !== contact)),
-        },
-      ]
-    );
+    Alert.alert("Remove Contact", `Remove ${contact}?`, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Remove",
+        style: "destructive",
+        onPress: () => setContacts(contacts.filter((c) => c !== contact)),
+      },
+    ]);
   };
 
   const startSOSCountdown = async () => {
@@ -167,25 +154,19 @@ export default function App() {
         duration: 0,
         useNativeDriver: false,
       }).start();
-      setStatus("SOS cancelled");
+      setStatus("⚠️ SOS cancelled");
       return;
     }
-
-    if (contacts.length === 0) {
-      Alert.alert("No Contacts", "Please add emergency contacts first");
-      return;
-    }
-
+    if (contacts.length === 0)
+      return Alert.alert("No Contacts", "Add emergency contacts first");
     setSosCountdown(SOS_COUNTDOWN);
-    setStatus("SOS countdown started...");
-
+    setStatus("⚠️ SOS countdown started...");
     progressAnim.setValue(0);
     Animated.timing(progressAnim, {
       toValue: 1,
       duration: SOS_COUNTDOWN * 1000,
       useNativeDriver: false,
     }).start();
-
     countdownRef.current = setInterval(() => {
       setSosCountdown((prev) => {
         if (prev === 1) {
@@ -200,158 +181,42 @@ export default function App() {
 
   const triggerSOS = async () => {
     const loc = location || (await Location.getCurrentPositionAsync({}));
-    setStatus("SOS alert triggered! Contacting emergency contacts...");
+    setStatus("🚨 SOS triggered!");
     sendAlert("sos", loc);
-  };
-
-  const getStatusColor = () => {
-    if (status.includes("Fall") || status.includes("SOS")) return "#FF3B30";
-    if (status.includes("sent")) return "#34C759";
-    if (status.includes("queued")) return "#FF9500";
-    return "#666";
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-
       <WebView
         ref={webview}
         originWhitelist={["*"]}
         source={{ html: webviewHtml }}
-        onMessage={() => {
-          setStatus("Voice command detected!");
-          triggerSOS();
-        }}
+        onMessage={() => triggerSOS()}
         javaScriptEnabled
         style={{ flex: 0, height: 0 }}
       />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.titleContainer}>
-          <MaterialIcons name="shield" size={32} color="#FF3B30" />
-          <Text style={styles.title}>Aya Emergency</Text>
+      <View style={styles.topContainer}>
+        <View style={styles.alertContainer}>
+          <Text style={styles.alertText}>{status}</Text>
         </View>
-        <View
-          style={[
-            styles.statusContainer,
-            { backgroundColor: getStatusColor() + "15" },
-          ]}
-        >
-          <View
-            style={[styles.statusDot, { backgroundColor: getStatusColor() }]}
-          />
-          <Text style={[styles.status, { color: getStatusColor() }]}>
-            {status}
-          </Text>
-        </View>
-      </View>
 
-      {/* Offline Queue Warning */}
-      {offlineQueue.length > 0 && (
-        <View style={styles.warningBanner}>
-          <Ionicons name="warning" size={20} color="#FF9500" />
-          <Text style={styles.warningText}>
-            {offlineQueue.length} alert{offlineQueue.length > 1 ? "s" : ""}{" "}
-            pending retry
-          </Text>
-        </View>
-      )}
-
-      {/* Fall Detection */}
-      <View style={styles.card}>
-        <View style={styles.cardHeader}>
-          <View style={styles.cardTitleContainer}>
-            <MaterialIcons
-              name="trending-down"
-              size={24}
-              color={fallDetectionEnabled ? "#34C759" : "#999"}
-            />
-            <Text style={styles.cardTitle}>Fall Detection</Text>
-          </View>
+        <View style={styles.switchContainer}>
+          <Text style={styles.switchLabel}>Alerts</Text>
           <Switch
             value={fallDetectionEnabled}
-            onValueChange={setFallDetectionEnabled}
+            onValueChange={(v) => {
+              setFallDetectionEnabled(v);
+              setStatus(v ? "⚠️ Alerts active" : "⚠️ Alerts inactive");
+            }}
             trackColor={{ false: "#E5E5EA", true: "#34C75950" }}
             thumbColor={fallDetectionEnabled ? "#34C759" : "#FFFFFF"}
           />
         </View>
-        <Text style={styles.cardDescription}>
-          {fallDetectionEnabled
-            ? "Monitoring for sudden movements and falls"
-            : "Fall detection is disabled"}
-        </Text>
       </View>
 
-      {/* Emergency Contacts */}
-      <View style={styles.card}>
-        <View style={styles.cardHeader}>
-          <View style={styles.cardTitleContainer}>
-            <Ionicons name="people" size={24} color="#007AFF" />
-            <Text style={styles.cardTitle}>Emergency Contacts</Text>
-            <Text style={styles.contactCount}>({contacts.length})</Text>
-          </View>
-        </View>
-
-        {contacts.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="person-add" size={48} color="#999" />
-            <Text style={styles.emptyStateText}>
-              No emergency contacts added
-            </Text>
-            <Text style={styles.emptyStateSubtext}>
-              Add contacts to enable SOS alerts
-            </Text>
-          </View>
-        ) : (
-          <FlatList
-            data={contacts}
-            keyExtractor={(item) => item}
-            style={styles.contactsList}
-            renderItem={({ item }) => (
-              <View style={styles.contactRow}>
-                <View style={styles.contactInfo}>
-                  <Ionicons name="call" size={20} color="#007AFF" />
-                  <Text style={styles.contactNumber}>{item}</Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.removeButton}
-                  onPress={() => removeContact(item)}
-                >
-                  <Ionicons name="trash-outline" size={20} color="#FF3B30" />
-                </TouchableOpacity>
-              </View>
-            )}
-          />
-        )}
-
-        <View style={styles.addContactContainer}>
-          <TextInput
-            placeholder="Enter phone number (+27...)"
-            style={styles.input}
-            value={newContact}
-            onChangeText={setNewContact}
-            keyboardType="phone-pad"
-            returnKeyType="done"
-            onSubmitEditing={addContact}
-          />
-          <TouchableOpacity
-            style={[styles.addButton, !newContact && styles.addButtonDisabled]}
-            onPress={addContact}
-            disabled={!newContact}
-          >
-            <Ionicons
-              name="add"
-              size={24}
-              color={newContact ? "#FFFFFF" : "#999"}
-            />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* SOS Button */}
-      <View style={styles.sosContainer}>
+      <View style={styles.sosWrapper}>
         <Animated.View
           style={[
             styles.progressRing,
@@ -363,23 +228,55 @@ export default function App() {
           onPress={startSOSCountdown}
         >
           {sosCountdown > 0 ? (
-            <>
-              <Text style={styles.sosCountdownText}>{sosCountdown}</Text>
-              <Text style={styles.sosCancelText}>Tap to Cancel</Text>
-            </>
+            <Text style={styles.sosCountdownText}>{sosCountdown}</Text>
           ) : (
-            <>
-              <FontAwesome name="phone" size={40} color="#FFFFFF" />
-              <Text style={styles.sosButtonText}>Emergency SOS</Text>
-            </>
+            <FontAwesome name="phone" size={40} color="#FFFFFF" />
           )}
         </TouchableOpacity>
+        <Text style={styles.sosInstruction}>Press or say "Aya"</Text>
+      </View>
 
-        <View style={styles.sosInstructions}>
-          <Ionicons name="information-circle-outline" size={16} color="#999" />
-          <Text style={styles.sosInstructionsText}>
-            Press and hold for emergency or say "Aya" for voice activation
-          </Text>
+      <View style={styles.contactsContainer}>
+        <Text style={styles.contactsHeader}>Emergency Contacts</Text>
+        <FlatList
+          data={contacts}
+          keyExtractor={(item) => item}
+          style={styles.contactsList}
+          renderItem={({ item }) => (
+            <View style={styles.contactRow}>
+              <Text style={styles.contactNumber}>{item}</Text>
+              <TouchableOpacity
+                onPress={() => removeContact(item)}
+                style={styles.contactRemove}
+              >
+                <Ionicons name="close-circle" size={24} color="#FF3B30" />
+              </TouchableOpacity>
+            </View>
+          )}
+        />
+        <View style={styles.addContactContainer}>
+          <TextInput
+            placeholder="+27..."
+            style={styles.input}
+            value={newContact}
+            onChangeText={setNewContact}
+            keyboardType="phone-pad"
+            onSubmitEditing={addContact}
+          />
+          <TouchableOpacity
+            onPress={addContact}
+            style={[
+              styles.addButton,
+              !newContact && { backgroundColor: "#E5E5EA" },
+            ]}
+            disabled={!newContact}
+          >
+            <Ionicons
+              name="add"
+              size={24}
+              color={newContact ? "#FFFFFF" : "#999"}
+            />
+          </TouchableOpacity>
         </View>
       </View>
     </SafeAreaView>
@@ -387,127 +284,24 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#FFFFFF" },
-  header: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F2F2F7",
-  },
-  titleContainer: {
-    flexDirection: "row",
+  container: { flex: 1, backgroundColor: "#F9F9F9" },
+  topContainer: { paddingHorizontal: 20, paddingTop: 20 },
+  alertContainer: {
+    paddingVertical: 12,
+    backgroundColor: "#FFF3F3",
+    borderRadius: 12,
     alignItems: "center",
     marginBottom: 12,
   },
-  title: { fontSize: 28, fontWeight: "700", color: "#1D1D1F", marginLeft: 12 },
-  statusContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 16,
-  },
-  statusDot: { width: 8, height: 8, borderRadius: 4, marginRight: 8 },
-  status: { fontSize: 14, fontWeight: "500" },
-  warningBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#FFF4E6",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: "#FF9500",
-    marginHorizontal: 20,
-    marginVertical: 8,
-    borderRadius: 8,
-  },
-  warningText: {
-    color: "#D1940C",
-    fontSize: 14,
-    fontWeight: "500",
-    marginLeft: 8,
-  },
-  card: {
-    backgroundColor: "#FFFFFF",
-    marginHorizontal: 20,
-    marginVertical: 8,
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: "#F2F2F7",
-  },
-  cardHeader: {
+  alertText: { fontSize: 16, color: "#FF3B30", fontWeight: "600" },
+  switchContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: 12,
   },
-  cardTitleContainer: { flexDirection: "row", alignItems: "center", flex: 1 },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#1D1D1F",
-    marginLeft: 8,
-  },
-  contactCount: { fontSize: 14, color: "#999", marginLeft: 4 },
-  cardDescription: { fontSize: 14, color: "#666", marginTop: 4 },
-  emptyState: { alignItems: "center", paddingVertical: 32 },
-  emptyStateText: {
-    fontSize: 16,
-    fontWeight: "500",
-    color: "#999",
-    marginTop: 12,
-  },
-  emptyStateSubtext: { fontSize: 14, color: "#999", marginTop: 4 },
-  contactsList: { maxHeight: 150 },
-  contactRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F2F2F7",
-  },
-  contactInfo: { flexDirection: "row", alignItems: "center", flex: 1 },
-  contactNumber: { fontSize: 16, color: "#1D1D1F", marginLeft: 12 },
-  removeButton: { padding: 8, borderRadius: 20, backgroundColor: "#FFF2F2" },
-  addContactContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 16,
-    gap: 12,
-  },
-  input: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: "#E5E5EA",
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-    backgroundColor: "#FAFAFA",
-  },
-  addButton: {
-    backgroundColor: "#007AFF",
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  addButtonDisabled: { backgroundColor: "#F2F2F7" },
-  sosContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingBottom: 32,
-  },
+  switchLabel: { fontSize: 18, fontWeight: "600", color: "#1C1C1E" },
+  sosWrapper: { flex: 1, justifyContent: "center", alignItems: "center" },
   sosButton: {
     backgroundColor: "#FF3B30",
     width: 160,
@@ -515,39 +309,14 @@ const styles = StyleSheet.create({
     borderRadius: 80,
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#FF3B30",
-    shadowOffset: { width: 0, height: 4 },
+    shadowColor: "#FF3B3030",
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
-    elevation: 8,
   },
-  sosButtonActive: { backgroundColor: "#FF9500", shadowColor: "#FF9500" },
-  sosButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "600",
-    marginTop: 8,
-  },
+  sosButtonActive: { backgroundColor: "#FF9500" },
   sosCountdownText: { color: "#FFFFFF", fontSize: 48, fontWeight: "700" },
-  sosCancelText: {
-    color: "#FFFFFF",
-    fontSize: 12,
-    fontWeight: "500",
-    marginTop: 4,
-  },
-  sosInstructions: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 20,
-    paddingHorizontal: 20,
-  },
-  sosInstructionsText: {
-    fontSize: 12,
-    color: "#999",
-    textAlign: "center",
-    marginLeft: 6,
-    lineHeight: 16,
-  },
+  sosInstruction: { marginTop: 12, color: "#999", fontSize: 14 },
   progressRing: {
     position: "absolute",
     width: 180,
@@ -555,5 +324,55 @@ const styles = StyleSheet.create({
     borderRadius: 90,
     borderWidth: 4,
     borderColor: "#FF9500",
+  },
+  contactsContainer: { paddingHorizontal: 20, paddingBottom: 40 },
+  contactsHeader: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#1C1C1E",
+    marginBottom: 12,
+  },
+  contactsList: { maxHeight: 180 },
+  contactRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 10,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    marginBottom: 8,
+    paddingHorizontal: 12,
+    shadowColor: "#00000010",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+  },
+  contactNumber: { fontSize: 16, color: "#1C1C1E" },
+  contactRemove: {},
+  addContactContainer: {
+    flexDirection: "row",
+    marginTop: 12,
+    alignItems: "center",
+  },
+  input: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    fontSize: 16,
+    shadowColor: "#00000010",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+  },
+  addButton: {
+    marginLeft: 12,
+    backgroundColor: "#007AFF",
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: "center",
+    alignItems: "center",
   },
 });
