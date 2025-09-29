@@ -134,7 +134,7 @@ export default function App() {
     <NavigationContainer>
       <Stack.Navigator
         screenOptions={{ headerShown: false }}
-        initialRouteName="MainTabs"
+        initialRouteName="OnboardingScreen"
       >
         <Stack.Screen name="OnboardingScreen" component={OnboardingScreen} />
         <Stack.Screen name="subscription" component={subscription} />
