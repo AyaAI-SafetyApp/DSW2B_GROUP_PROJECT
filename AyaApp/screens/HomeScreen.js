@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import {
   View,
@@ -20,8 +19,7 @@ import { useNavigation } from "@react-navigation/native";
 
 const { width } = Dimensions.get("window");
 const PRIMARY = "#D81B60";
-
-const API_BASE_URL = "https://dsw2b-backend.onrender.com"
+const API_BASE_URL = "https://dsw2b-backend.onrender.com";
 
 const newsData = [
   {
@@ -44,169 +42,92 @@ const newsData = [
   },
 ];
 
-
-
-
 const HomeScreen = () => {
   const [currentLocation, setCurrentLocation] = useState("Loading...");
-  const [userCoordinates, setUserCoordinates] = useState(null);
   const [crimeProbability, setCrimeProbability] = useState(0);
   const [safetyData, setSafetyData] = useState(null);
-  const [loading, setLoading] = useState(true);
   const animatedValue = useRef(new Animated.Value(0)).current;
+  const navigation = useNavigation();
 
   useEffect(() => {
     fetchLocation();
   }, []);
 
-  // Updated fetchLocation to use API for safety data
   const fetchLocation = async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
         setCurrentLocation("Permission denied");
-        // Fallback to default location with API call
         fetchSafetyData("Johannesburg");
         return;
       }
-      
+
       const loc = await Location.getCurrentPositionAsync({});
       const address = await Location.reverseGeocodeAsync(loc.coords);
       const city = address[0]?.city || address[0]?.region || "Unknown";
-      
       setCurrentLocation(city);
-      setUserCoordinates({
-        latitude: loc.coords.latitude,
-        longitude: loc.coords.longitude
-      });
-      
-      // Fetch safety data using GPS coordinates
-      fetchSafetyDataByLocation(loc.coords.latitude, loc.coords.longitude);
+
+      fetchSafetyDataByLocation(
+        loc.coords.latitude,
+        loc.coords.longitude,
+        city
+      );
     } catch (error) {
       console.error("Error fetching location:", error);
-      setCurrentLocation("Error fetching location");
-      // Fallback with API call
       fetchSafetyData("Johannesburg");
     }
   };
 
-  // Fetch safety data by GPS coordinates
-  const fetchSafetyDataByLocation = async (latitude, longitude) => {
+  const fetchSafetyDataByLocation = async (lat, lon, fallbackCity) => {
     try {
-      console.log(`Fetching safety data for coordinates: ${latitude}, ${longitude}`);
-      const response = await fetch(`${API_BASE_URL}/api/safety-status/location/${latitude}/${longitude}`);
+      const response = await fetch(
+        `${API_BASE_URL}/api/safety-status/location/${lat}/${lon}`
+      );
       const data = await response.json();
-      
-      console.log("API Response:", data);
-      
+
       if (response.ok) {
-        setSafetyData(data);
-        
-        // Use Danger_Percentage if available, otherwise fallback to safetyStatus
-        const dangerPercentage = data.Danger_Percentage || data.safetyStatus || 65;
-        console.log("Using danger percentage:", dangerPercentage);
-        
-        // Animate to the new crime probability
-        Animated.timing(animatedValue, {
-          toValue: dangerPercentage,
-          duration: 2000,
-          useNativeDriver: false,
-        }).start();
-
-        const listener = animatedValue.addListener(({ value }) => {
-          setCrimeProbability(Math.round(value));
-        });
-
-        return () => animatedValue.removeListener(listener);
+        updateSafetyState(data);
       } else {
-        console.error("API Error:", data.error);
-        // Fallback to name-based lookup
-        fetchSafetyData(currentLocation);
+        fetchSafetyData(fallbackCity);
       }
-    } catch (error) {
-      console.error("Error fetching location-based safety data:", error);
-      // Fallback to name-based lookup
-      fetchSafetyData(currentLocation);
-    } finally {
-      setLoading(false);
+    } catch {
+      fetchSafetyData(fallbackCity);
     }
   };
 
-  // Fallback safety data fetch by area name
   const fetchSafetyData = async (area = "Johannesburg") => {
     try {
-      console.log(`Fetching safety data for area: ${area}`);
       const response = await fetch(`${API_BASE_URL}/api/safety-status/${area}`);
       const data = await response.json();
-      
-      console.log("API Response:", data);
-      
-      if (response.ok) {
-        setSafetyData(data);
-        
-        // Use Danger_Percentage if available, otherwise fallback to safetyStatus
-        const dangerPercentage = data.Danger_Percentage || data.safetyStatus || 65;
-        console.log("Using danger percentage:", dangerPercentage);
-        
-        // Animate to the new crime probability
-        Animated.timing(animatedValue, {
-          toValue: dangerPercentage,
-          duration: 2000,
-          useNativeDriver: false,
-        }).start();
-
-        const listener = animatedValue.addListener(({ value }) => {
-          setCrimeProbability(Math.round(value));
-        });
-
-        return () => animatedValue.removeListener(listener);
-      } else {
-        console.error("API Error:", data.error);
-        // Use default animation for visual consistency
-        animateToDefault();
-      }
-    } catch (error) {
-      console.error("Error fetching safety data:", error);
-      // Use default animation for visual consistency
-      animateToDefault();
-    } finally {
-      setLoading(false);
+      if (response.ok) updateSafetyState(data);
+      else animateDefault();
+    } catch {
+      animateDefault();
     }
   };
 
-  // Default animation when API fails
-  const animateToDefault = () => {
-    const targetProbability = 65; // Default value from your original code
-    
+  const updateSafetyState = (data) => {
+    setSafetyData(data);
+    const danger = data.Danger_Percentage || data.safetyStatus || 65;
     Animated.timing(animatedValue, {
-      toValue: targetProbability,
+      toValue: danger,
       duration: 2000,
       useNativeDriver: false,
     }).start();
 
-    const listener = animatedValue.addListener(({ value }) => {
-      setCrimeProbability(Math.round(value));
-    });
-
+    const listener = animatedValue.addListener(({ value }) =>
+      setCrimeProbability(Math.round(value))
+    );
     return () => animatedValue.removeListener(listener);
   };
 
-  // Initialize default animation on mount (for visual consistency)
-  useEffect(() => {
-    const targetProbability = 65; // Your original default
-
+  const animateDefault = () => {
     Animated.timing(animatedValue, {
-      toValue: targetProbability,
+      toValue: 65,
       duration: 2000,
       useNativeDriver: false,
     }).start();
-
-    const listener = animatedValue.addListener(({ value }) => {
-      setCrimeProbability(Math.round(value));
-    });
-
-    return () => animatedValue.removeListener(listener);
-  }, [animatedValue]);
+  };
 
   const getRiskColor = () => {
     if (crimeProbability < 40) return "#34C759";
@@ -235,6 +156,8 @@ const HomeScreen = () => {
     </SafeAreaView>
   );
 };
+
+/* ------------------------- HEADER ------------------------- */
 const Header = ({ riskColor }) => (
   <View style={styles.header}>
     <View style={styles.headerLeft}>
@@ -258,6 +181,7 @@ const Header = ({ riskColor }) => (
   </View>
 );
 
+/* ------------------------- LOCATION BANNER ------------------------- */
 const LocationBanner = ({ location, safetyData }) => (
   <View style={styles.locationBanner}>
     <Ionicons name="location-outline" size={16} color={PRIMARY} />
@@ -265,7 +189,8 @@ const LocationBanner = ({ location, safetyData }) => (
       <Text style={styles.locationText}>{location}</Text>
       {safetyData?.closestStation && (
         <Text style={styles.nearestStationText}>
-          Nearest: {safetyData.closestStation.name} ({safetyData.closestStation.distance}km)
+          Nearest: {safetyData.closestStation.name} (
+          {safetyData.closestStation.distance}km)
         </Text>
       )}
     </View>
@@ -276,6 +201,7 @@ const LocationBanner = ({ location, safetyData }) => (
   </View>
 );
 
+/* ------------------------- RISK CARD ------------------------- */
 const RiskCard = ({ crimeProbability, safetyData }) => {
   const size = 110;
   const strokeWidth = 6;
@@ -296,21 +222,16 @@ const RiskCard = ({ crimeProbability, safetyData }) => {
     return "High Risk";
   };
 
-  // Use safety tips from API or fallback to default message
   const getSafetyTip = () => {
-    if (safetyData?.safetyTips && safetyData.safetyTips.length > 0) {
-      return safetyData.safetyTips[0];
-    }
+    if (safetyData?.safetyTips?.length > 0) return safetyData.safetyTips[0];
     return "AI suggests caution in your area. Avoid isolated areas after 10 PM.";
   };
 
   return (
     <View style={styles.riskCard}>
       <View style={styles.riskHeader}>
-        <View style={styles.riskTitleContainer}>
-          <Ionicons name="shield-outline" size={20} color={PRIMARY} />
-          <Text style={styles.riskTitle}>Safety Status</Text>
-        </View>
+        <Ionicons name="shield-outline" size={20} color={PRIMARY} />
+        <Text style={styles.riskTitle}>Safety Status</Text>
       </View>
       <View style={styles.riskContent}>
         <View style={styles.progressSection}>
@@ -342,80 +263,77 @@ const RiskCard = ({ crimeProbability, safetyData }) => {
             <Text style={styles.riskLabel}>{getRiskText()}</Text>
           </View>
         </View>
-        <View style={styles.riskDetails}>
-          <Text style={styles.riskDescription}>
-            {getSafetyTip()}
-          </Text>
-        </View>
+        <Text style={styles.riskDescription}>{getSafetyTip()}</Text>
       </View>
     </View>
   );
 };
 
+/* ------------------------- QUICK ACTIONS ------------------------- */
 const QuickActions = () => {
   const navigation = useNavigation();
-
   const actions = [
     {
       icon: "navigate-outline",
       color: PRIMARY,
       text: "Safe Route",
-      onPress: () => navigation.navigate("MapViewScreen"),
+      route: "MapViewScreen",
     },
     {
       icon: "call-outline",
-      color: "#e1170cff",
+      color: "#e1170c",
       text: "Emergency",
-      onPress: () => navigation.navigate("EmergencyScreen"),
+      route: "EmergencyScreen",
     },
     {
       icon: "medkit-outline",
       color: "#34C759",
       text: "Medical",
-      onPress: () => navigation.navigate("Health"),
+      route: "Health",
     },
   ];
 
   return (
     <View style={styles.quickActions}>
-      {actions.map((action, index) => (
+      {actions.map((a, i) => (
         <TouchableOpacity
-          key={index}
+          key={i}
           style={styles.quickActionItem}
-          onPress={action.onPress}
+          onPress={() => navigation.navigate(a.route)}
         >
-          <View
-            style={[styles.quickActionIcon, { backgroundColor: action.color }]}
-          >
-            <Ionicons name={action.icon} size={22} color="#fff" />
+          <View style={[styles.quickActionIcon, { backgroundColor: a.color }]}>
+            <Ionicons name={a.icon} size={22} color="#fff" />
           </View>
-          <Text style={styles.quickActionText}>{action.text}</Text>
+          <Text style={styles.quickActionText}>{a.text}</Text>
         </TouchableOpacity>
       ))}
     </View>
   );
 };
 
+/* ------------------------- NEWS FEED ------------------------- */
 const NewsFeed = () => {
+  const navigation = useNavigation();
+
   const getPriorityColor = (priority) => {
-    switch (priority) {
-      case "high":
-        return "#FF3B30";
-      case "medium":
-        return "#FF9500";
-      case "low":
-        return "#34C759";
-      default:
-        return "#D1D5DB";
-    }
+    if (priority === "high") return "#FF3B30";
+    if (priority === "medium") return "#FF9500";
+    if (priority === "low") return "#34C759";
+    return "#D1D5DB";
   };
 
   return (
     <View style={styles.newsSection}>
       <View style={styles.newsSectionHeader}>
-        <Ionicons name="newspaper-outline" size={20} color={PRIMARY} />
-        <Text style={styles.sectionTitle}>Last Updates</Text>
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          <Ionicons name="newspaper-outline" size={20} color={PRIMARY} />
+          <Text style={styles.sectionTitle}>Last Updates</Text>
+        </View>
+        <TouchableOpacity onPress={() => navigation.navigate("NewsFeed")}>
+          <Text style={styles.moreButton}>More</Text>
+        </TouchableOpacity>
       </View>
+
       {newsData.map((item) => (
         <TouchableOpacity key={item.id} style={styles.newsItem}>
           <View
@@ -439,11 +357,11 @@ const NewsFeed = () => {
   );
 };
 
+/* ------------------------- STYLES ------------------------- */
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#ffffffff" },
+  container: { flex: 1, backgroundColor: "#fff" },
   scrollView: { flex: 1 },
 
-  /* ------------------------- Header ------------------------- */
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -476,38 +394,26 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 
-  /* ------------------------- Location Banner ------------------------- */
   locationBanner: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#F9FAFB", // subtle soft background
+    backgroundColor: "#F9FAFB",
     marginHorizontal: 20,
     marginTop: 16,
     paddingVertical: 12,
     paddingHorizontal: 16,
-    borderRadius: 24, // nice pill shape
+    borderRadius: 24,
   },
-  locationContent: {
-    flex: 1, // allow content to take available space
-    marginLeft: 8,
-  },
-  locationText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#111827", // darker, cleaner text
-  },
+  locationContent: { flex: 1, marginLeft: 8 },
+  locationText: { fontSize: 16, fontWeight: "600", color: "#111827" },
   nearestStationText: {
     fontSize: 12,
     fontWeight: "500",
-    color: "#6B7280", // subtle gray
+    color: "#6B7280",
     marginTop: 2,
   },
-  liveIndicator: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginLeft: 12,
-  },
+  liveIndicator: { flexDirection: "row", alignItems: "center" },
   liveDot: {
     width: 10,
     height: 10,
@@ -515,15 +421,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#34C759",
     marginRight: 6,
   },
-  liveText: {
-    fontSize: 13,
-    color: "#6B7280", // slightly lighter gray for subtlety
-    fontWeight: "500",
-  },
+  liveText: { fontSize: 13, color: "#6B7280", fontWeight: "500" },
 
-  /* ------------------------- Risk Card ------------------------- */
   riskCard: {
-    backgroundColor: "#F9FAFB", // subtle off-white for clean look
+    backgroundColor: "#F9FAFB",
     marginHorizontal: 20,
     marginTop: 20,
     borderRadius: 24,
@@ -532,27 +433,16 @@ const styles = StyleSheet.create({
   riskHeader: {
     flexDirection: "row",
     justifyContent: "center",
-    alignItems: "center",
     marginBottom: 20,
-  },
-  riskTitleContainer: {
-    flexDirection: "row",
-    alignItems: "center",
   },
   riskTitle: {
     fontSize: 20,
     fontWeight: "700",
-    color: "#111827", // darker, sharper
+    color: "#111827",
     marginLeft: 8,
   },
-  riskContent: {
-    flexDirection: "column",
-    alignItems: "center",
-  },
-  progressSection: {
-    position: "relative",
-    marginBottom: 24,
-  },
+  riskContent: { alignItems: "center" },
+  progressSection: { position: "relative", marginBottom: 24 },
   progressCenter: {
     position: "absolute",
     top: 0,
@@ -562,29 +452,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  percentageText: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: PRIMARY,
-  },
+  percentageText: { fontSize: 28, fontWeight: "800" },
   riskLabel: {
     fontSize: 14,
-    color: "#6B7280", // subtle gray for secondary info
+    color: "#6B7280",
     fontWeight: "500",
     marginTop: 6,
   },
-  riskDetails: {
-    width: "100%",
-  },
   riskDescription: {
     fontSize: 15,
-    color: "#4B5563", // slightly darker for readability
-    lineHeight: 24,
-    marginBottom: 16,
+    color: "#4B5563",
+    lineHeight: 22,
     textAlign: "center",
   },
 
-  /* ------------------------- Quick Actions ------------------------- */
   quickActions: {
     flexDirection: "row",
     paddingHorizontal: 20,
@@ -607,10 +488,10 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
-  /* ------------------------- News Section ------------------------- */
   newsSection: { paddingHorizontal: 20, marginTop: 28, marginBottom: 32 },
   newsSectionHeader: {
     flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 16,
   },
@@ -620,6 +501,7 @@ const styles = StyleSheet.create({
     color: "#1C2526",
     marginLeft: 8,
   },
+  moreButton: { color: PRIMARY, fontWeight: "600", fontSize: 14 },
   newsItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -638,7 +520,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#1C2526",
     marginBottom: 4,
-    lineHeight: 20,
   },
   newsMeta: { flexDirection: "row", alignItems: "center" },
   newsSource: { fontSize: 13, color: "#8E8E93", fontWeight: "500" },
@@ -646,4 +527,3 @@ const styles = StyleSheet.create({
 });
 
 export default HomeScreen;
-
