@@ -14,6 +14,7 @@ import {
   UIManager,
 } from "react-native";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
+import { useNavigation } from "@react-navigation/native"; // ✅ added import
 
 const suggestedPrompts = [
   "My friend collapsed",
@@ -36,6 +37,7 @@ export default function EmergencyChat() {
   const [showSuggestions, setShowSuggestions] = useState(true);
   const [typing, setTyping] = useState(false);
   const flatListRef = useRef(null);
+  const navigation = useNavigation(); // ✅ initialize navigation
 
   const sendMessage = async (text) => {
     if (!text.trim()) return;
@@ -113,6 +115,11 @@ export default function EmergencyChat() {
       >
         {/* Header */}
         <View style={styles.header}>
+          {/* ✅ Back button added here */}
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Icon name="arrow-left" size={24} color="#d32f2f" />
+          </TouchableOpacity>
+
           <Icon name="alert-circle-outline" size={24} color="#d32f2f" />
           <Text style={styles.headerTitle}>Emergency Chat</Text>
         </View>
@@ -188,6 +195,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.03,
     shadowRadius: 4,
     elevation: 2,
+  },
+  backButton: {
+    marginRight: 10,
+    padding: 4,
   },
   headerTitle: {
     fontSize: 19,

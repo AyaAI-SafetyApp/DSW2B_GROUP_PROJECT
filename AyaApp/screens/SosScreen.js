@@ -11,6 +11,7 @@ import {
   SafeAreaView,
   StatusBar,
   Animated,
+  ScrollView,
 } from "react-native";
 import * as Location from "expo-location";
 import { Accelerometer } from "expo-sensors";
@@ -186,7 +187,8 @@ export default function AyaEmergencyApp() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <ScrollView>
+      <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       <WebView
         ref={webview}
@@ -280,6 +282,7 @@ export default function AyaEmergencyApp() {
         </View>
       </View>
     </SafeAreaView>
+    </ScrollView>
   );
 }
 

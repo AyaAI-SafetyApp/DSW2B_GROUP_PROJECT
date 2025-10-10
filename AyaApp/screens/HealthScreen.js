@@ -15,12 +15,11 @@ import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 
 const { width } = Dimensions.get("window");
 
-const DigitalCard = () => {
-  const [isFlipped, setIsFlipped] = useState(true); // default to back card
-  const flipAnimation = useRef(new Animated.Value(1)).current; // start from back
+const DigitalCard = ({ navigation }) => {  
+  const [isFlipped, setIsFlipped] = useState(true);
+  const flipAnimation = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    // Ensure flipAnimation matches isFlipped state
     flipAnimation.setValue(isFlipped ? 1 : 0);
   }, []);
 
@@ -48,7 +47,7 @@ const DigitalCard = () => {
   const backAnimatedStyle = { transform: [{ rotateY: backInterpolate }] };
 
   const handleNFC = () => {
-    Alert.alert("NFC", "Card disconnected via NFC."); // placeholder
+    Alert.alert("NFC", "Card disconnected via NFC.");
   };
 
   const handleShare = async () => {
@@ -62,104 +61,120 @@ const DigitalCard = () => {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.subtitle}>Tap to flip the card</Text>
-      </View>
-
+    <SafeAreaView style={styles.appContainer}>
       <TouchableOpacity
-        onPress={flipCard}
-        activeOpacity={0.9}
-        style={styles.cardContainer}
+        onPress={() => navigation.goBack()}
+        style={styles.backButton}
       >
-        <Animated.View
-          style={[styles.card, styles.backCard, backAnimatedStyle]}
-        >
-          <View style={styles.pinkSectionBack}>
-            <View style={styles.decorativeCircles}>
-              <View style={[styles.circle, styles.circle1]} />
-              <View style={[styles.circle, styles.circle2]} />
-              <View style={[styles.circle, styles.circle3]} />
-              <View style={[styles.circle, styles.circle4]} />
-              <View style={[styles.circle, styles.circle5]} />
-              <View style={[styles.circle, styles.circle6]} />
-            </View>
-
-            <View style={styles.logoContainer}>
-              <View style={styles.logoWithPlus}>
-                <Image
-                  source={require("../assets/Logos/Icon.png")}
-                  style={styles.logoImage}
-                  resizeMode="contain"
-                />
-                <Text style={styles.plusSign}>+</Text>
-              </View>
-            </View>
-
-            <Text style={styles.cardTitle}>Aya Medical Card</Text>
-          </View>
-        </Animated.View>
-        <Animated.View
-          style={[styles.card, styles.frontCard, frontAnimatedStyle]}
-        >
-          <View style={styles.pinkSection}>
-            <View style={styles.logoContainer}>
-              <View style={styles.logoWithPlus}>
-                <Image
-                  source={require("../assets/Logos/Icon.png")}
-                  style={styles.logoImage}
-                  resizeMode="contain"
-                />
-                <Text style={styles.plusSign}>+</Text>
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.detailsSection}>
-            <Text style={styles.name}>William Gates</Text>
-            <View style={styles.separator} />
-            <View style={styles.detailsList}>
-              <Text style={styles.detailItem}>
-                <Text style={styles.detailLabel}>DOB:</Text> 1955-10-28
-              </Text>
-              <Text style={styles.detailItem}>
-                <Text style={styles.detailLabel}>Gender:</Text> Male
-              </Text>
-              <Text style={styles.detailItem}>
-                <Text style={styles.detailLabel}>Blood Type:</Text> A+
-              </Text>
-              <Text style={styles.detailItem}>
-                <Text style={styles.detailLabel}>Medical Aid:</Text> 123456789
-              </Text>
-            </View>
-          </View>
-        </Animated.View>
+        <Ionicons name="arrow-back" size={24} color="#333" />
       </TouchableOpacity>
 
-      <View style={styles.bottomButtons}>
-        <TouchableOpacity style={styles.iconButton} onPress={handleNFC}>
-          <Ionicons name="link-outline" size={20} color="#555" />
-          <Text style={styles.iconButtonText}>NFC Sharing</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.iconButton} onPress={handleShare}>
-          <MaterialIcons name="share" size={20} color="#555" />
-          <Text style={styles.iconButtonText}>Share Card</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-};
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.subtitle}>Tap to flip the card</Text>
+        </View>
 
-const TestApp = () => {
-  return (
-    <SafeAreaView style={styles.appContainer}>
-      <DigitalCard />
+        <TouchableOpacity
+          onPress={flipCard}
+          activeOpacity={0.9}
+          style={styles.cardContainer}
+        >
+          <Animated.View
+            style={[styles.card, styles.backCard, backAnimatedStyle]}
+          >
+            <View style={styles.pinkSectionBack}>
+              <View style={styles.decorativeCircles}>
+                <View style={[styles.circle, styles.circle1]} />
+                <View style={[styles.circle, styles.circle2]} />
+                <View style={[styles.circle, styles.circle3]} />
+                <View style={[styles.circle, styles.circle4]} />
+                <View style={[styles.circle, styles.circle5]} />
+                <View style={[styles.circle, styles.circle6]} />
+              </View>
+
+              <View style={styles.logoContainer}>
+                <View style={styles.logoWithPlus}>
+                  <Image
+                    source={require("../assets/Logos/Icon.png")}
+                    style={styles.logoImage}
+                    resizeMode="contain"
+                  />
+                  <Text style={styles.plusSign}>+</Text>
+                </View>
+              </View>
+
+              <Text style={styles.cardTitle}>Aya Medical Card</Text>
+            </View>
+          </Animated.View>
+
+          <Animated.View
+            style={[styles.card, styles.frontCard, frontAnimatedStyle]}
+          >
+            <View style={styles.pinkSection}>
+              <View style={styles.logoContainer}>
+                <View style={styles.logoWithPlus}>
+                  <Image
+                    source={require("../assets/Logos/Icon.png")}
+                    style={styles.logoImage}
+                    resizeMode="contain"
+                  />
+                  <Text style={styles.plusSign}>+</Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.detailsSection}>
+              <Text style={styles.name}>William Gates</Text>
+              <View style={styles.separator} />
+              <View style={styles.detailsList}>
+                <Text style={styles.detailItem}>
+                  <Text style={styles.detailLabel}>DOB:</Text> 1955-10-28
+                </Text>
+                <Text style={styles.detailItem}>
+                  <Text style={styles.detailLabel}>Gender:</Text> Male
+                </Text>
+                <Text style={styles.detailItem}>
+                  <Text style={styles.detailLabel}>Blood Type:</Text> A+
+                </Text>
+                <Text style={styles.detailItem}>
+                  <Text style={styles.detailLabel}>Medical Aid:</Text> 123456789
+                </Text>
+              </View>
+            </View>
+          </Animated.View>
+        </TouchableOpacity>
+
+        <View style={styles.bottomButtons}>
+          <TouchableOpacity style={styles.iconButton} onPress={handleNFC}>
+            <Ionicons name="link-outline" size={20} color="#555" />
+            <Text style={styles.iconButtonText}>NFC Sharing</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.iconButton} onPress={handleShare}>
+            <MaterialIcons name="share" size={20} color="#555" />
+            <Text style={styles.iconButtonText}>Share Card</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   appContainer: { flex: 1, backgroundColor: "#f0f0f0" },
+
+  backButton: {
+    position: "absolute",
+    top: 50,
+    left: 20,
+    zIndex: 999,
+    padding: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+
   container: {
     flex: 1,
     justifyContent: "center",

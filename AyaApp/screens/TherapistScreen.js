@@ -34,12 +34,12 @@ export default function AyaTherapistScreen() {
       Animated.sequence([
         Animated.timing(glowAnim, {
           toValue: 1,
-          duration: 1200,
+          duration: 100,
           useNativeDriver: false,
         }),
         Animated.timing(glowAnim, {
           toValue: 0,
-          duration: 1200,
+          duration: 100,
           useNativeDriver: false,
         }),
       ])
