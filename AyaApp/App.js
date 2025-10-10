@@ -27,6 +27,8 @@ import AccountForm from "./screens/Auth/AccountForm";
 import GetAssertion from "./screens/Auth/GetAssertion";
 import CreateCredential from "./screens/Auth/CreateCredential";
 import subscription from "./screens/Subscription/subscriptionScreen.js";
+import NewsFeed from "./screens/GBVNews/NewsFeed.js";
+import ArticleScreen from "./screens/GBVNews/ArticleScreen.js";
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -142,7 +144,9 @@ export default function App() {
         <Stack.Screen name="Health" component={HealthScreen} />
         <Stack.Screen name="ReactionGame" component={ReactionGame} />
         <Stack.Screen name="PoliceGame" component={PoliceGame} />
+        <Stack.Screen name="NewsFeed" component={NewsFeed} />
         <Stack.Screen name="Safety" component={Safety} />
+        <Stack.Screen name="ArticleScreen" component={ArticleScreen} />
         <Stack.Screen name="EmergencyScreen" component={EmergencyScreen} />
         <Stack.Screen name="AccountForm" component={AccountForm} />
         <Stack.Screen name="GetAssertion" component={GetAssertion} />
