@@ -1,14 +1,9 @@
 import React from "react";
-import { StyleSheet, Platform } from "react-native";
+import { StyleSheet, Platform, View, TouchableOpacity } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import Ionicons from "react-native-vector-icons/Ionicons";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-} from "react-native-reanimated";
+import { Ionicons } from "@expo/vector-icons";
 
 // Screens
 import HomeScreen from "./screens/HomeScreen";
@@ -63,19 +58,9 @@ const TABS = [
 ];
 
 const TabsNavigator = () => {
-  const scrollY = useSharedValue(0);
-  const lastOffset = useSharedValue(0);
-  const tabVisible = useSharedValue(true);
-
   const PremiumTabBar = ({ state, descriptors, navigation }) => {
-    const tabBarStyle = useAnimatedStyle(() => ({
-      transform: [
-        { translateY: tabVisible.value ? withTiming(0) : withTiming(100) },
-      ],
-    }));
-
     return (
-      <Animated.View style={[styles.tabBar, tabBarStyle]}>
+      <View style={styles.tabBar}>
         {state.routes.map((route, index) => {
           const isFocused = state.index === index;
 
@@ -90,23 +75,24 @@ const TabsNavigator = () => {
           };
 
           return (
-            <Ionicons.Button
+            <TouchableOpacity
               key={route.key}
-              name={
-                isFocused
-                  ? TABS[index].icons.active
-                  : TABS[index].icons.inactive
-              }
-              size={28}
-              color={isFocused ? COLORS.ACTIVE : COLORS.INACTIVE}
-              backgroundColor="transparent"
-              underlayColor="transparent"
               onPress={onPress}
               style={styles.tabItem}
-            />
+            >
+              <Ionicons
+                name={
+                  isFocused
+                    ? TABS[index].icons.active
+                    : TABS[index].icons.inactive
+                }
+                size={28}
+                color={isFocused ? COLORS.ACTIVE : COLORS.INACTIVE}
+              />
+            </TouchableOpacity>
           );
         })}
-      </Animated.View>
+      </View>
     );
   };
 
@@ -116,16 +102,7 @@ const TabsNavigator = () => {
       tabBar={(props) => <PremiumTabBar {...props} />}
     >
       {TABS.map((tab) => (
-        <Tab.Screen key={tab.name} name={tab.name}>
-          {(props) => (
-            <tab.component
-              {...props}
-              scrollY={scrollY}
-              lastOffset={lastOffset}
-              tabVisible={tabVisible}
-            />
-          )}
-        </Tab.Screen>
+        <Tab.Screen key={tab.name} name={tab.name} component={tab.component} />
       ))}
     </Tab.Navigator>
   );
