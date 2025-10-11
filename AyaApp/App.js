@@ -29,6 +29,7 @@ import CreateCredential from "./screens/Auth/CreateCredential";
 import subscription from "./screens/Subscription/subscriptionScreen.js";
 import NewsFeed from "./screens/GBVNews/NewsFeed.js";
 import ArticleScreen from "./screens/GBVNews/ArticleScreen.js";
+import ProfileScreen from "./screens/UserProfile/ProfileScreen.js";
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -152,6 +153,7 @@ export default function App() {
         <Stack.Screen name="GetAssertion" component={GetAssertion} />
         <Stack.Screen name="CreateCredential" component={CreateCredential} />
         <Stack.Screen name="MapViewScreen" component={MapViewScreen} />
+        <Stack.Screen name="ProfileScreen" component={ProfileScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
