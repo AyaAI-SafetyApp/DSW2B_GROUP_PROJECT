@@ -802,7 +802,7 @@ const Newsfeed = () => {
           media_urls: mediaUris,
           likes: [],
           comments: [],
-          created_at: Date.now(),
+          created_at: new Date().toISOString(), // <-- Use ISO string here
         });
       }
       setModalVisible(false);
