@@ -231,7 +231,7 @@ export default function CreateCredentials() {
                   activeOpacity={0.8}
                 >
                   <Image
-                    source={require("../../assets/google.png")}
+                    source={require("../../assets/google-icon.png")}
                     style={styles.buttonIcon}
                   />
                   {loading ? (

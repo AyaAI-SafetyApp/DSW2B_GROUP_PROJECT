@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { StyleSheet, Platform, View } from "react-native";
+import { StyleSheet, Platform, View, TouchableOpacity } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import Ionicons from "react-native-vector-icons/Ionicons";
+import { Ionicons } from "@expo/vector-icons";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -30,6 +30,7 @@ import CreateCredential from "./screens/Auth/CreateCredential";
 import subscription from "./screens/Subscription/subscriptionScreen.js";
 import NewsFeed from "./screens/GBVNews/NewsFeed.js";
 import ArticleScreen from "./screens/GBVNews/ArticleScreen.js";
+import ProfileScreen from "./screens/UserProfile/ProfileScreen";
 import ProfileScreen from "./screens/UserProfile/ProfileScreen";
 
 const Tab = createBottomTabNavigator();
@@ -85,6 +86,7 @@ const TabsNavigator = () => {
       <Animated.View style={[styles.tabBar, tabBarStyle]}>
         {state.routes.map((route, index) => {
           const isFocused = state.index === index;
+          
           const onPress = () => {
             const event = navigation.emit({
               type: "tabPress",
@@ -94,21 +96,23 @@ const TabsNavigator = () => {
             if (!isFocused && !event.defaultPrevented)
               navigation.navigate(route.name);
           };
+
           return (
-            <Ionicons.Button
+            <TouchableOpacity
               key={route.key}
-              name={
-                isFocused
-                  ? TABS[index].icons.active
-                  : TABS[index].icons.inactive
-              }
-              size={28}
-              color={isFocused ? COLORS.ACTIVE : COLORS.INACTIVE}
-              backgroundColor="transparent"
-              underlayColor="transparent"
               onPress={onPress}
               style={styles.tabItem}
-            />
+            >
+              <Ionicons
+                name={
+                  isFocused
+                    ? TABS[index].icons.active
+                    : TABS[index].icons.inactive
+                }
+                size={28}
+                color={isFocused ? COLORS.ACTIVE : COLORS.INACTIVE}
+              />
+            </TouchableOpacity>
           );
         })}
       </Animated.View>
@@ -208,5 +212,9 @@ const styles = StyleSheet.create({
     elevation: 10,
     paddingHorizontal: 10,
   },
-  tabItem: { flex: 1, alignItems: "center", justifyContent: "center" },
+  tabItem: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
 });
