@@ -4,16 +4,7 @@ This component enables voice-activated emergency SOS using Picovoice Porcupine f
 
 ## Setup
 
-### 1. Files Added
-- **Component**: `AyaApp/components/WakewordDetection.js`
-- **Model File**: `AyaApp/assets/Hello-Aya_en_android_v3_0_0.ppn`
-
-### 2. Package Installed
-```bash
-pnpm add @picovoice/porcupine-react-native
-```
-
-### 3. Integration
+### Integration
 The `WakewordDetection` component has been integrated into `SosScreen.js`:
 - Replaces the previous WebView-based speech recognition
 - Uses Picovoice Porcupine for offline, on-device wakeword detection
