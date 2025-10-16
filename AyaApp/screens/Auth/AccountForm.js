@@ -48,25 +48,16 @@ export default function PremiumMultiStepForm() {
   const progressAnim = useRef(new Animated.Value(0)).current;
   const ayaBounceAnim = useRef(new Animated.Value(0)).current;
 
-  const stepCheckAnims = useRef(
-    [...Array(TOTAL_STEPS)].map(() => new Animated.Value(0))
-  ).current;
+  const stepCheckAnims = useRef([...Array(TOTAL_STEPS)].map(() => new Animated.Value(0))).current;
+
   const genders = ["Male", "Female", "Non-binary", "Prefer not to say"];
 
-  // ---------------- Aya logo bounce ----------------
+  // Aya logo bounce
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
-        Animated.timing(ayaBounceAnim, {
-          toValue: -8,
-          duration: 500,
-          useNativeDriver: true,
-        }),
-        Animated.timing(ayaBounceAnim, {
-          toValue: 0,
-          duration: 500,
-          useNativeDriver: true,
-        }),
+        Animated.timing(ayaBounceAnim, { toValue: -8, duration: 500, useNativeDriver: true }),
+        Animated.timing(ayaBounceAnim, { toValue: 0, duration: 500, useNativeDriver: true }),
       ])
     ).start();
   }, []);
@@ -82,7 +73,7 @@ export default function PremiumMultiStepForm() {
     }
   }, [gender, step]);
 
-  // ---------------- Image Upload ----------------
+  // Image Upload
   const pickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) return;
@@ -109,7 +100,7 @@ export default function PremiumMultiStepForm() {
     loadCachedImage();
   }, []);
 
-  // ---------------- Google Places Autocomplete ----------------
+  // Google Places Autocomplete
   const fetchLocationSuggestions = async (input) => {
     if (!input) return setLocationSuggestions([]);
     try {
@@ -117,8 +108,7 @@ export default function PremiumMultiStepForm() {
         `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${input}&types=(cities)&components=country:za&key=${GOOGLE_API_KEY}`
       );
       const data = await response.json();
-      if (data.predictions)
-        setLocationSuggestions(data.predictions.map((p) => p.description));
+      if (data.predictions) setLocationSuggestions(data.predictions.map((p) => p.description));
     } catch (err) {
       console.log(err);
     }
@@ -134,11 +124,9 @@ export default function PremiumMultiStepForm() {
     setLocationSuggestions([]);
   };
 
-  // ---------------- Validation ----------------
+  // Validation
   const validateStep = () => {
     const newErrors = {};
-    console.log("Validating step:", step, "gender:", gender);
-
     if (step === 0) {
       if (!fullName.trim()) newErrors.fullName = "Full name required";
       if (!username.trim()) newErrors.username = "Username required";
@@ -148,40 +136,20 @@ export default function PremiumMultiStepForm() {
       if (!location.trim()) newErrors.location = "Location required";
       if (!age || isNaN(age) || age < 13) newErrors.age = "Valid age (13+)";
     } else if (step === 2) {
-      if (!gender) {
-        newErrors.gender = "Please select gender";
-        console.log("Gender validation failed - no gender selected");
-      } else {
-        console.log("Gender validation passed - gender:", gender);
-      }
+      if (!gender) newErrors.gender = "Please select gender";
     }
-
-    console.log("Validation errors:", newErrors);
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  // ---------------- Step animations ----------------
+  // Step animations
   const animateTransition = (direction = 1) => {
-    Animated.sequence([
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 150,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: direction * SCREEN_WIDTH,
-        duration: 0,
-        useNativeDriver: true,
-      }),
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-        Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true }),
-      ]),
+    slideAnim.setValue(direction * SCREEN_WIDTH);
+    fadeAnim.setValue(0);
+
+    Animated.parallel([
+      Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true }),
+      Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
     ]).start();
   };
 
@@ -190,11 +158,7 @@ export default function PremiumMultiStepForm() {
       animateStepCompletion(step);
       if (step < TOTAL_STEPS - 1) {
         setStep(step + 1);
-        Animated.timing(progressAnim, {
-          toValue: (step + 1) / TOTAL_STEPS,
-          duration: 300,
-          useNativeDriver: false,
-        }).start();
+        Animated.timing(progressAnim, { toValue: (step + 1) / TOTAL_STEPS, duration: 300, useNativeDriver: false }).start();
         animateTransition(1);
       }
     }
@@ -203,58 +167,26 @@ export default function PremiumMultiStepForm() {
   const handleBack = () => {
     if (step > 0) {
       setStep(step - 1);
-      Animated.timing(progressAnim, {
-        toValue: (step - 1) / TOTAL_STEPS,
-        duration: 300,
-        useNativeDriver: false,
-      }).start();
+      Animated.timing(progressAnim, { toValue: (step - 1) / TOTAL_STEPS, duration: 300, useNativeDriver: false }).start();
       animateTransition(-1);
       setErrors({});
     }
   };
 
   const animateStepCompletion = (stepIndex) => {
-    Animated.timing(stepCheckAnims[stepIndex], {
-      toValue: 1,
-      duration: 500,
-      useNativeDriver: true,
-    }).start();
+    Animated.timing(stepCheckAnims[stepIndex], { toValue: 1, duration: 500, useNativeDriver: true }).start();
   };
 
   const handleSubmit = async () => {
-    console.log("Submit clicked, step:", step, "gender:", gender);
-
-    if (!validateStep()) {
-      console.log("Validation failed, errors:", errors);
-      return;
-    }
+    if (!validateStep()) return;
 
     setLoading(true);
-    console.log("Starting submission...");
-
     try {
-      const accountData = {
-        fullName,
-        username,
-        age,
-        gender,
-        phone,
-        location,
-        profilePic,
-      };
-
-      console.log("Sending account data:", accountData);
-
-      await axios.post(`https://dsw2b-backend.onrender.com/account`, {
-        userID,
-        account: accountData,
-      });
-
-      console.log("Account created successfully");
+      const accountData = { fullName, username, age, gender, phone, location, profilePic };
+      await axios.post(`https://dsw2b-backend.onrender.com/account`, { userID, account: accountData });
       animateStepCompletion(step);
       navigation.navigate("subscription", { userID });
     } catch (err) {
-      console.error("Submit error:", err);
       setErrors({ submit: "Something went wrong. Try again." });
     } finally {
       setLoading(false);
@@ -262,28 +194,14 @@ export default function PremiumMultiStepForm() {
   };
 
   const isStepValid = () => {
-    // Clear errors when checking validity
     const hasNoErrors = Object.keys(errors).length === 0;
-
-    if (step === 0) {
-      return hasNoErrors && fullName.trim() && username.trim();
-    } else if (step === 1) {
-      return (
-        hasNoErrors &&
-        phone.trim() &&
-        location.trim() &&
-        age &&
-        !isNaN(age) &&
-        age >= 13
-      );
-    } else if (step === 2) {
-      return hasNoErrors && gender && gender.length > 0;
-    }
-
+    if (step === 0) return hasNoErrors && fullName.trim() && username.trim();
+    if (step === 1) return hasNoErrors && phone.trim() && location.trim() && age && !isNaN(age) && age >= 13;
+    if (step === 2) return hasNoErrors && gender && gender.length > 0;
     return false;
   };
 
-  // ---------------- Step icons + progress bar ----------------
+  // Step icons + progress bar
   const renderStepIcons = () => {
     const icons = [
       <Ionicons name="person" size={20} color="#fff" />,
@@ -291,14 +209,7 @@ export default function PremiumMultiStepForm() {
       <Ionicons name="male" size={20} color="#fff" />,
     ];
     return (
-      <View
-        style={{
-          flexDirection: "row",
-          justifyContent: "space-between",
-          marginBottom: 24,
-          paddingHorizontal: 24,
-        }}
-      >
+      <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 24, paddingHorizontal: 24 }}>
         {icons.map((icon, index) => (
           <View key={index} style={{ alignItems: "center", flex: 1 }}>
             <Animated.View
@@ -308,17 +219,10 @@ export default function PremiumMultiStepForm() {
                 borderRadius: 20,
                 justifyContent: "center",
                 alignItems: "center",
-                backgroundColor: stepCheckAnims[index].interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [GREY_COLOR, PRIMARY_COLOR],
-                }),
+                backgroundColor: stepCheckAnims[index].interpolate({ inputRange: [0, 1], outputRange: [GREY_COLOR, PRIMARY_COLOR] }),
               }}
             >
-              {stepCheckAnims[index].__getValue() === 1 ? (
-                <Ionicons name="checkmark" size={20} color="#fff" />
-              ) : (
-                icon
-              )}
+              {stepCheckAnims[index].__getValue() === 1 ? <Ionicons name="checkmark" size={20} color="#fff" /> : icon}
             </Animated.View>
           </View>
         ))}
@@ -327,22 +231,11 @@ export default function PremiumMultiStepForm() {
   };
 
   const renderProgressBar = () => (
-    <View
-      style={{
-        height: 6,
-        backgroundColor: "#E5E5E5",
-        borderRadius: 3,
-        marginHorizontal: 24,
-        marginBottom: 24,
-      }}
-    >
+    <View style={{ height: 6, backgroundColor: "#E5E5E5", borderRadius: 3, marginHorizontal: 24, marginBottom: 24 }}>
       <Animated.View
         style={{
           height: "100%",
-          width: progressAnim.interpolate({
-            inputRange: [0, 1],
-            outputRange: ["0%", "100%"],
-          }),
+          width: progressAnim.interpolate({ inputRange: [0, 1], outputRange: ["0%", "100%"] }),
           backgroundColor: PRIMARY_COLOR,
           borderRadius: 3,
         }}
@@ -350,7 +243,6 @@ export default function PremiumMultiStepForm() {
     </View>
   );
 
-  // ---------------- Step content ----------------
   const renderStepContent = () => {
     switch (step) {
       case 0:
@@ -367,112 +259,45 @@ export default function PremiumMultiStepForm() {
               )}
             </Pressable>
             <View style={styles.inputWithIcon}>
-              <Ionicons
-                name="person-outline"
-                size={20}
-                color="#C4C4C4"
-                style={{ marginRight: 8 }}
-              />
-              <TextInput
-                placeholder="Full Name"
-                value={fullName}
-                onChangeText={setFullName}
-                style={[styles.input, errors.fullName && styles.inputError]}
-              />
+              <Ionicons name="person-outline" size={20} color="#C4C4C4" style={{ marginRight: 8 }} />
+              <TextInput placeholder="Full Name" value={fullName} onChangeText={setFullName} style={[styles.input, errors.fullName && styles.inputError]} />
             </View>
-            {errors.fullName && (
-              <Text style={styles.errorText}>{errors.fullName}</Text>
-            )}
+            {errors.fullName && <Text style={styles.errorText}>{errors.fullName}</Text>}
             <View style={styles.inputWithIcon}>
-              <FontAwesome5
-                name="user-alt"
-                size={20}
-                color="#C4C4C4"
-                style={{ marginRight: 8 }}
-              />
-              <TextInput
-                placeholder="Username"
-                value={username}
-                onChangeText={setUsername}
-                style={[styles.input, errors.username && styles.inputError]}
-              />
+              <FontAwesome5 name="user-alt" size={20} color="#C4C4C4" style={{ marginRight: 8 }} />
+              <TextInput placeholder="Username" value={username} onChangeText={setUsername} style={[styles.input, errors.username && styles.inputError]} />
             </View>
-            {errors.username && (
-              <Text style={styles.errorText}>{errors.username}</Text>
-            )}
+            {errors.username && <Text style={styles.errorText}>{errors.username}</Text>}
           </>
         );
       case 1:
         return (
           <>
             <View style={styles.inputWithIcon}>
-              <Ionicons
-                name="call-outline"
-                size={20}
-                color="#C4C4C4"
-                style={{ marginRight: 8 }}
-              />
-              <TextInput
-                placeholder="Phone"
-                value={phone}
-                onChangeText={setPhone}
-                keyboardType="phone-pad"
-                style={[styles.input, errors.phone && styles.inputError]}
-              />
+              <Ionicons name="call-outline" size={20} color="#C4C4C4" style={{ marginRight: 8 }} />
+              <TextInput placeholder="Phone" value={phone} onChangeText={setPhone} keyboardType="phone-pad" style={[styles.input, errors.phone && styles.inputError]} />
             </View>
-            {errors.phone && (
-              <Text style={styles.errorText}>{errors.phone}</Text>
-            )}
+            {errors.phone && <Text style={styles.errorText}>{errors.phone}</Text>}
             <View style={styles.inputWithIcon}>
-              <Ionicons
-                name="location-outline"
-                size={20}
-                color="#C4C4C4"
-                style={{ marginRight: 8 }}
-              />
-              <TextInput
-                placeholder="Location"
-                value={location}
-                onChangeText={handleLocationChange}
-                style={[styles.input, errors.location && styles.inputError]}
-              />
+              <Ionicons name="location-outline" size={20} color="#C4C4C4" style={{ marginRight: 8 }} />
+              <TextInput placeholder="Location" value={location} onChangeText={handleLocationChange} style={[styles.input, errors.location && styles.inputError]} />
             </View>
             {locationSuggestions.length > 0 && (
               <FlatList
                 data={locationSuggestions}
                 keyExtractor={(item, i) => i.toString()}
                 renderItem={({ item }) => (
-                  <Pressable
-                    onPress={() => selectLocation(item)}
-                    style={styles.suggestionItem}
-                  >
+                  <Pressable onPress={() => selectLocation(item)} style={styles.suggestionItem}>
                     <Text>{item}</Text>
                   </Pressable>
                 )}
-                style={{
-                  maxHeight: 150,
-                  backgroundColor: "#fff",
-                  marginBottom: 8,
-                }}
+                style={{ maxHeight: 150, backgroundColor: "#fff", marginBottom: 8 }}
               />
             )}
-            {errors.location && (
-              <Text style={styles.errorText}>{errors.location}</Text>
-            )}
+            {errors.location && <Text style={styles.errorText}>{errors.location}</Text>}
             <View style={styles.inputWithIcon}>
-              <Ionicons
-                name="calendar-outline"
-                size={20}
-                color="#C4C4C4"
-                style={{ marginRight: 8 }}
-              />
-              <TextInput
-                placeholder="Age"
-                value={age}
-                onChangeText={setAge}
-                keyboardType="numeric"
-                style={[styles.input, errors.age && styles.inputError]}
-              />
+              <Ionicons name="calendar-outline" size={20} color="#C4C4C4" style={{ marginRight: 8 }} />
+              <TextInput placeholder="Age" value={age} onChangeText={setAge} keyboardType="numeric" style={[styles.input, errors.age && styles.inputError]} />
             </View>
             {errors.age && <Text style={styles.errorText}>{errors.age}</Text>}
           </>
@@ -483,28 +308,12 @@ export default function PremiumMultiStepForm() {
             <Text style={styles.sectionTitle}>Select Gender</Text>
             <View style={styles.genderGrid}>
               {genders.map((g, i) => (
-                <Pressable
-                  key={i}
-                  style={[
-                    styles.genderOption,
-                    gender === g && { backgroundColor: PRIMARY_COLOR },
-                  ]}
-                  onPress={() => setGender(g)}
-                >
-                  <Text
-                    style={[
-                      styles.genderOptionText,
-                      gender === g && { color: "#fff" },
-                    ]}
-                  >
-                    {g}
-                  </Text>
+                <Pressable key={i} style={[styles.genderOption, gender === g && { backgroundColor: PRIMARY_COLOR }]} onPress={() => setGender(g)}>
+                  <Text style={[styles.genderOptionText, gender === g && { color: "#fff" }]}>{g}</Text>
                 </Pressable>
               ))}
             </View>
-            {errors.gender && (
-              <Text style={styles.errorText}>{errors.gender}</Text>
-            )}
+            {errors.gender && <Text style={styles.errorText}>{errors.gender}</Text>}
           </>
         );
       default:
@@ -513,40 +322,36 @@ export default function PremiumMultiStepForm() {
   };
 
   return (
-    <View
-      style={{
-        flex: 1,
-        backgroundColor: "#fff",
-        paddingTop: Platform.OS === "ios" ? 50 : 20,
-      }}
-    >
-      <Animated.View
-        style={{
-          transform: [{ translateY: ayaBounceAnim }],
-          alignItems: "center",
-          marginBottom: 16,
-        }}
-      >
-        <Image
-          source={require("../../assets/Logos/Aya_AI_Logo.png")}
-          style={{ width: 80, height: 80 }}
-        />
+    <View style={{ flex: 1, backgroundColor: "#fff", paddingTop: Platform.OS === "ios" ? 50 : 20 }}>
+      <Animated.View style={{ transform: [{ translateY: ayaBounceAnim }], alignItems: "center", marginBottom: 16 }}>
+        <Image source={require("../../assets/Logos/Aya_AI_Logo.png")} style={{ width: 80, height: 80 }} />
       </Animated.View>
+
       {renderStepIcons()}
       {renderProgressBar()}
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={{ flex: 1 }}
-      >
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 24 }}>
-          <Animated.View
-            style={{
-              opacity: fadeAnim,
-              transform: [{ translateX: slideAnim }],
-            }}
-          >
+
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40 }}>
+          <Animated.View style={{ opacity: fadeAnim, transform: [{ translateX: slideAnim }] }}>
             {renderStepContent()}
           </Animated.View>
+
+        <View style={styles.buttonContainer}>
+          {/* Back Button */}
+          <Pressable
+            style={{ ...styles.backButton, backgroundColor: PRIMARY_COLOR }}
+            onPress={() => {
+              if (step === 0) {
+                navigation.navigate('CreateCredential');
+              } else {
+                handleBack(); 
+              }
+            }}
+          >
+            <Ionicons name="arrow-back" size={28} color="#fff" />
+          </Pressable>
+
+          {/* Next Button */}
           <Pressable
             style={{
               ...styles.nextButton,
@@ -555,12 +360,11 @@ export default function PremiumMultiStepForm() {
             onPress={step === TOTAL_STEPS - 1 ? handleSubmit : handleNext}
             disabled={!isStepValid() || loading}
           >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Ionicons name="arrow-forward" size={28} color="#fff" />
-            )}
+            {loading ? <ActivityIndicator color="#fff" /> : <Ionicons name="arrow-forward" size={28} color="#fff" />}
           </Pressable>
+        </View>
+
+
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
@@ -568,57 +372,92 @@ export default function PremiumMultiStepForm() {
 }
 
 const styles = StyleSheet.create({
-  profileContainer: { alignSelf: "center", marginVertical: 3 },
-  profilePic: { width: 100, height: 100, borderRadius: 50 },
-  profilePlaceholder: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    borderWidth: 2,
-    borderColor: "#C4C4C4",
-    justifyContent: "center",
-    alignItems: "center",
+  profileContainer: { 
+    alignSelf: "center", 
+    marginVertical: 3 
   },
-  inputWithIcon: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginVertical: 8,
-    backgroundColor: "#F2F2F7",
-    borderRadius: 12,
-    paddingHorizontal: 12,
+  profilePic: { 
+    width: 100, 
+    height: 100, 
+    borderRadius: 50 
   },
-  input: { flex: 1, height: 50 },
-  inputError: { borderColor: "#FF3B30" },
-  errorText: { color: "#FF3B30", fontSize: 13, marginBottom: 4 },
-  genderGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
-    marginVertical: 12,
+  profilePlaceholder: { 
+    width: 100, 
+    height: 100, 
+    borderRadius: 50, 
+    borderWidth: 2, 
+    borderColor: "#C4C4C4", 
+    justifyContent: "center", 
+    alignItems: "center" 
+  },
+  inputWithIcon: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    marginVertical: 8, 
+    backgroundColor: "#F2F2F7", 
+    borderRadius: 12, 
+    paddingHorizontal: 12 
+  },
+  input: { 
+    flex: 1, 
+    height: 50 
+  },
+  inputError: { 
+    borderColor: "#FF3B30"
+   },
+  errorText: { 
+    color: "#FF3B30", 
+    fontSize: 13, 
+    marginBottom: 4 
+  },
+  genderGrid: { 
+    flexDirection:"row", 
+    flexWrap: "wrap", 
+    gap: 12, 
+    marginVertical: 12 
   },
   genderOption: {
-    flex: 1,
-    minWidth: "45%",
-    height: 48,
-    backgroundColor: "#F2F2F7",
-    borderRadius: 12,
-    justifyContent: "center",
+     flex: 1, 
+     minWidth: "45%", 
+     height: 48, 
+     backgroundColor: "#F2F2F7", 
+     borderRadius: 12, 
+     justifyContent: "center", 
+     alignItems: "center" 
+    },
+  genderOptionText: { 
+    fontSize: 15, 
+    color: "#1C1C1E"
+   },
+  sectionTitle: { 
+    fontSize: 16, 
+    fontWeight: "600", 
+    marginBottom: 8 
+  },
+  suggestionItem: { 
+    padding: 10, 
+    borderBottomWidth: 1, 
+    borderBottomColor: "#E5E5E5" 
+  },
+  buttonContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginVertical: 20,
+    paddingHorizontal: 5,
+  },
+  backButton: { 
+    width: 60, 
+    height: 60, 
+    borderRadius: 30, 
+    justifyContent: "center", 
     alignItems: "center",
   },
-  genderOptionText: { fontSize: 15, color: "#1C1C1E" },
-  sectionTitle: { fontSize: 16, fontWeight: "600", marginBottom: 8 },
-  suggestionItem: {
-    padding: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E5E5",
-  },
-  nextButton: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: "center",
-    alignItems: "center",
-    alignSelf: "flex-end",
-    marginTop: 20,
+  nextButton: { 
+    width: 60, 
+    height: 60, 
+    borderRadius: 30, 
+    justifyContent: "center", 
+    alignItems: "center", 
   },
 });
