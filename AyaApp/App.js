@@ -1,14 +1,9 @@
-import React, { useState, useEffect } from "react";
-import { StyleSheet, Platform, View, TouchableOpacity } from "react-native";
+import React, { useState, useEffect, useRef } from "react";
+import { StyleSheet, Platform, View, TouchableOpacity, Animated } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-} from "react-native-reanimated";
 import LottieView from "lottie-react-native";
 
 // Screens
@@ -30,7 +25,6 @@ import CreateCredential from "./screens/Auth/CreateCredential";
 import subscription from "./screens/Subscription/subscriptionScreen.js";
 import NewsFeed from "./screens/GBVNews/NewsFeed.js";
 import ArticleScreen from "./screens/GBVNews/ArticleScreen.js";
-import ProfileScreen from "./screens/UserProfile/ProfileScreen";
 import ProfileScreen from "./screens/UserProfile/ProfileScreen";
 
 const Tab = createBottomTabNavigator();
@@ -66,24 +60,24 @@ const TABS = [
 ];
 
 const TabsNavigator = () => {
-  const scrollY = useSharedValue(0);
-  const lastOffset = useSharedValue(0);
-  const tabVisible = useSharedValue(true);
+  const tabVisible = useRef(new Animated.Value(1)).current;
 
   const PremiumTabBar = ({ state, descriptors, navigation }) => {
-    const tabBarStyle = useAnimatedStyle(() => ({
-      transform: [
-        {
-          translateY: tabVisible.value
-            ? withTiming(0, { duration: 200 })
-            : withTiming(100, { duration: 200 }),
-        },
-      ],
-      opacity: tabVisible.value ? 1 : 0,
-    }));
-
     return (
-      <Animated.View style={[styles.tabBar, tabBarStyle]}>
+      <Animated.View 
+        style={[
+          styles.tabBar,
+          {
+            opacity: tabVisible,
+            transform: [{
+              translateY: tabVisible.interpolate({
+                inputRange: [0, 1],
+                outputRange: [100, 0],
+              }),
+            }],
+          },
+        ]}
+      >
         {state.routes.map((route, index) => {
           const isFocused = state.index === index;
           
@@ -125,16 +119,7 @@ const TabsNavigator = () => {
       tabBar={(props) => <PremiumTabBar {...props} />}
     >
       {TABS.map((tab) => (
-        <Tab.Screen key={tab.name} name={tab.name}>
-          {(props) => (
-            <tab.component
-              {...props}
-              scrollY={scrollY}
-              lastOffset={lastOffset}
-              tabVisible={tabVisible}
-            />
-          )}
-        </Tab.Screen>
+        <Tab.Screen key={tab.name} name={tab.name} component={tab.component} />
       ))}
     </Tab.Navigator>
   );

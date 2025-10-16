@@ -76,4 +76,14 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
+# gradle
+.gradle/
+build/
+android/.gradle/
+android/app/build/
+android/build/
+*.iml
+.idea/
+local.properties
+
 # @end expo-cli
