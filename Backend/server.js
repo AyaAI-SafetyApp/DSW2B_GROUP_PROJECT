@@ -1388,4 +1388,50 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log(`Emergency alerts: WhatsApp + Retell AI enabled`);
 });
 
+
+//Socket IO for VoIP (future use)
+// server.js
+// const express = require('express');
+const http = require('http');
+const socketIo = require('socket.io');
+
+const appp = express();
+const server = http.createServer(appp);
+const io = socketIo(server);
+
+const user = {};
+
+io.on('connection', (socket) => {
+  console.log('User connected:', socket.id);
+
+  socket.on('register', (userId) => {
+    user[userId] = socket.id;
+  });
+
+  socket.on('call-user', (data) => {
+    const targetSocketId = user[data.targetId];
+    if (targetSocketId) {
+      socket.to(targetSocketId).emit('incoming-call', {
+        from: data.from,
+        offer: data.offer
+      });
+    }
+  });
+
+  socket.on('call-answer', (data) => {
+    socket.to(data.to).emit('call-answered', {
+      answer: data.answer
+    });
+  });
+
+  socket.on('ice-candidate', (data) => {
+    socket.to(data.target).emit('ice-candidate', {
+      candidate: data.candidate
+    });
+  });
+});
+
+server.listen(3001, () => {
+  console.log('Signaling server running on port 3001');
+});
 module.exports = app;
