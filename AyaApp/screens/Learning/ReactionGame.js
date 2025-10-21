@@ -562,7 +562,7 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   errorButton: {
-    backgroundColor: '#3498db',
+    backgroundColor: '#FF1493',
     padding: 15,
     borderRadius: 10,
     marginBottom: 15,
@@ -620,7 +620,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   startButton: {
-    backgroundColor: '#3498db',
+    backgroundColor: '#FF1493',
     paddingVertical: 16,
     paddingHorizontal: 40,
     borderRadius: 30,
@@ -653,7 +653,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 10,
     borderLeftWidth: 4,
-    borderLeftColor: '#3498db',
+    borderLeftColor: '#FF1493',
   },
   techName: {
     fontSize: 16,
@@ -688,6 +688,7 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 10,
     minWidth: 80,
+    margin: 10
   },
   scoreLabel: {
     fontSize: 12,
@@ -720,10 +721,11 @@ const styles = StyleSheet.create({
   },
   livesContainer: {
     alignItems: 'center',
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#FECACA',
     padding: 10,
     borderRadius: 10,
     minWidth: 80,
+    margin: 10
   },
   livesLabel: {
     fontSize: 12,
@@ -748,6 +750,7 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 10,
     minWidth: 80,
+    margin: 10
   },
   comboLabel: {
     fontSize: 12,
@@ -762,24 +765,25 @@ const styles = StyleSheet.create({
   },
   arena: {
     height: 180,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#f7eef3ff',
     borderRadius: 12,
     marginBottom: 15,
     justifyContent: 'center',
     position: 'relative',
     borderWidth: 1,
     borderColor: '#e9ecef',
+    margin: 10
   },
   opponent: {
     position: 'absolute',
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    width: 85,
+    height: 85,
+    borderRadius: 43,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#fff',
     borderWidth: 2,
-    borderColor: '#e74c3c',
+    borderColor: '#3838cbff',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -789,15 +793,15 @@ const styles = StyleSheet.create({
   player: {
     position: 'absolute',
     left: 20,
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    width: 85,
+    height: 85,
+    borderRadius: 43,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#fff',
     borderWidth: 2,
-    borderColor: '#3498db',
-    shadowColor: '#000',
+    borderColor: '#FF1493',
+    shadowColor: '#FF1493',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -815,23 +819,27 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   techniquePrompt: {
-    backgroundColor: '#3498db',
+    backgroundColor: '#FF1493',
     padding: 12,
     borderRadius: 12,
     marginBottom: 12,
     alignItems: 'center',
+    margin: 10
+
   },
   techniqueText: {
     fontSize: 18,
     fontWeight: 'bold',
     color: 'white',
     marginBottom: 4,
+    
   },
   techniqueDesc: {
     fontSize: 13,
     color: 'white',
     textAlign: 'center',
     lineHeight: 18,
+
   },
   feedback: {
     fontSize: 16,
@@ -840,6 +848,7 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     minHeight: 40,
     fontWeight: '500',
+
   },
   controlsContainer: {
     marginBottom: 25,
@@ -848,6 +857,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
+    margin: 10
   },
   techniqueButton: {
     backgroundColor: '#f8f9fa',
@@ -865,8 +875,8 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   highlightedTechnique: {
-    borderColor: '#3498db',
-    backgroundColor: '#e3f2fd',
+    borderColor: '#FF1493',
+    backgroundColor: '#f7eef3ff',
     borderWidth: 2,
   },
   techniqueIcon: {
@@ -889,7 +899,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     paddingLeft: 10,
     borderLeftWidth: 3,
-    borderLeftColor: '#3498db',
+    borderLeftColor: '#FF1493',
     lineHeight: 20,
   },
 });

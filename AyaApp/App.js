@@ -146,12 +146,13 @@ export default function App() {
     );
   }
 
-  return (
-    <NavigationContainer>
-      <Stack.Navigator
-        screenOptions={{ headerShown: false }}
-        initialRouteName="MainTabs"
-      >
+return (
+  <NavigationContainer>
+    <Stack.Navigator
+      screenOptions={{headerShown: false,}}
+      initialRouteName="OnboardingScreen"
+    >
+
         <Stack.Screen name="OnboardingScreen" component={OnboardingScreen} />
         <Stack.Screen name="subscription" component={subscription} />
         <Stack.Screen name="MainTabs" component={TabsNavigator} />
