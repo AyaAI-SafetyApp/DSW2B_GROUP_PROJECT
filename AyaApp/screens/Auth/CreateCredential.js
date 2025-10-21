@@ -169,7 +169,7 @@ export default function CreateCredentials() {
         <View style={styles.container}>
           <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
-          {/* Header */}
+          
           <View style={styles.headerSection}>
             <Image
               source={require("../../assets/Logos/Aya_AI_Logo.png")}

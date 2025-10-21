@@ -11,11 +11,14 @@ import {
   StatusBar,
   Platform,
   Image,
+  Alert,
 } from "react-native";
 import * as Location from "expo-location";
 import { Ionicons } from "@expo/vector-icons";
 import Svg, { Circle } from "react-native-svg";
 import { useNavigation } from "@react-navigation/native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { supabaseAuth } from "../lib/supabaseClient";
 
 const { width } = Dimensions.get("window");
 const PRIMARY = "#D81B60";
@@ -135,6 +138,43 @@ const HomeScreen = () => {
     return "#FF3B30";
   };
 
+  const handleLogout = async () => {
+    Alert.alert(
+      "Logout",
+      "Are you sure you want to logout?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel"
+        },
+        {
+          text: "Logout",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              // Sign out from Supabase
+              await supabaseAuth.signOut();
+              
+              // Clear any stored data
+              await AsyncStorage.removeItem("userSession");
+              await AsyncStorage.removeItem("userID");
+              await AsyncStorage.removeItem("profilePic");
+              
+              // Navigate to CreateCredential (login/signup) screen
+              navigation.reset({
+                index: 0,
+                routes: [{ name: "CreateCredential" }],
+              });
+            } catch (error) {
+              console.error("Logout error:", error);
+              Alert.alert("Error", "Failed to logout. Please try again.");
+            }
+          }
+        }
+      ]
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar
@@ -142,7 +182,7 @@ const HomeScreen = () => {
         translucent
         backgroundColor="transparent"
       />
-      <Header riskColor={getRiskColor()} />
+      <Header riskColor={getRiskColor()} onLogout={handleLogout} />
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
@@ -158,7 +198,7 @@ const HomeScreen = () => {
 };
 
 /* ------------------------- HEADER ------------------------- */
-const Header = ({ riskColor }) => (
+const Header = ({ riskColor, onLogout }) => (
   <View style={styles.header}>
     <View style={styles.headerLeft}>
       <Image
@@ -176,6 +216,9 @@ const Header = ({ riskColor }) => (
         <View style={styles.profilePicture}>
           <Ionicons name="person" size={18} color="#FFFFFF" />
         </View>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.logoutButton} onPress={onLogout}>
+        <Ionicons name="log-out-outline" size={24} color="#FF3B30" />
       </TouchableOpacity>
     </View>
   </View>
@@ -392,6 +435,10 @@ const styles = StyleSheet.create({
     backgroundColor: PRIMARY,
     alignItems: "center",
     justifyContent: "center",
+  },
+  logoutButton: {
+    marginLeft: 16,
+    padding: 4,
   },
 
   locationBanner: {
