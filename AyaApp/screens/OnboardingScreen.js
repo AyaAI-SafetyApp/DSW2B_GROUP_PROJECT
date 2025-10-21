@@ -127,7 +127,7 @@ const OnboardingScreen = () => {
 
         const scale = scrollX.interpolate({
         inputRange,
-        outputRange: [0.5, 1.1, 0.5], // 👈 more dramatic difference
+        outputRange: [0.5, 1.1, 0.5], 
         extrapolate: "clamp",
         });
 
@@ -139,7 +139,7 @@ const OnboardingScreen = () => {
               flex: 0.6,
               justifyContent: "center",
               transform: [
-                { perspective: 1000 }, // depth for 3D rotation
+                { perspective: 1000 }, 
                 { rotateY },
                 { scale },
                 { translateY: imageBounce },
@@ -208,7 +208,7 @@ const OnboardingScreen = () => {
               Haptics.notificationAsync(
                 Haptics.NotificationFeedbackType.Success
               );
-              navigation.replace("CreateCredential");
+              navigation.replace("Login");
             }}
             style={[styles.nextButton, { backgroundColor: "#d63384" }]}
           >

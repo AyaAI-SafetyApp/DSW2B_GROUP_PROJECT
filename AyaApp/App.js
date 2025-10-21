@@ -12,6 +12,8 @@ import Animated, {
 
 // Screens
 import HomeScreen from "./screens/HomeScreen";
+import LoginScreen from "./screens/LoginScreen";
+import SignupScreen from "./screens/SignupScreen";
 import CommunityScreen from "./screens/NewsFeed/Newsfeed";
 import SOSScreen from "./screens/SosScreen";
 import LearningScreen from "./screens/Learning/LearningScreen";
@@ -139,6 +141,8 @@ export default function App() {
         initialRouteName="OnboardingScreen"
       >
         <Stack.Screen name="OnboardingScreen" component={OnboardingScreen} />
+        <Stack.Screen name="Login" component={LoginScreen} />
+        <Stack.Screen name="Signup" component={SignupScreen} />
         <Stack.Screen name="subscription" component={subscription} />
         <Stack.Screen name="MainTabs" component={TabsNavigator} />
         <Stack.Screen name="Health" component={HealthScreen} />
