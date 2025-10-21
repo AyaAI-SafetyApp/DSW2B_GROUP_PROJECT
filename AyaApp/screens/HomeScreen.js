@@ -11,7 +11,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   Dimensions,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   Platform,
@@ -21,6 +20,7 @@ import {
   ActivityIndicator,
   Animated,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import * as Location from "expo-location";
 import { Ionicons } from "@expo/vector-icons";
 import Svg, { Circle } from "react-native-svg";
@@ -209,7 +209,7 @@ const RiskCard = ({ crimeProbability, riskColor, riskLabel, safetyTip }) => (
         </Svg>
         <View style={styles.progressCenter}>
           <Text style={[styles.percentageText, { color: riskColor }]}>
-            {crimeProbability}%
+            {crimeProbability.toFixed(1)}%
           </Text>
           <Text style={styles.riskLabel}>{riskLabel}</Text>
         </View>
@@ -356,7 +356,7 @@ export default function HomeScreen() {
           addresses[0]?.region ||
           "Unknown";
         setCurrentLocation(city);
-        await fetchSafetyData(city);
+        await fetchSafetyData(city, loc.coords.latitude, loc.coords.longitude);
       } catch {
         setCurrentLocation("Error fetching location");
         await fetchSafetyData("Johannesburg");
@@ -388,33 +388,29 @@ export default function HomeScreen() {
   );
 
   useEffect(() => {
-    let start = crimeProbability;
+    // Directly set the exact percentage from backend without animation rounding
     const target = safetyData?.Danger_Percentage ?? 65;
-    const step = target > start ? 1 : -1;
-    let raf = null;
-    const tick = () => {
-      start += step;
-      setCrimeProbability(Math.round(start));
-      if ((step > 0 && start < target) || (step < 0 && start > target))
-        raf = requestAnimationFrame(tick);
-      else if (Platform.OS !== "web")
-        Speech.speak(`${target} percent. ${riskLabel}.`, { rate: 1 });
-    };
-    if (start !== target) raf = requestAnimationFrame(tick);
-    return () => raf && cancelAnimationFrame(raf);
-  }, [safetyData]);
+    setCrimeProbability(target);
+    
+    if (Platform.OS !== "web") {
+      Speech.speak(`${Math.round(target)} percent. ${riskLabel}.`, { rate: 1 });
+    }
+  }, [safetyData, riskLabel]);
 
-  const fetchSafetyData = useCallback(async (area = "Johannesburg") => {
+  const fetchSafetyData = useCallback(async (area = "Johannesburg", lat = null, lon = null) => {
     setLoadingSafety(true);
     setShowLottie(true);
     try {
-      const res = await fetch(
-        `${API_BASE_URL}/api/safety-status/${encodeURIComponent(area)}`
-      );
+      // Use GPS coordinates if available (finds nearest station)
+      const endpoint = lat && lon 
+        ? `${API_BASE_URL}/api/safety-status/location/${lat}/${lon}`
+        : `${API_BASE_URL}/api/safety-status/${encodeURIComponent(area)}`;
+      
+      const res = await fetch(endpoint);
       const data = res.ok
         ? await res.json()
         : {
-            Danger_Percentage: 65,
+            Danger_Percentage: 50,
             safetyTips: ["Data unavailable. Stay alert."],
           };
       setSafetyData(data);
@@ -436,7 +432,14 @@ export default function HomeScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await fetchSafetyData(currentLocation || "Johannesburg");
+    try {
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      await fetchSafetyData(currentLocation, loc.coords.latitude, loc.coords.longitude);
+    } catch {
+      await fetchSafetyData(currentLocation || "Johannesburg");
+    }
     setRefreshing(false);
   }, [currentLocation]);
 
@@ -473,7 +476,7 @@ export default function HomeScreen() {
             {safetyData?.closestStation && (
               <Text style={styles.nearestStationText}>
                 Nearest: {safetyData.closestStation.name} (
-                {safetyData.closestStation.distance}km)
+                {Math.round(safetyData.closestStation.distance * 10) / 10}km)
               </Text>
             )}
           </View>
