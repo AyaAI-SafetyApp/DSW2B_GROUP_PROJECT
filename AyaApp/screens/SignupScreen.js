@@ -1,12 +1,67 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, Image, StyleSheet } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, Image, StyleSheet, Alert, ActivityIndicator } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { AntDesign, FontAwesome } from "@expo/vector-icons";
+import { AntDesign, FontAwesome, Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { supabaseAuth } from "../lib/supabaseClient";
 
 export default function SignupScreen({ navigation }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSignup = async () => {
+    if (!name || !email || !password) {
+      Alert.alert("Error", "Please fill in all fields");
+      return;
+    }
+
+    if (password.length < 6) {
+      Alert.alert("Error", "Password must be at least 6 characters long");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const data = await supabaseAuth.signUp(email, password, {
+        full_name: name,
+      });
+      
+      // Store user session
+      if (data.session) {
+        await AsyncStorage.setItem("userSession", JSON.stringify(data.session));
+        await AsyncStorage.setItem("userID", data.user.id);
+        
+        Alert.alert("Success", "Account created successfully!", [
+          {
+            text: "OK",
+            onPress: () => {
+              // Navigate to AccountForm to complete profile
+              navigation.navigate("AccountForm", { userID: data.user.id });
+            }
+          }
+        ]);
+      } else {
+        // Email confirmation might be required
+        Alert.alert(
+          "Verify Your Email", 
+          "Please check your email to verify your account before logging in.",
+          [
+            {
+              text: "OK",
+              onPress: () => navigation.navigate("Login")
+            }
+          ]
+        );
+      }
+    } catch (error) {
+      console.error("Signup error:", error);
+      Alert.alert("Signup Failed", error.message || "Failed to create account");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <LinearGradient colors={["#d9c9ff", "#f6d5ef"]} style={styles.container}>
@@ -40,8 +95,16 @@ export default function SignupScreen({ navigation }) {
             <Text style={styles.link}>Privacy Policy</Text>
           </Text>
 
-          <TouchableOpacity style={styles.signUpButton}>
-            <Text style={styles.signUpText}>Sign Up</Text>
+          <TouchableOpacity 
+            style={[styles.signUpButton, loading && styles.disabledButton]} 
+            onPress={handleSignup}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.signUpText}>Sign Up</Text>
+            )}
           </TouchableOpacity>
 
           <Text style={styles.orText}>or sign up with</Text>
@@ -54,7 +117,7 @@ export default function SignupScreen({ navigation }) {
               <FontAwesome name="facebook" size={22} color="#1877F2" />
             </TouchableOpacity>
             <TouchableOpacity style={styles.socialButton}>
-              <AntDesign name="apple1" size={22} color="#000" />
+              <Ionicons name="logo-apple" size={22} color="#000" />
             </TouchableOpacity>
           </View>
 
@@ -91,6 +154,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingVertical: 14,
     marginTop: 20,
+  },
+  disabledButton: {
+    opacity: 0.6,
   },
   signUpText: { color: "#fff", fontWeight: "600", textAlign: "center" },
   orText: { textAlign: "center", color: "#999", marginTop: 20 },

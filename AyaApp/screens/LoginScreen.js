@@ -1,11 +1,62 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, Image, StyleSheet } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, Image, StyleSheet, Alert, ActivityIndicator } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { AntDesign, FontAwesome } from "@expo/vector-icons";
+import { AntDesign, FontAwesome, Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { supabaseAuth } from "../lib/supabaseClient";
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert("Error", "Please enter both email and password");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const data = await supabaseAuth.signIn(email, password);
+      
+      // Store user session
+      await AsyncStorage.setItem("userSession", JSON.stringify(data.session));
+      await AsyncStorage.setItem("userID", data.user.id);
+      
+      Alert.alert("Success", "Login successful!", [
+        {
+          text: "OK",
+          onPress: () => {
+            // Navigate to main app
+            navigation.reset({
+              index: 0,
+              routes: [{ name: "MainTabs" }],
+            });
+          }
+        }
+      ]);
+    } catch (error) {
+      console.error("Login error:", error);
+      Alert.alert("Login Failed", error.message || "Invalid email or password");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      Alert.alert("Error", "Please enter your email address first");
+      return;
+    }
+
+    try {
+      await supabaseAuth.resetPassword(email);
+      Alert.alert("Success", "Password reset email sent! Check your inbox.");
+    } catch (error) {
+      Alert.alert("Error", error.message || "Failed to send reset email");
+    }
+  };
 
   return (
     <LinearGradient colors={["#d9c9ff", "#f6d5ef"]} style={styles.container}>
@@ -30,12 +81,20 @@ export default function LoginScreen({ navigation }) {
             style={styles.input}
             secureTextEntry
           />
-          <TouchableOpacity>
+          <TouchableOpacity onPress={handleForgotPassword}>
             <Text style={styles.forgotText}>Forgot Password?</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.signInButton}>
-            <Text style={styles.signInText}>Sign In</Text>
+          <TouchableOpacity 
+            style={[styles.signInButton, loading && styles.disabledButton]} 
+            onPress={handleLogin}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.signInText}>Sign In</Text>
+            )}
           </TouchableOpacity>
 
           <Text style={styles.orText}>or continue with</Text>
@@ -48,7 +107,7 @@ export default function LoginScreen({ navigation }) {
               <FontAwesome name="facebook" size={22} color="#1877F2" />
             </TouchableOpacity>
             <TouchableOpacity style={styles.socialButton}>
-              <AntDesign name="apple1" size={22} color="#000" />
+              <Ionicons name="logo-apple" size={22} color="#000" />
             </TouchableOpacity>
           </View>
 
@@ -84,6 +143,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingVertical: 14,
     marginTop: 20,
+  },
+  disabledButton: {
+    opacity: 0.6,
   },
   signInText: { color: "#fff", fontWeight: "600", textAlign: "center" },
   orText: { textAlign: "center", color: "#999", marginTop: 20 },

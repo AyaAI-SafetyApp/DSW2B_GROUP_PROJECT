@@ -129,30 +129,34 @@ export default function CreateCredentials() {
     animateButton();
 
     try {
+      // First authenticate with biometrics
       const bioAuth = await LocalAuthentication.authenticateAsync({
         promptMessage: `Authenticate with ${provider}`,
+        fallbackLabel: "Use PIN",
       });
-      if (!bioAuth.success) throw new Error("Biometric failed");
+      
+      if (!bioAuth.success) {
+        throw new Error("Biometric authentication failed");
+      }
 
-      const fakeCredential = {
-        id: `${userID}-cred-${Date.now()}`,
-        rawId: `${userID}-raw-${Date.now()}`,
-        type: "public-key",
-      };
-
-      await axios.post(`${API_BASE}/register`, {
+      // Send registration request to backend - it will generate the passkey
+      const response = await axios.post(`${API_BASE}/register`, {
         userID,
-        credential: fakeCredential,
         provider,
       });
 
+      console.log("Registration response:", response.data);
+
+      // Show success animation
       setSuccess(true);
       setLoading(false);
       showSuccess();
 
+      // Navigate to account form after success animation
       setTimeout(() => navigation.navigate("AccountForm", { userID }), 1800);
     } catch (err) {
-      setMessage(err.message);
+      console.error("Registration error:", err);
+      setMessage(err.response?.data?.error || err.message || "Registration failed");
       setLoading(false);
     }
   };
