@@ -258,7 +258,7 @@ const PostCard = React.memo(
               data={post.media_urls}
               horizontal
               pagingEnabled
-              keyExtractor={(_, i) => `${post.id}_m_${i}`}
+              keyExtractor={(_, i) => ${post.id}_m_${i}}
               renderItem={({ item }) => (
                 <Image
                   source={{ uri: item }}
@@ -535,7 +535,7 @@ const StoryViewer = ({
                       i < activeIndex
                         ? "100%"
                         : i === activeIndex
-                        ? `${progress}%`
+                        ? ${progress}%
                         : "0%",
                   },
                 ]}
@@ -602,17 +602,30 @@ const StoryViewer = ({
 
 // ============ HELPER FUNCTIONS ============
 const getTimeAgo = (timestamp) => {
+  // tolerant: accept numeric ms, seconds, or ISO strings
+  let ts = timestamp;
+  if (typeof ts === "string") {
+    const parsed = Date.parse(ts);
+    ts = isNaN(parsed) ? undefined : parsed;
+  } else if (typeof ts === "number") {
+    // ensure it's milliseconds; if it looks like seconds (10-digit), convert to ms
+    if (String(ts).length === 10) ts = ts * 1000;
+  } else {
+    ts = undefined;
+  }
+  if (!ts || isNaN(ts)) ts = Date.now();
+
   const now = Date.now();
-  const diff = now - timestamp;
+  const diff = now - ts;
   const seconds = Math.floor(diff / 1000);
   const minutes = Math.floor(seconds / 60);
   const hours = Math.floor(minutes / 60);
   const days = Math.floor(hours / 24);
 
-  if (days > 7) return new Date(timestamp).toLocaleDateString();
-  if (days > 0) return `${days}d ago`;
-  if (hours > 0) return `${hours}h ago`;
-  if (minutes > 0) return `${minutes}m ago`;
+  if (days > 7) return new Date(ts).toLocaleDateString();
+  if (days > 0) return ${days}d ago;
+  if (hours > 0) return ${hours}h ago;
+  if (minutes > 0) return ${minutes}m ago;
   return "Just now";
 };
 
@@ -641,24 +654,59 @@ const Newsfeed = () => {
     setLoading(true);
     try {
       const data = await fetchPosts();
-      const normalized = (data || []).map((p) => ({
-        id: p.id,
-        username: p.username || "unknown",
-        avatar:
-          p.avatar ||
-          `https://i.pravatar.cc/150?img=${Math.floor(Math.random() * 70)}`,
-        content: p.content || "",
-        media_type: p.media_type || "none",
-        media_urls: Array.isArray(p.media_urls)
-          ? p.media_urls
-          : p.media_url
-          ? [p.media_url]
-          : [],
-        likes: Array.isArray(p.likes) ? p.likes : [],
-        comments: Array.isArray(p.comments) ? p.comments : [],
-        created_at: p.created_at || Date.now(),
-      }));
-      setPosts(normalized.sort((a, b) => b.created_at - a.created_at));
+
+      // normalize created_at to numeric ms for posts and comments
+      const normalized = (data || []).map((p) => {
+        const rawCreated = p.created_at ?? p.createdAt ?? Date.now();
+        const created_at =
+          typeof rawCreated === "string"
+            ? Date.parse(rawCreated) || Date.now()
+            : typeof rawCreated === "number"
+            ? String(rawCreated).length === 10
+              ? rawCreated * 1000
+              : rawCreated
+            : Date.now();
+
+        const comments = Array.isArray(p.comments)
+          ? p.comments.map((c) => {
+              const rawC = c.created_at ?? c.createdAt ?? Date.now();
+              const created_at_c =
+                typeof rawC === "string"
+                  ? Date.parse(rawC) || Date.now()
+                  : typeof rawC === "number"
+                  ? String(rawC).length === 10
+                    ? rawC * 1000
+                    : rawC
+                  : Date.now();
+              return { ...c, created_at: created_at_c };
+            })
+          : [];
+
+        return {
+          id: p.id,
+          username: p.username || "unknown",
+          avatar:
+            p.avatar ||
+            https://i.pravatar.cc/150?img=${Math.floor(Math.random() * 70)},
+          content: p.content || "",
+          media_type: p.media_type || "none",
+          media_urls: Array.isArray(p.media_urls)
+            ? p.media_urls
+            : p.media_url
+            ? [p.media_url]
+            : [],
+          likes: Array.isArray(p.likes) ? p.likes : [],
+          comments,
+          created_at,
+        };
+      });
+
+      // ensure numeric created_at and sort by descending created_at
+      setPosts(
+        normalized
+          .map((x) => ({ ...x, created_at: Number(x.created_at || Date.now()) }))
+          .sort((a, b) => b.created_at - a.created_at)
+      );
     } catch (e) {
       console.error("Failed to load posts:", e);
       Alert.alert("Error", "Failed to load posts. Please try again.");
@@ -757,7 +805,7 @@ const Newsfeed = () => {
         // if local placeholder, do not call server — enqueue op referencing local id
         if (String(postId).startsWith("local_")) {
           await enqueueOp({
-            id: `op_${Date.now()}`,
+            id: op_${Date.now()},
             type: "like",
             postId,
             payload: {
@@ -778,7 +826,7 @@ const Newsfeed = () => {
         if (!state.isConnected) {
           // enqueue op to update likes later
           await enqueueOp({
-            id: `op_${Date.now()}`,
+            id: op_${Date.now()},
             type: "like",
             postId,
             payload: { likes },
@@ -799,7 +847,7 @@ const Newsfeed = () => {
       if (!text.trim()) return;
 
       const comment = {
-        id: `c_${Date.now()}_${Math.random()}`,
+        id: c_${Date.now()}_${Math.random()},
         user: "current_user",
         avatar: "https://i.pravatar.cc/150?img=1",
         text: text.trim(),
@@ -824,7 +872,7 @@ const Newsfeed = () => {
         // If target is a local placeholder, enqueue local comment op and do NOT call server.
         if (String(postId).startsWith("local_")) {
           await enqueueOp({
-            id: `op_${Date.now()}`,
+            id: op_${Date.now()},
             type: "comment",
             postId,
             payload: { comments: (posts.find((p) => p.id === postId)?.comments || []).concat(comment) },
@@ -837,7 +885,7 @@ const Newsfeed = () => {
           // enqueue comment update for later
           const target = posts.find((p) => p.id === postId) || {};
           await enqueueOp({
-            id: `op_${Date.now()}`,
+            id: op_${Date.now()},
             type: "comment",
             postId,
             payload: { comments: [...(target.comments || []), comment] },
@@ -894,7 +942,7 @@ const Newsfeed = () => {
                 if (String(postId).startsWith("local_")) {
                   const target = posts.find((p) => p.id === postId) || {};
                   await enqueueOp({
-                    id: `op_${Date.now()}`,
+                    id: op_${Date.now()},
                     type: "comment",
                     postId,
                     payload: { comments: (target.comments || []).filter((c) => c.id !== commentId) },
@@ -906,7 +954,7 @@ const Newsfeed = () => {
                 if (!state.isConnected) {
                   const target = posts.find((p) => p.id === postId) || {};
                   await enqueueOp({
-                    id: `op_${Date.now()}`,
+                    id: op_${Date.now()},
                     type: "comment",
                     postId,
                     payload: { comments: (target.comments || []).filter((c) => c.id !== commentId) },
@@ -993,7 +1041,7 @@ const Newsfeed = () => {
           const state = await NetInfo.fetch();
           if (!state.isConnected) {
             await enqueueOp({
-              id: `op_${Date.now()}`,
+              id: op_${Date.now()},
               type: "update",
               postId: editingPostId,
               payload: {
@@ -1022,7 +1070,7 @@ const Newsfeed = () => {
         const state = await NetInfo.fetch();
         if (!state.isConnected) {
           // offline -> create local placeholder + enqueue create payload (include localId)
-          const localId = `local_${Date.now()}`;
+          const localId = local_${Date.now()};
           const createdAtIso = new Date().toISOString();
           await enqueuePost({
             // offlineQueue expects simple post payload; include localId so we can remove it if user deletes before sync
@@ -1090,7 +1138,7 @@ const Newsfeed = () => {
       if (isNetworkErr) {
         // fallback to offline create path
         try {
-          const localId = `local_${Date.now()}`;
+          const localId = local_${Date.now()};
           await enqueuePost({
             localId,
             username: "current_user",
@@ -1156,7 +1204,7 @@ const Newsfeed = () => {
             if (!state.isConnected) {
               setPosts((prev) => prev.filter((p) => p.id !== postId));
               await enqueueOp({
-                id: `op_${Date.now()}`,
+                id: op_${Date.now()},
                 type: "delete",
                 postId,
               });
