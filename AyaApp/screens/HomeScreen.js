@@ -79,6 +79,7 @@ const Header = ({
   onOpenNotifications,
   onProfilePress,
   riskColor,
+  onLogout,
 }) => (
   <FadeView style={styles.header} delay={100}>
     <View style={styles.headerLeft}>
@@ -458,6 +459,7 @@ export default function HomeScreen() {
         onOpenNotifications={() => setModalVisible(true)}
         onProfilePress={() => navigation.navigate("ProfileScreen")}
         riskColor={riskColor}
+        onLogout={() => navigation.navigate("Login")}
       />
       <NotificationModal
         visible={modalVisible}
