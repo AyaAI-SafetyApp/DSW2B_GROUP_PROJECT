@@ -2,401 +2,315 @@ import React, { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
-  StyleSheet,
-  ScrollView,
   TouchableOpacity,
-  TextInput,
-  Alert,
-  SafeAreaView,
-  StatusBar,
+  StyleSheet,
   Dimensions,
-  Modal,
   Animated,
+  SafeAreaView,
   Image,
-  ActivityIndicator,
+  Alert,
   Share,
 } from "react-native";
-import Ionicons from "react-native-vector-icons/Ionicons";
-import NfcManager, { Ndef } from "react-native-nfc-manager";
+import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 
-const { width, height } = Dimensions.get("window");
+const { width } = Dimensions.get("window");
 
-const DigitalSafetyCard = () => {
-  const [connected, setConnected] = useState(false);
-  const [medicalNumber, setMedicalNumber] = useState("");
-  const [showLoading, setShowLoading] = useState(false);
-  const [loadingStep, setLoadingStep] = useState(0);
-  const [userInfo, setUserInfo] = useState({
-    name: "",
-    dob: "",
-    gender: "",
-    pictureUri: "",
-  });
-  const [healthInfo, setHealthInfo] = useState({
-    bloodType: "",
-    allergies: "",
-    conditions: "",
-    medications: "",
-    medicalNotes: "",
-  });
-  const [contacts, setContacts] = useState([]);
-  const [flipped, setFlipped] = useState(false);
-  const [tilt, setTilt] = useState(false);
-
-  const animatedValue = useRef(new Animated.Value(0)).current;
-  const tiltValue = useRef(new Animated.Value(0)).current;
+const DigitalCard = ({ navigation }) => {  
+  const [isFlipped, setIsFlipped] = useState(true);
+  const flipAnimation = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    Animated.timing(animatedValue, {
-      toValue: flipped ? 180 : 0,
-      duration: 500,
-      useNativeDriver: true,
-    }).start();
-  }, [flipped]);
+    flipAnimation.setValue(isFlipped ? 1 : 0);
+  }, []);
 
-  useEffect(() => {
-    Animated.spring(tiltValue, {
-      toValue: tilt ? 1 : 0,
+  const flipCard = () => {
+    Animated.spring(flipAnimation, {
+      toValue: isFlipped ? 0 : 1,
+      tension: 10,
       friction: 8,
-      tension: 20,
       useNativeDriver: true,
     }).start();
-  }, [tilt]);
+    setIsFlipped(!isFlipped);
+  };
 
-  const frontInterpolate = animatedValue.interpolate({
-    inputRange: [0, 180],
+  const frontInterpolate = flipAnimation.interpolate({
+    inputRange: [0, 1],
     outputRange: ["0deg", "180deg"],
   });
 
-  const backInterpolate = animatedValue.interpolate({
-    inputRange: [0, 180],
+  const backInterpolate = flipAnimation.interpolate({
+    inputRange: [0, 1],
     outputRange: ["180deg", "360deg"],
   });
 
-  const frontOpacity = animatedValue.interpolate({
-    inputRange: [89, 90],
-    outputRange: [1, 0],
-    extrapolate: "clamp",
-  });
+  const frontAnimatedStyle = { transform: [{ rotateY: frontInterpolate }] };
+  const backAnimatedStyle = { transform: [{ rotateY: backInterpolate }] };
 
-  const backOpacity = animatedValue.interpolate({
-    inputRange: [89, 90],
-    outputRange: [0, 1],
-    extrapolate: "clamp",
-  });
-
-  const tiltInterpolate = tiltValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["0deg", "10deg"],
-  });
-
-  const handleConnect = () => {
-    if (!medicalNumber) {
-      Alert.alert("Error", "Please enter your Medical ID Number");
-      return;
-    }
-    setShowLoading(true);
-    setLoadingStep(1);
-    setTimeout(() => setLoadingStep(2), 2000);
-    setTimeout(() => setLoadingStep(3), 4000);
-    setTimeout(() => {
-      setUserInfo({
-        name: "William Gates",
-        dob: "1955-10-28",
-        gender: "Male",
-        pictureUri:
-          "https://static01.nyt.com/images/2021/05/17/business/14altGates-print/merlin_183135423_1167fa8a-7940-427e-b690-68876010d286-articleLarge.jpg",
-      });
-      setHealthInfo({
-        bloodType: "A+",
-        allergies: "Rice",
-        conditions: "ADHD",
-        medications: "Panado",
-        medicalNotes: "Take one Panado daily",
-      });
-      setContacts([
-        {
-          name: "Melinda Gates",
-          relationship: "Ex-spouse",
-          phone: "123-456-7890",
-        },
-      ]);
-      setConnected(true);
-      setShowLoading(false);
-    }, 6000);
+  const handleNFC = () => {
+    Alert.alert("NFC", "Card disconnected via NFC.");
   };
 
   const handleShare = async () => {
     try {
-      const message = `Aya Medical Card\nName: ${userInfo.name}\nDOB: ${userInfo.dob}\nGender: ${userInfo.gender}\nBlood Type: ${healthInfo.bloodType}\nAllergies: ${healthInfo.allergies}\nConditions: ${healthInfo.conditions}\nMedications: ${healthInfo.medications}\nNotes: ${healthInfo.medicalNotes}`;
-      await Share.share({ message });
+      await Share.share({
+        message: "Check out my Aya Medical Card!",
+      });
     } catch (error) {
-      Alert.alert("Error", "Unable to share card");
+      Alert.alert("Error", "Unable to share card.");
     }
   };
 
-  const handleCardPress = () => {
-    setTilt(true);
-    setTimeout(() => setTilt(false), 200);
-    setFlipped(!flipped);
-  };
-
-  const renderFront = () => (
-    <Animated.View
-      style={[
-        styles.card,
-        {
-          opacity: frontOpacity,
-          transform: [
-            { rotateY: frontInterpolate },
-            { rotateX: tiltInterpolate },
-            { perspective: 1000 },
-          ],
-        },
-      ]}
-    >
+  return (
+    <SafeAreaView style={styles.appContainer}>
       <TouchableOpacity
-        style={styles.cardTouchable}
-        activeOpacity={0.9}
-        onPress={handleCardPress}
+        onPress={() => navigation.goBack()}
+        style={styles.backButton}
       >
-        {userInfo.pictureUri ? (
-          <Image source={{ uri: userInfo.pictureUri }} style={styles.userPic} />
-        ) : (
-          <View style={styles.userPicPlaceholder}>
-            <Ionicons name="person" size={60} color="#E91E63" />
-          </View>
-        )}
-        <Text style={styles.cardTitle}>Aya Medical Card</Text>
-        <View style={styles.infoContainer}>
-          <Text style={styles.cardText}>
-            <Text style={styles.label}>Name:</Text> {userInfo.name}
-          </Text>
-          <Text style={styles.cardText}>
-            <Text style={styles.label}>DOB:</Text> {userInfo.dob}
-          </Text>
-          <Text style={styles.cardText}>
-            <Text style={styles.label}>Gender:</Text> {userInfo.gender}
-          </Text>
-          <Text style={styles.cardText}>
-            <Text style={styles.label}>Blood Type:</Text> {healthInfo.bloodType}
-          </Text>
-          <Text style={styles.cardText}>
-            <Text style={styles.label}>Allergies:</Text> {healthInfo.allergies}
-          </Text>
-        </View>
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
-            <Ionicons name="share-outline" size={20} color="white" />
-            <Text style={styles.buttonText}>Share Card</Text>
-          </TouchableOpacity>
-        </View>
+        <Ionicons name="arrow-back" size={24} color="#333" />
       </TouchableOpacity>
-    </Animated.View>
-  );
 
-  const renderBack = () => (
-    <Animated.View
-      style={[
-        styles.card,
-        {
-          opacity: backOpacity,
-          transform: [
-            { rotateY: backInterpolate },
-            { rotateX: tiltInterpolate },
-            { perspective: 1000 },
-          ],
-        },
-      ]}
-    >
-      <TouchableOpacity
-        style={styles.cardTouchable}
-        activeOpacity={0.9}
-        onPress={handleCardPress}
-      >
-        <Text style={styles.cardTitle}>Health Details</Text>
-        <View style={styles.infoContainer}>
-          <View style={styles.infoSection}>
-            <Text style={styles.sectionTitle}>Medical Information</Text>
-            <Text style={styles.cardText}>
-              <Text style={styles.label}>Conditions:</Text>{" "}
-              {healthInfo.conditions}
-            </Text>
-            <Text style={styles.cardText}>
-              <Text style={styles.label}>Medications:</Text>{" "}
-              {healthInfo.medications}
-            </Text>
-            <Text style={styles.cardText}>
-              <Text style={styles.label}>Notes:</Text> {healthInfo.medicalNotes}
-            </Text>
-          </View>
-          <View style={styles.infoSection}>
-            <Text style={styles.sectionTitle}>Emergency Contacts</Text>
-            {contacts.map((c, i) => (
-              <View key={i} style={styles.contactItem}>
-                <Ionicons
-                  name="person-circle-outline"
-                  size={20}
-                  color="#374151"
-                />
-                <Text style={styles.cardText}>
-                  {c.name} - {c.relationship} - {c.phone}
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.subtitle}>Tap to flip the card</Text>
+        </View>
+
+        <TouchableOpacity
+          onPress={flipCard}
+          activeOpacity={0.9}
+          style={styles.cardContainer}
+        >
+          <Animated.View
+            style={[styles.card, styles.backCard, backAnimatedStyle]}
+          >
+            <View style={styles.pinkSectionBack}>
+              <View style={styles.decorativeCircles}>
+                <View style={[styles.circle, styles.circle1]} />
+                <View style={[styles.circle, styles.circle2]} />
+                <View style={[styles.circle, styles.circle3]} />
+                <View style={[styles.circle, styles.circle4]} />
+                <View style={[styles.circle, styles.circle5]} />
+                <View style={[styles.circle, styles.circle6]} />
+              </View>
+
+              <View style={styles.logoContainer}>
+                <View style={styles.logoWithPlus}>
+                  <Image
+                    source={require("../assets/Logos/Icon.png")}
+                    style={styles.logoImage}
+                    resizeMode="contain"
+                  />
+                  <Text style={styles.plusSign}>+</Text>
+                </View>
+              </View>
+
+              <Text style={styles.cardTitle}>Aya Medical Card</Text>
+            </View>
+          </Animated.View>
+
+          <Animated.View
+            style={[styles.card, styles.frontCard, frontAnimatedStyle]}
+          >
+            <View style={styles.pinkSection}>
+              <View style={styles.logoContainer}>
+                <View style={styles.logoWithPlus}>
+                  <Image
+                    source={require("../assets/Logos/Icon.png")}
+                    style={styles.logoImage}
+                    resizeMode="contain"
+                  />
+                  <Text style={styles.plusSign}>+</Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.detailsSection}>
+              <Text style={styles.name}>William Gates</Text>
+              <View style={styles.separator} />
+              <View style={styles.detailsList}>
+                <Text style={styles.detailItem}>
+                  <Text style={styles.detailLabel}>DOB:</Text> 1955-10-28
+                </Text>
+                <Text style={styles.detailItem}>
+                  <Text style={styles.detailLabel}>Gender:</Text> Male
+                </Text>
+                <Text style={styles.detailItem}>
+                  <Text style={styles.detailLabel}>Blood Type:</Text> A+
+                </Text>
+                <Text style={styles.detailItem}>
+                  <Text style={styles.detailLabel}>Medical Aid:</Text> 123456789
                 </Text>
               </View>
-            ))}
-          </View>
-        </View>
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
-            <Ionicons name="share-outline" size={20} color="white" />
-            <Text style={styles.buttonText}>Share Card</Text>
+            </View>
+          </Animated.View>
+        </TouchableOpacity>
+
+        <View style={styles.bottomButtons}>
+          <TouchableOpacity style={styles.iconButton} onPress={handleNFC}>
+            <Ionicons name="link-outline" size={20} color="#555" />
+            <Text style={styles.iconButtonText}>NFC Sharing</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.iconButton} onPress={handleShare}>
+            <MaterialIcons name="share" size={20} color="#555" />
+            <Text style={styles.iconButtonText}>Share Card</Text>
           </TouchableOpacity>
         </View>
-      </TouchableOpacity>
-    </Animated.View>
-  );
-
-  const renderConnect = () => (
-    <View style={styles.connectContainer}>
-      <Text style={styles.connectTitle}>Connect Aya to Medical Card</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Enter Medical ID Number"
-        value={medicalNumber}
-        onChangeText={setMedicalNumber}
-        keyboardType="numeric"
-      />
-      <TouchableOpacity style={styles.button} onPress={handleConnect}>
-        <Text style={styles.buttonText}>Connect</Text>
-      </TouchableOpacity>
-    </View>
-  );
-
-  const renderLoading = () => (
-    <Modal visible={showLoading} transparent animationType="fade">
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#E91E63" />
-        <Text style={styles.loadingText}>
-          {loadingStep === 1
-            ? "Connecting..."
-            : loadingStep === 2
-            ? "Extracting data..."
-            : "Building card..."}
-        </Text>
       </View>
-    </Modal>
-  );
-
-  return (
-    <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="dark-content" backgroundColor="white" />
-      <ScrollView contentContainerStyle={styles.container}>
-        {connected ? (
-          <>
-            {renderFront()}
-            {renderBack()}
-          </>
-        ) : (
-          renderConnect()
-        )}
-      </ScrollView>
-      {renderLoading()}
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "white" },
-  container: { flexGrow: 1, alignItems: "center", padding: 20 },
-  card: {
-    width: width - 40,
-    minHeight: height * 0.55,
-    backgroundColor: "white",
-    borderRadius: 20,
+  appContainer: { flex: 1, backgroundColor: "#f0f0f0" },
+
+  backButton: {
+    position: "absolute",
+    top: 50,
+    left: 20,
+    zIndex: 999,
+    padding: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+
+  container: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#f0f0f0",
     padding: 20,
-    marginBottom: 20,
+    gap: 30,
+  },
+  header: { alignItems: "center", marginBottom: 30, width: "100%" },
+  subtitle: { fontSize: 16, color: "#666" },
+  cardContainer: { width: width * 0.9, height: 200 },
+  card: {
+    width: "100%",
+    height: 200,
+    borderRadius: 20,
+    flexDirection: "row",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
     elevation: 8,
-    alignItems: "center",
+    position: "absolute",
     backfaceVisibility: "hidden",
   },
-  cardTouchable: { width: "100%", alignItems: "center" },
-  userPic: { width: 100, height: 100, borderRadius: 50, marginBottom: 20 },
-  userPicPlaceholder: {
-    width: 100,
-    height: 100,
+  frontCard: { backgroundColor: "#f5f5f5" },
+  backCard: {
+    backgroundColor: "#de0973",
+    shadowColor: "#de0973",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 20,
+    elevation: 15,
+  },
+  pinkSection: {
+    width: 150,
+    height: 200,
+    backgroundColor: "#de0973",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 80,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 80,
+    justifyContent: "center",
+    alignItems: "center",
+    position: "absolute",
+  },
+  pinkSectionBack: {
+    width: "100%",
+    height: "100%",
+    backgroundColor: "#de0973",
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    position: "relative",
+    overflow: "hidden",
+  },
+  decorativeCircles: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  circle: {
+    position: "absolute",
     borderRadius: 50,
-    backgroundColor: "#F3F4F6",
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    shadowColor: "rgba(255, 255, 255, 0.5)",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 8,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+  },
+  circle1: { width: 80, height: 80, top: 20, right: 20 },
+  circle2: { width: 60, height: 60, top: 60, left: 20 },
+  circle3: { width: 40, height: 40, bottom: 40, right: 40 },
+  circle4: { width: 100, height: 100, top: 100, right: -20 },
+  circle5: { width: 50, height: 50, bottom: 20, left: 40 },
+  circle6: { width: 30, height: 30, top: 30, left: 50 },
+  logoContainer: { alignItems: "center", marginBottom: 10 },
+  logoWithPlus: {
+    position: "relative",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 20,
+  },
+  logoImage: { width: 150, height: 150 },
+  plusSign: {
+    position: "absolute",
+    color: "white",
+    fontSize: 70,
+    fontWeight: "bold",
+    top: 60,
+    right: 30,
+    textShadowColor: "rgba(0, 0, 0, 0.5)",
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
   cardTitle: {
-    fontSize: 24,
-    fontWeight: "700",
-    marginBottom: 15,
-    color: "#1F2937",
-  },
-  cardText: { fontSize: 16, marginBottom: 8, color: "#374151" },
-  label: { fontWeight: "600", color: "#1F2937" },
-  infoContainer: { width: "100%", alignItems: "flex-start" },
-  infoSection: { width: "100%", marginBottom: 20 },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    marginBottom: 10,
-    color: "#1F2937",
-  },
-  contactItem: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
-  buttonContainer: { width: "100%", alignItems: "center", marginTop: 15 },
-  button: {
-    backgroundColor: "#E91E63",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 12,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  buttonText: {
     color: "white",
-    fontWeight: "600",
-    fontSize: 16,
-    marginLeft: 5,
+    fontSize: 15,
+    fontWeight: "bold",
+    textAlign: "center",
   },
-  shareButton: {
-    backgroundColor: "#9C27B0",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 12,
+  detailsSection: {
+    flex: 1,
+    padding: 20,
+    justifyContent: "center",
+    marginLeft: width * 0.38,
+  },
+  name: { fontSize: 20, fontWeight: "bold", color: "#333", marginBottom: 5 },
+  separator: {
+    height: 2,
+    backgroundColor: "#de0973",
+    marginBottom: 10,
+    width: "50%",
+  },
+  detailsList: { gap: 8 },
+  detailItem: { fontSize: 14, color: "#333", lineHeight: 22 },
+  detailLabel: { fontWeight: "bold" },
+  bottomButtons: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 15,
+    marginTop: 20,
+  },
+  iconButton: {
     flexDirection: "row",
     alignItems: "center",
+    backgroundColor: "#ddd",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    gap: 6,
   },
-  input: {
-    width: "100%",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    borderRadius: 12,
-    padding: 15,
-    fontSize: 16,
-    marginBottom: 20,
-  },
-  connectContainer: { width: "100%", alignItems: "center", marginTop: 50 },
-  connectTitle: {
-    fontSize: 24,
-    fontWeight: "700",
-    marginBottom: 20,
-    color: "#1F2937",
-  },
-  loadingContainer: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  loadingText: { marginTop: 20, fontSize: 16, color: "white" },
+  iconButtonText: { color: "#555", fontWeight: "600", fontSize: 14 },
 });
 
-export default DigitalSafetyCard;
+export default DigitalCard;

@@ -1,0 +1,162 @@
+import React, { useState } from "react";
+import { View, Text, TextInput, TouchableOpacity, Image, StyleSheet, Alert, ActivityIndicator } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { AntDesign, FontAwesome, Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { supabaseAuth } from "../lib/supabaseClient";
+
+export default function SignupScreen({ navigation }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSignup = async () => {
+    if (!email || !password) {
+      Alert.alert("Error", "Please fill in all fields");
+      return;
+    }
+
+    if (password.length < 6) {
+      Alert.alert("Error", "Password must be at least 6 characters long");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const data = await supabaseAuth.signUp(email, password);
+      
+      // Check if signup was successful
+      if (data.user) {
+        // Store user ID even if session is not created yet (email verification pending)
+        await AsyncStorage.setItem("userID", data.user.id);
+        
+        if (data.session) {
+          await AsyncStorage.setItem("userSession", JSON.stringify(data.session));
+        }
+        
+        // Navigate to AccountForm to complete profile
+        navigation.navigate("AccountForm", { userID: data.user.id });
+        
+        // Show different message based on whether email verification is required
+        if (data.session) {
+          Alert.alert("Success", "Account created! Please complete your profile.");
+        } else {
+          Alert.alert(
+            "Account Created!", 
+            "Please check your email to verify your account. You can complete your profile now and login after verification.",
+            [{ text: "Continue" }]
+          );
+        }
+      } else {
+        throw new Error("Failed to create account. Please try again.");
+      }
+    } catch (error) {
+      console.error("Signup error:", error);
+      Alert.alert("Signup Failed", error.message || "Failed to create account");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <LinearGradient colors={["#d9c9ff", "#f6d5ef"]} style={styles.container}>
+      <View style={styles.content}>
+        <Image source={require("../assets/Logos/Aya_AI_Logo.png")} style={styles.logo} />
+
+        <View style={styles.inputContainer}>
+          <TextInput
+            placeholder="Enter your email"
+            value={email}
+            onChangeText={setEmail}
+            style={styles.input}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+          <TextInput
+            placeholder="Enter your password"
+            value={password}
+            onChangeText={setPassword}
+            style={styles.input}
+            secureTextEntry
+          />
+
+          <Text style={styles.termsText}>
+            I agree to the <Text style={styles.link}>Terms of Service</Text> and{" "}
+            <Text style={styles.link}>Privacy Policy</Text>
+          </Text>
+
+          <TouchableOpacity 
+            style={[styles.signUpButton, loading && styles.disabledButton]} 
+            onPress={handleSignup}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.signUpText}>Sign Up</Text>
+            )}
+          </TouchableOpacity>
+
+          <Text style={styles.orText}>or sign up with</Text>
+
+          <View style={styles.socialRow}>
+            <TouchableOpacity style={styles.socialButton}>
+              <AntDesign name="google" size={22} color="#DB4437" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.socialButton}>
+              <FontAwesome name="facebook" size={22} color="#1877F2" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.socialButton}>
+              <Ionicons name="logo-apple" size={22} color="#000" />
+            </TouchableOpacity>
+          </View>
+
+          <Text style={styles.footerText}>
+            Already have an account?{" "}
+            <Text style={styles.link} onPress={() => navigation.navigate("Login")}>
+              Login
+            </Text>
+          </Text>
+        </View>
+      </View>
+    </LinearGradient>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  content: { flex: 1, justifyContent: "center", alignItems: "center", padding: 20 },
+  logo: { width: 80, height: 80, resizeMode: "contain" },
+  title: { fontSize: 28, fontWeight: "bold", color: "#e91e63", marginBottom: 24 },
+  inputContainer: { width: "100%", backgroundColor: "#fff", borderRadius: 16, padding: 20 },
+  input: {
+    backgroundColor: "#f9f9f9",
+    borderRadius: 8,
+    padding: 12,
+    marginVertical: 8,
+    borderWidth: 1,
+    borderColor: "#eee",
+  },
+  termsText: { fontSize: 13, color: "#777", marginTop: 10 },
+  link: { color: "#e91e63", fontWeight: "600" },
+  signUpButton: {
+    backgroundColor: "#e91e63",
+    borderRadius: 8,
+    paddingVertical: 14,
+    marginTop: 20,
+  },
+  disabledButton: {
+    opacity: 0.6,
+  },
+  signUpText: { color: "#fff", fontWeight: "600", textAlign: "center" },
+  orText: { textAlign: "center", color: "#999", marginTop: 20 },
+  socialRow: { flexDirection: "row", justifyContent: "center", marginTop: 12 },
+  socialButton: {
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    padding: 10,
+    marginHorizontal: 6,
+    elevation: 1,
+  },
+  footerText: { textAlign: "center", marginTop: 20, color: "#555" },
+});

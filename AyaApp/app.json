@@ -6,10 +6,15 @@
     "orientation": "portrait",
     "icon": "./assets/Logos/Aya_Logo.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "splash": {
       "image": "./assets/Logos/Aya_Logo.png"
     },
+    "platforms": ["ios", "android", "web"],
+    "assetBundlePatterns": [
+      "**/*",
+      "assets/*.ppn"
+    ],
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
@@ -22,16 +27,33 @@
       },
       "edgeToEdgeEnabled": true,
       "permissions": [
-        "RECORD_AUDIO"
-      ]
+        "RECORD_AUDIO",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ],
+      "package": "com.anonymous.AyaAI"
     },
     "web": {
-      "favicon": "./assets/Logos/Aya_Logo.png"
+      "favicon": "./assets/Logos/Aya_Logo.png",
+      "bundler": "metro",
+      "output": "single"
     },
     "plugins": [
       "expo-av",
-      "react-native-video",
-      "expo-web-browser"
-    ]
+      "expo-web-browser",
+      "expo-dev-client",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Use Face ID to authenticate with biometrics."
+        }
+      ],
+      "expo-asset"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "d5390f12-de98-48c7-9c03-66a7a663f7cd"
+      }
+    }
   }
 }

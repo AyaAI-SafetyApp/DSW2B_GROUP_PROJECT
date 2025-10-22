@@ -1,26 +1,40 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useMemo,
+  useCallback,
+} from "react";
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  Animated,
   Dimensions,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   Platform,
   Image,
+  Modal,
+  RefreshControl,
+  ActivityIndicator,
+  Animated,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import * as Location from "expo-location";
 import { Ionicons } from "@expo/vector-icons";
 import Svg, { Circle } from "react-native-svg";
 import { useNavigation } from "@react-navigation/native";
+import * as Haptics from "expo-haptics";
+import * as Speech from "expo-speech";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import LottieView from "lottie-react-native";
 
 const { width } = Dimensions.get("window");
-const PRIMARY = "#D81B60";
+export const PRIMARY = "#D81B60";
+export const API_BASE_URL = "https://dsw2b-backend.onrender.com";
 
-const newsData = [
+const NEWS_DATA = [
   {
     id: "2",
     title: "New AI safety tools launched",
@@ -41,11 +55,494 @@ const newsData = [
   },
 ];
 
+// Fade-in animation helper
+const FadeView = ({ children, delay = 0, style }) => {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 400,
+      delay,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+  return (
+    <Animated.View style={[{ opacity: fadeAnim }, style]}>
+      {children}
+    </Animated.View>
+  );
+};
+
+// Header component
+const Header = ({
+  notificationsCount,
+  onOpenNotifications,
+  onProfilePress,
+  riskColor,
+  onLogout,
+}) => (
+  <FadeView style={styles.header} delay={100}>
+    <View style={styles.headerLeft}>
+      <Image
+        source={require("../assets/Logos/Aya_AI_Logo.png")}
+        style={styles.logoImage}
+        accessibilityIgnoresInvertColors
+      />
+      <View
+        style={[styles.statusDot, { backgroundColor: riskColor }]}
+        accessibilityLabel={`Safety color ${riskColor}`}
+      />
+    </View>
+    <View style={styles.headerRight}>
+      <TouchableOpacity
+        style={styles.headerButton}
+        onPress={() => {
+          Haptics.selectionAsync();
+          onOpenNotifications();
+        }}
+        accessibilityLabel={`Open notifications. ${notificationsCount} unread`}
+      >
+        <Ionicons name="notifications-outline" size={28} color="#1C2526" />
+        {notificationsCount > 0 && (
+          <View style={styles.notificationBadge}>
+            <Text style={styles.notificationBadgeText}>
+              {notificationsCount}
+            </Text>
+          </View>
+        )}
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.headerButton}
+        onPress={() => {
+          Haptics.selectionAsync();
+          onProfilePress();
+        }}
+        accessibilityLabel="Open profile"
+      >
+        <View style={styles.profilePicture}>
+          <Ionicons name="person" size={18} color="#FFFFFF" />
+        </View>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.logoutButton} onPress={onLogout}>
+        <Ionicons name="log-out-outline" size={24} color="#FF3B30" />
+      </TouchableOpacity>
+    </View>
+  </FadeView>
+);
+
+// Notification modal
+const NotificationModal = ({ visible, notifications, onClose }) => (
+  <Modal
+    visible={visible}
+    transparent
+    animationType="slide"
+    onRequestClose={onClose}
+  >
+    <View style={styles.modalOverlay}>
+      <View style={styles.modalContent} accessibilityViewIsModal>
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <Text style={styles.modalTitle}>Notifications</Text>
+          <TouchableOpacity
+            onPress={onClose}
+            accessibilityLabel="Close notifications"
+          >
+            <Ionicons name="close" size={22} color="#111" />
+          </TouchableOpacity>
+        </View>
+        {notifications.length === 0 ? (
+          <View style={{ paddingVertical: 24 }}>
+            <Text>No notifications</Text>
+          </View>
+        ) : (
+          notifications.map((n, i) => (
+            <Text
+              key={i}
+              style={styles.modalItem}
+              accessibilityLabel={`Notification ${i + 1}`}
+            >
+              {n}
+            </Text>
+          ))
+        )}
+        <TouchableOpacity
+          style={styles.modalCloseButton}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            onClose();
+          }}
+          accessibilityLabel="Close"
+        >
+          <Text style={{ color: "#fff", fontWeight: "700" }}>Close</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  </Modal>
+);
+
+// Risk card
+const RiskCard = ({ crimeProbability, riskColor, riskLabel, safetyTip }) => (
+  <FadeView style={styles.riskCard} delay={200}>
+    <View style={styles.riskHeader}>
+      <Ionicons name="shield-outline" size={20} color={PRIMARY} />
+      <Text style={styles.riskTitle}>Safety Status</Text>
+    </View>
+    <View style={styles.riskContent}>
+      <View style={styles.progressSection}>
+        <Svg width={110} height={110} accessibilityLabel="Safety meter">
+          <Circle stroke="#F2F2F7" cx={55} cy={55} r={52} strokeWidth={6} />
+          <Circle
+            stroke={riskColor}
+            cx={55}
+            cy={55}
+            r={52}
+            strokeWidth={6}
+            strokeDasharray={`${2 * Math.PI * 52} ${2 * Math.PI * 52}`}
+            strokeDashoffset={
+              (2 * Math.PI * 52 * (100 - crimeProbability)) / 100
+            }
+            strokeLinecap="round"
+            rotation="-90"
+            origin="55,55"
+          />
+        </Svg>
+        <View style={styles.progressCenter}>
+          <Text style={[styles.percentageText, { color: riskColor }]}>
+            {crimeProbability.toFixed(1)}%
+          </Text>
+          <Text style={styles.riskLabel}>{riskLabel}</Text>
+        </View>
+      </View>
+      <Text style={styles.riskDescription}>{safetyTip}</Text>
+    </View>
+  </FadeView>
+);
+
+// Quick actions
+const QuickActions = ({ navigation }) => {
+  const actions = [
+    {
+      icon: "navigate-outline",
+      color: PRIMARY,
+      text: "Safe Route",
+      route: "MapViewScreen",
+    },
+    {
+      icon: "call-outline",
+      color: "#e1170c",
+      text: "Emergency",
+      route: "EmergencyScreen",
+    },
+    {
+      icon: "medkit-outline",
+      color: "#34C759",
+      text: "Medical",
+      route: "Health",
+    },
+  ];
+  return (
+    <FadeView style={styles.quickActions} delay={300}>
+      {actions.map((a, i) => (
+        <TouchableOpacity
+          key={i}
+          style={styles.quickActionItem}
+          onPress={() => {
+            Haptics.selectionAsync();
+            navigation.navigate(a.route);
+          }}
+          accessibilityLabel={a.text}
+        >
+          <View style={[styles.quickActionIcon, { backgroundColor: a.color }]}>
+            <Ionicons name={a.icon} size={22} color="#fff" />
+          </View>
+          <Text style={styles.quickActionText}>{a.text}</Text>
+        </TouchableOpacity>
+      ))}
+    </FadeView>
+  );
+};
+
+// News feed
+const NewsFeed = ({ data, onOpenNews }) => (
+  <FadeView style={styles.newsSection} delay={400}>
+    <View style={styles.newsSectionHeader}>
+      <View style={{ flexDirection: "row", alignItems: "center" }}>
+        <Ionicons name="newspaper-outline" size={20} color={PRIMARY} />
+        <Text style={styles.sectionTitle}>Last Updates</Text>
+      </View>
+      <TouchableOpacity
+        onPress={onOpenNews}
+        accessibilityLabel="Open news feed"
+      >
+        <Text style={styles.moreButton}>More</Text>
+      </TouchableOpacity>
+    </View>
+    {data.map((item) => (
+      <TouchableOpacity
+        key={item.id}
+        style={styles.newsItem}
+        accessibilityRole="button"
+      >
+        <View
+          style={[
+            styles.newsIndicator,
+            {
+              backgroundColor: item.priority === "high" ? "#FF3B30" : "#FF9500",
+            },
+          ]}
+        />
+        <Image
+          source={{ uri: item.logoUri }}
+          style={styles.newsLogo}
+          accessibilityLabel={`${item.source} logo`}
+        />
+        <View style={styles.newsContent}>
+          <Text style={styles.newsTitle}>{item.title}</Text>
+          <View style={styles.newsMeta}>
+            <Text style={styles.newsSource}>{item.source}</Text>
+            <Text style={styles.newsTime}>{item.time}</Text>
+          </View>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color="#D1D5DB" />
+      </TouchableOpacity>
+    ))}
+  </FadeView>
+);
+
+// Home screen
+export default function HomeScreen() {
+  const navigation = useNavigation();
+  const [currentLocation, setCurrentLocation] = useState("Loading...");
+  const [crimeProbability, setCrimeProbability] = useState(0);
+  const [safetyData, setSafetyData] = useState(null);
+  const [notifications, setNotifications] = useState([
+    "Welcome to AyaAI!",
+    "New AI safety tools launched.",
+  ]);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadingSafety, setLoadingSafety] = useState(true);
+  const [showLottie, setShowLottie] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const cached = await AsyncStorage.getItem("@safety_last");
+        if (cached) setSafetyData(JSON.parse(cached));
+      } catch {}
+    })();
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    const fetchLocation = async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== "granted") {
+          setCurrentLocation("Permission denied");
+          await fetchSafetyData("Johannesburg");
+          setLoadingSafety(false);
+          return;
+        }
+        const loc = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Highest,
+        });
+        const addresses = await Location.reverseGeocodeAsync(loc.coords);
+        if (!mounted) return;
+        const city =
+          addresses[0]?.city ||
+          addresses[0]?.subregion ||
+          addresses[0]?.region ||
+          "Unknown";
+        setCurrentLocation(city);
+        await fetchSafetyData(city, loc.coords.latitude, loc.coords.longitude);
+      } catch {
+        setCurrentLocation("Error fetching location");
+        await fetchSafetyData("Johannesburg");
+      } finally {
+        if (mounted) setLoadingSafety(false);
+      }
+    };
+    fetchLocation();
+    return () => (mounted = false);
+  }, []);
+
+  const riskColor = useMemo(
+    () =>
+      crimeProbability < 40
+        ? "#34C759"
+        : crimeProbability < 70
+        ? "#FF9500"
+        : "#FF3B30",
+    [crimeProbability]
+  );
+  const riskLabel = useMemo(
+    () =>
+      crimeProbability < 40
+        ? "Low Risk"
+        : crimeProbability < 70
+        ? "Moderate Risk"
+        : "High Risk",
+    [crimeProbability]
+  );
+
+  useEffect(() => {
+    // Directly set the exact percentage from backend without animation rounding
+    const target = safetyData?.Danger_Percentage ?? 65;
+    setCrimeProbability(target);
+    
+    if (Platform.OS !== "web") {
+      Speech.speak(`${Math.round(target)} percent. ${riskLabel}.`, { rate: 1 });
+    }
+  }, [safetyData, riskLabel]);
+
+  const fetchSafetyData = useCallback(async (area = "Johannesburg", lat = null, lon = null) => {
+    setLoadingSafety(true);
+    setShowLottie(true);
+    try {
+      // Use GPS coordinates if available (finds nearest station)
+      const endpoint = lat && lon 
+        ? `${API_BASE_URL}/api/safety-status/location/${lat}/${lon}`
+        : `${API_BASE_URL}/api/safety-status/${encodeURIComponent(area)}`;
+      
+      const res = await fetch(endpoint);
+      const data = res.ok
+        ? await res.json()
+        : {
+            Danger_Percentage: 50,
+            safetyTips: ["Data unavailable. Stay alert."],
+          };
+      setSafetyData(data);
+      await AsyncStorage.setItem("@safety_last", JSON.stringify(data));
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch {
+      setSafetyData(
+        (prev) =>
+          prev || {
+            Danger_Percentage: 65,
+            safetyTips: ["Data unavailable. Stay alert."],
+          }
+      );
+    } finally {
+      setLoadingSafety(false);
+      setTimeout(() => setShowLottie(false), 2000);
+    }
+  }, []);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      await fetchSafetyData(currentLocation, loc.coords.latitude, loc.coords.longitude);
+    } catch {
+      await fetchSafetyData(currentLocation || "Johannesburg");
+    }
+    setRefreshing(false);
+  }, [currentLocation]);
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar
+        barStyle="dark-content"
+        translucent
+        backgroundColor="transparent"
+      />
+      <Header
+        notificationsCount={notifications.length}
+        onOpenNotifications={() => setModalVisible(true)}
+        onProfilePress={() => navigation.navigate("ProfileScreen")}
+        riskColor={riskColor}
+        onLogout={() => navigation.navigate("Login")}
+      />
+      <NotificationModal
+        visible={modalVisible}
+        notifications={notifications}
+        onClose={() => setModalVisible(false)}
+      />
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 32, paddingTop: 100 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        <View style={styles.locationBanner}>
+          <Ionicons name="location-outline" size={16} color={PRIMARY} />
+          <View style={{ flex: 1, marginLeft: 8 }}>
+            <Text style={styles.locationText}>{currentLocation}</Text>
+            {safetyData?.closestStation && (
+              <Text style={styles.nearestStationText}>
+                Nearest: {safetyData.closestStation.name} (
+                {Math.round(safetyData.closestStation.distance * 10) / 10}km)
+              </Text>
+            )}
+          </View>
+          <View style={styles.liveIndicator}>
+            <View style={styles.liveDot} />
+            <Text style={styles.liveText}>Live</Text>
+          </View>
+        </View>
+
+        {showLottie ? (
+          <FadeView style={{ alignItems: "center", marginTop: 24 }}>
+            <LottieView
+              source={require("../assets/animations/Locate GPS.json")}
+              autoPlay
+              loop
+              style={{ width: 140, height: 140 }}
+            />
+            <Text style={{ marginTop: 8, color: "#6B7280" }}>
+              Updating safety for your area
+            </Text>
+          </FadeView>
+        ) : (
+          <RiskCard
+            crimeProbability={crimeProbability}
+            riskColor={riskColor}
+            riskLabel={riskLabel}
+            safetyTip={
+              safetyData?.safetyTips?.[0] ||
+              "AI suggests caution in your area. Avoid isolated areas after 10 PM."
+            }
+          />
+        )}
+
+        <QuickActions navigation={navigation} />
+        <NewsFeed
+          data={NEWS_DATA}
+          onOpenNews={() => navigation.navigate("NewsFeed")}
+        />
+
+        <FadeView
+          style={{ alignItems: "center", marginTop: 0, marginBottom: 80 }}
+          delay={0}
+        >
+          <LottieView
+            source={require("../assets/animations/Certified SSL.json")}
+            autoPlay
+            loop
+            style={{ width: 90, height: 90 }}
+          />
+          <Text style={{ color: "#6B7280", marginTop: 4 }}>
+            AyaAI keeps you informed quietly and clearly
+          </Text>
+        </FadeView>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#ffffffff" },
   scrollView: { flex: 1 },
-
-  /* ------------------------- Header ------------------------- */
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -54,6 +551,11 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === "ios" ? 50 : 44,
     paddingBottom: 16,
     backgroundColor: "#fff",
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
   },
   headerLeft: { flexDirection: "row", alignItems: "center" },
   logoImage: { width: 44, height: 44, resizeMode: "contain" },
@@ -62,12 +564,21 @@ const styles = StyleSheet.create({
   headerButton: { marginLeft: 16, position: "relative" },
   notificationBadge: {
     position: "absolute",
-    top: -3,
-    right: -3,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    top: -4,
+    right: -4,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
     backgroundColor: "#FF3B30",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 4,
+  },
+  notificationBadgeText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "700",
+    textAlign: "center",
   },
   profilePicture: {
     width: 38,
@@ -77,30 +588,46 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-
-  /* ------------------------- Location Banner ------------------------- */
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.3)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 20,
+    width: width - 60,
+  },
+  modalTitle: { fontSize: 18, fontWeight: "700", marginBottom: 10 },
+  modalItem: { fontSize: 14, marginVertical: 6 },
+  modalCloseButton: {
+    backgroundColor: PRIMARY,
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 12,
+    alignItems: "center",
+  },
   locationBanner: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#F9FAFB", // subtle soft background
+    backgroundColor: "#F9FAFB",
     marginHorizontal: 20,
     marginTop: 16,
     paddingVertical: 12,
     paddingHorizontal: 16,
-    borderRadius: 24, // nice pill shape
+    borderRadius: 24,
   },
-  locationText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#111827", // darker, cleaner text
-    flex: 1, // allow text to take available space
+  locationText: { fontSize: 16, fontWeight: "600", color: "#111827" },
+  nearestStationText: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: "#6B7280",
+    marginTop: 2,
   },
-  liveIndicator: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginLeft: 12,
-  },
+  liveIndicator: { flexDirection: "row", alignItems: "center" },
   liveDot: {
     width: 10,
     height: 10,
@@ -108,44 +635,31 @@ const styles = StyleSheet.create({
     backgroundColor: "#34C759",
     marginRight: 6,
   },
-  liveText: {
-    fontSize: 13,
-    color: "#6B7280", // slightly lighter gray for subtlety
-    fontWeight: "500",
-  },
-
-  /* ------------------------- Risk Card ------------------------- */
+  liveText: { fontSize: 13, color: "#6B7280", fontWeight: "500" },
   riskCard: {
-    backgroundColor: "#F9FAFB", // subtle off-white for clean look
+    backgroundColor: "#F9FAFB",
     marginHorizontal: 20,
     marginTop: 20,
     borderRadius: 24,
     padding: 24,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 3,
   },
   riskHeader: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 20,
-  },
-  riskTitleContainer: {
-    flexDirection: "row",
-    alignItems: "center",
   },
   riskTitle: {
     fontSize: 20,
     fontWeight: "700",
-    color: "#111827", // darker, sharper
+    color: "#111827",
     marginLeft: 8,
   },
-  riskContent: {
-    flexDirection: "column",
-    alignItems: "center",
-  },
-  progressSection: {
-    position: "relative",
-    marginBottom: 24,
-  },
+  riskContent: { alignItems: "center" },
+  progressSection: { position: "relative", marginBottom: 24 },
   progressCenter: {
     position: "absolute",
     top: 0,
@@ -155,29 +669,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  percentageText: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: PRIMARY,
-  },
+  percentageText: { fontSize: 28, fontWeight: "800" },
   riskLabel: {
     fontSize: 14,
-    color: "#6B7280", // subtle gray for secondary info
+    color: "#6B7280",
     fontWeight: "500",
     marginTop: 6,
   },
-  riskDetails: {
-    width: "100%",
-  },
   riskDescription: {
     fontSize: 15,
-    color: "#4B5563", // slightly darker for readability
-    lineHeight: 24,
-    marginBottom: 16,
+    color: "#5c6169ff",
+    lineHeight: 22,
     textAlign: "center",
   },
-
-  /* ------------------------- Quick Actions ------------------------- */
   quickActions: {
     flexDirection: "row",
     paddingHorizontal: 20,
@@ -199,11 +703,10 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     textAlign: "center",
   },
-
-  /* ------------------------- News Section ------------------------- */
-  newsSection: { paddingHorizontal: 20, marginTop: 28, marginBottom: 32 },
+  newsSection: { paddingHorizontal: 20, marginTop: 28, marginBottom: 4 },
   newsSectionHeader: {
     flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 16,
   },
@@ -213,6 +716,7 @@ const styles = StyleSheet.create({
     color: "#1C2526",
     marginLeft: 8,
   },
+  moreButton: { color: PRIMARY, fontWeight: "600" },
   newsItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -231,268 +735,8 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#1C2526",
     marginBottom: 4,
-    lineHeight: 20,
   },
   newsMeta: { flexDirection: "row", alignItems: "center" },
   newsSource: { fontSize: 13, color: "#8E8E93", fontWeight: "500" },
   newsTime: { fontSize: 13, color: "#8E8E93", marginLeft: 8 },
 });
-
-/* ------------------------- Components ------------------------- */
-const Header = ({ riskColor }) => (
-  <View style={styles.header}>
-    <View style={styles.headerLeft}>
-      <Image
-        source={require("../assets/Logos/Aya_AI_Logo.png")}
-        style={styles.logoImage}
-      />
-      <View style={[styles.statusDot, { backgroundColor: riskColor }]} />
-    </View>
-    <View style={styles.headerRight}>
-      <TouchableOpacity style={styles.headerButton}>
-        <Ionicons name="notifications-outline" size={24} color="#1C2526" />
-        <View style={styles.notificationBadge} />
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.headerButton}>
-        <View style={styles.profilePicture}>
-          <Ionicons name="person" size={18} color="#FFFFFF" />
-        </View>
-      </TouchableOpacity>
-    </View>
-  </View>
-);
-
-const LocationBanner = ({ location }) => (
-  <View style={styles.locationBanner}>
-    <Ionicons name="location-outline" size={16} color={PRIMARY} />
-    <Text style={styles.locationText}>{location}</Text>
-    <View style={styles.liveIndicator}>
-      <View style={styles.liveDot} />
-      <Text style={styles.liveText}>Live</Text>
-    </View>
-  </View>
-);
-
-const RiskCard = ({ crimeProbability }) => {
-  const size = 110;
-  const strokeWidth = 6;
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset =
-    circumference - (circumference * crimeProbability) / 100;
-
-  const getRiskColor = () => {
-    if (crimeProbability < 40) return "#34C759";
-    if (crimeProbability < 70) return "#FF9500";
-    return "#FF3B30";
-  };
-
-  const getRiskText = () => {
-    if (crimeProbability < 40) return "Low Risk";
-    if (crimeProbability < 70) return "Moderate Risk";
-    return "High Risk";
-  };
-
-  return (
-    <View style={styles.riskCard}>
-      <View style={styles.riskHeader}>
-        <View style={styles.riskTitleContainer}>
-          <Ionicons name="shield-outline" size={20} color={PRIMARY} />
-          <Text style={styles.riskTitle}>Safety Status</Text>
-        </View>
-      </View>
-      <View style={styles.riskContent}>
-        <View style={styles.progressSection}>
-          <Svg width={size} height={size}>
-            <Circle
-              stroke="#F2F2F7"
-              cx={size / 2}
-              cy={size / 2}
-              r={radius}
-              strokeWidth={strokeWidth}
-            />
-            <Circle
-              stroke={getRiskColor()}
-              cx={size / 2}
-              cy={size / 2}
-              r={radius}
-              strokeWidth={strokeWidth}
-              strokeDasharray={`${circumference} ${circumference}`}
-              strokeDashoffset={strokeDashoffset}
-              strokeLinecap="round"
-              rotation="-90"
-              origin={`${size / 2}, ${size / 2}`}
-            />
-          </Svg>
-          <View style={styles.progressCenter}>
-            <Text style={[styles.percentageText, { color: getRiskColor() }]}>
-              {crimeProbability}%
-            </Text>
-            <Text style={styles.riskLabel}>{getRiskText()}</Text>
-          </View>
-        </View>
-        <View style={styles.riskDetails}>
-          <Text style={styles.riskDescription}>
-            AI suggests caution in your area. Avoid isolated areas after 10 PM.
-          </Text>
-        </View>
-      </View>
-    </View>
-  );
-};
-
-const QuickActions = () => {
-  const navigation = useNavigation();
-
-  const actions = [
-    {
-      icon: "navigate-outline",
-      color: PRIMARY,
-      text: "Safe Route",
-      onPress: () => navigation.navigate("MapViewScreen"),
-    },
-    {
-      icon: "call-outline",
-      color: "#e1170cff",
-      text: "Emergency",
-      onPress: () => navigation.navigate("EmergencyScreen"),
-    },
-    {
-      icon: "medkit-outline",
-      color: "#34C759",
-      text: "Medical",
-      onPress: () => navigation.navigate("Health"),
-    },
-  ];
-
-  return (
-    <View style={styles.quickActions}>
-      {actions.map((action, index) => (
-        <TouchableOpacity
-          key={index}
-          style={styles.quickActionItem}
-          onPress={action.onPress}
-        >
-          <View
-            style={[styles.quickActionIcon, { backgroundColor: action.color }]}
-          >
-            <Ionicons name={action.icon} size={22} color="#fff" />
-          </View>
-          <Text style={styles.quickActionText}>{action.text}</Text>
-        </TouchableOpacity>
-      ))}
-    </View>
-  );
-};
-
-const NewsFeed = () => {
-  const getPriorityColor = (priority) => {
-    switch (priority) {
-      case "high":
-        return "#FF3B30";
-      case "medium":
-        return "#FF9500";
-      case "low":
-        return "#34C759";
-      default:
-        return "#D1D5DB";
-    }
-  };
-
-  return (
-    <View style={styles.newsSection}>
-      <View style={styles.newsSectionHeader}>
-        <Ionicons name="newspaper-outline" size={20} color={PRIMARY} />
-        <Text style={styles.sectionTitle}>Last Updates</Text>
-      </View>
-      {newsData.map((item) => (
-        <TouchableOpacity key={item.id} style={styles.newsItem}>
-          <View
-            style={[
-              styles.newsIndicator,
-              { backgroundColor: getPriorityColor(item.priority) },
-            ]}
-          />
-          <Image source={{ uri: item.logoUri }} style={styles.newsLogo} />
-          <View style={styles.newsContent}>
-            <Text style={styles.newsTitle}>{item.title}</Text>
-            <View style={styles.newsMeta}>
-              <Text style={styles.newsSource}>{item.source}</Text>
-              <Text style={styles.newsTime}>{item.time}</Text>
-            </View>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color="#D1D5DB" />
-        </TouchableOpacity>
-      ))}
-    </View>
-  );
-};
-
-const HomeScreen = () => {
-  const [currentLocation, setCurrentLocation] = useState("Loading...");
-  const [crimeProbability, setCrimeProbability] = useState(0);
-  const animatedValue = useRef(new Animated.Value(0)).current;
-  const targetProbability = 65;
-
-  useEffect(() => {
-    const fetchLocation = async () => {
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== "granted") {
-          setCurrentLocation("Permission denied");
-          return;
-        }
-        const loc = await Location.getCurrentPositionAsync({});
-        const address = await Location.reverseGeocodeAsync(loc.coords);
-        setCurrentLocation(address[0]?.city || address[0]?.region || "Unknown");
-      } catch (error) {
-        console.error("Error fetching location:", error);
-        setCurrentLocation("Error fetching location");
-      }
-    };
-    fetchLocation();
-  }, []);
-
-  useEffect(() => {
-    Animated.timing(animatedValue, {
-      toValue: targetProbability,
-      duration: 2000,
-      useNativeDriver: false,
-    }).start();
-
-    const listener = animatedValue.addListener(({ value }) => {
-      setCrimeProbability(Math.round(value));
-    });
-
-    return () => animatedValue.removeListener(listener);
-  }, [animatedValue]);
-
-  const getRiskColor = () => {
-    if (crimeProbability < 40) return "#34C759";
-    if (crimeProbability < 70) return "#FF9500";
-    return "#FF3B30";
-  };
-
-  return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar
-        barStyle="dark-content"
-        translucent
-        backgroundColor="transparent"
-      />
-      <Header riskColor={getRiskColor()} />
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 32 }}
-      >
-        <LocationBanner location={currentLocation} />
-        <RiskCard crimeProbability={crimeProbability} />
-        <QuickActions />
-        <NewsFeed />
-      </ScrollView>
-    </SafeAreaView>
-  );
-};
-
-export default HomeScreen;
