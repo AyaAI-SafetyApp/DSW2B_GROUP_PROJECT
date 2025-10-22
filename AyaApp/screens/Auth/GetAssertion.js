@@ -45,6 +45,7 @@ export default function GetAssertion() {
     setLoading(true);
     setStatusMessage("");
     try {
+      // Check if biometric hardware is available
       const compatible = await LocalAuthentication.hasHardwareAsync();
       const enrolled = await LocalAuthentication.isEnrolledAsync();
 
@@ -54,8 +55,9 @@ export default function GetAssertion() {
         return;
       }
 
+      // Authenticate with biometrics
       const bioAuth = await LocalAuthentication.authenticateAsync({
-        promptMessage: "Authenticate",
+        promptMessage: "Authenticate to login",
         fallbackLabel: "Enter PIN",
         disableDeviceFallback: false,
       });
@@ -66,29 +68,51 @@ export default function GetAssertion() {
         return;
       }
 
-      showStatus("Authenticated successfully");
+      showStatus("Verifying passkey...");
 
-      const fakeAssertion = { id: `${userID}-cred-${Date.now()}` };
+      // Get user's passkeys from backend
       try {
-        await axios.post(`${API_BASE}/login/verify`, {
+        const passkeysResponse = await axios.get(`${API_BASE}/api/passkey/${userID}`);
+        
+        if (!passkeysResponse.data.passkeys || passkeysResponse.data.passkeys.length === 0) {
+          showStatus("No passkey found. Please register first.");
+          setLoading(false);
+          return;
+        }
+
+        // Use the most recent passkey
+        const latestPasskey = passkeysResponse.data.passkeys[0];
+        
+        // Verify login with the passkey
+        const verifyResponse = await axios.post(`${API_BASE}/login/verify`, {
           userID,
-          assertion: fakeAssertion,
+          assertion: {
+            id: latestPasskey.credential_id,
+            type: "public-key"
+          },
         });
+
+        if (verifyResponse.data.authenticated) {
+          showStatus("Login successful!");
+          
+          // Navigate to main app
+          setTimeout(() => {
+            navigation.reset({
+              index: 0,
+              routes: [{ name: "MainTabs" }],
+            });
+          }, 1000);
+        }
       } catch (err) {
-        console.log("Backend error:", err);
-        showStatus("Failed to verify login");
+        console.error("Login verification error:", err);
+        const errorMsg = err.response?.data?.error || "Failed to verify login";
+        showStatus(errorMsg);
         setLoading(false);
         return;
       }
-
-      navigation.reset({
-        index: 0,
-        routes: [{ name: "MainTabs" }],
-      });
     } catch (err) {
-      console.log(err);
+      console.error("Login error:", err);
       showStatus("Something went wrong");
-    } finally {
       setLoading(false);
     }
   };

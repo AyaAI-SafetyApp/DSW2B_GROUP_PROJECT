@@ -5,9 +5,8 @@ const path = require('path');
 const axios = require('axios');
 const bodyParser = require('body-parser');
 const { createClient } = require('@supabase/supabase-js');
-const { doc, setDoc, getDoc, updateDoc, arrayUnion } = require("firebase/firestore");
-const { db } = require("./firebaseConfig");
 const dotenv = require('dotenv');
+const passkeyService = require('./passkeyService');
 const twilio = require("twilio");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const sqlite3 = require("sqlite3").verbose();
@@ -235,25 +234,7 @@ async function generateAccessToken() {
     return response.data.access_token;
 }
 
-// Passkey service function
-const storePasskey = async (userId, credentialId, publicKey) => {
-    const userRef = doc(db, "users", userId);
-    const userSnap = await getDoc(userRef);
-
-    const passkeyData = {
-        credentialId,
-        publicKey,
-        createdAt: new Date().toISOString(),
-    };
-
-    if (!userSnap.exists()) {
-        await setDoc(userRef, { passkeys: [passkeyData] });
-    } else {
-        await updateDoc(userRef, {
-            passkeys: arrayUnion(passkeyData),
-        });
-    }
-};
+// Passkey service functions are now imported from passkeyService.js
 
 // Routes
 
@@ -1182,33 +1163,9 @@ function generateSafetyTips(areaData) {
     return [...dangerSpecificTips, ...baseTips].slice(0, 8);
 }
 
-// Passkey API endpoint
-app.post('/api/passkey/store', async (req, res) => {
-    try {
-        const { userId, credentialId, publicKey } = req.body;
-        
-        if (!userId || !credentialId || !publicKey) {
-            return res.status(400).json({ 
-                error: 'Missing required fields: userId, credentialId, publicKey' 
-            });
-        }
-        
-        await storePasskey(userId, credentialId, publicKey);
-        
-        res.status(200).json({ 
-            message: 'Passkey stored successfully',
-            userId: userId
-        });
-    } catch (error) {
-        console.error('Error storing passkey:', error);
-        res.status(500).json({ 
-            error: 'Failed to store passkey',
-            details: error.message 
-        });
-    }
-});
+// Passkey API endpoints
 
-// Register endpoint for passkey creation (used by CreateCredential.js)
+// Register endpoint - Generate and store passkey
 app.post('/register', async (req, res) => {
     try {
         const { userID, credential, provider } = req.body;
@@ -1218,32 +1175,92 @@ app.post('/register', async (req, res) => {
                 error: 'Missing required field: userID' 
             });
         }
+
+        // Generate a unique passkey
+        const generatedPasskey = passkeyService.generatePasskey(userID);
         
-        console.log(`Registering passkey for user: ${userID}`);
-        console.log(`Provider: ${provider}`);
-        console.log(`Credential:`, credential);
-        
-        // Try to store the passkey in Firebase, but don't fail if offline
-        if (credential && credential.id) {
-            try {
-                await storePasskey(userID, credential.id, credential.publicKey || 'mock-public-key');
-                console.log(`✅ Passkey stored successfully in Firebase for user: ${userID}`);
-            } catch (firebaseError) {
-                console.warn(`⚠️  Firebase offline - passkey registration will continue without cloud storage:`, firebaseError.message);
-                // Continue with registration even if Firebase fails
-            }
-        }
+        // Store the passkey in Supabase
+        const storedPasskey = await passkeyService.storePasskey(
+            userID,
+            generatedPasskey.credentialId,
+            generatedPasskey.rawId,
+            provider || 'biometric'
+        );
         
         res.status(200).json({ 
-            message: 'User registered successfully with passkey',
-            userID: userID,
-            provider: provider,
-            note: 'Passkey created locally (Firebase may be offline)'
+            message: 'Passkey registered successfully',
+            userId: userID,
+            credentialId: generatedPasskey.credentialId,
+            passkey: storedPasskey
         });
     } catch (error) {
-        console.error('Error registering user:', error);
+        console.error('Registration error:', error);
         res.status(500).json({ 
-            error: 'Failed to register user',
+            error: 'Failed to register passkey',
+            details: error.message 
+        });
+    }
+});
+
+// Login verification endpoint
+app.post('/login/verify', async (req, res) => {
+    try {
+        const { userID, assertion } = req.body;
+        
+        if (!userID || !assertion) {
+            return res.status(400).json({ 
+                error: 'Missing required fields: userID, assertion' 
+            });
+        }
+
+        // Get user's passkeys
+        const userPasskeys = await passkeyService.getUserPasskeys(userID);
+        
+        if (!userPasskeys || userPasskeys.length === 0) {
+            return res.status(404).json({ 
+                error: 'No passkeys found for this user' 
+            });
+        }
+
+        // Verify the credential exists
+        const credentialId = assertion.id;
+        const isValid = await passkeyService.verifyPasskey(userID, credentialId);
+        
+        if (!isValid) {
+            return res.status(401).json({ 
+                error: 'Invalid passkey credential' 
+            });
+        }
+
+        res.status(200).json({ 
+            message: 'Login verified successfully',
+            userId: userID,
+            authenticated: true
+        });
+    } catch (error) {
+        console.error('Login verification error:', error);
+        res.status(500).json({ 
+            error: 'Failed to verify login',
+            details: error.message 
+        });
+    }
+});
+
+// Get user passkeys endpoint
+app.get('/api/passkey/:userId', async (req, res) => {
+    try {
+        const { userId } = req.params;
+        
+        const passkeys = await passkeyService.getUserPasskeys(userId);
+        
+        res.status(200).json({ 
+            passkeys: passkeys,
+            count: passkeys.length
+        });
+    } catch (error) {
+        console.error('Get passkeys error:', error);
+        res.status(500).json({ 
+            error: 'Failed to retrieve passkeys',
             details: error.message 
         });
     }
