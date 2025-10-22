@@ -214,6 +214,7 @@ const RiskCard = ({ crimeProbability, riskColor, riskLabel, safetyTip }) => (
           <Text style={styles.riskLabel}>{riskLabel}</Text>
         </View>
       </View>
+      
       <Text style={styles.riskDescription}>{safetyTip}</Text>
     </View>
   </FadeView>
@@ -316,14 +317,15 @@ export default function HomeScreen() {
   const [currentLocation, setCurrentLocation] = useState("Loading...");
   const [crimeProbability, setCrimeProbability] = useState(0);
   const [safetyData, setSafetyData] = useState(null);
+  const [currentTime, setCurrentTime] = useState(new Date());
   const [notifications, setNotifications] = useState([
     "Welcome to AyaAI!",
-    "New AI safety tools launched.",
   ]);
   const [modalVisible, setModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingSafety, setLoadingSafety] = useState(true);
   const [showLottie, setShowLottie] = useState(true);
+  const [currentTimePhase, setCurrentTimePhase] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -332,6 +334,47 @@ export default function HomeScreen() {
         if (cached) setSafetyData(JSON.parse(cached));
       } catch {}
     })();
+  }, []);
+
+  // Fetch time-based tip and add to notifications
+  useEffect(() => {
+    const fetchTimeBasedTip = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/time-based-tip`);
+        if (response.ok) {
+          const tipData = await response.json();
+          
+          // Check if we've already shown notification for this time phase
+          const lastPhase = await AsyncStorage.getItem("@last_time_phase");
+          
+          if (lastPhase !== tipData.time_range) {
+            // New time phase - add notification
+            const notificationText = `${tipData.time_range}: Be aware of ${tipData.awareness}. ${tipData.tip}`;
+            setNotifications(prev => [notificationText, ...prev]);
+            
+            // Save current time phase
+            await AsyncStorage.setItem("@last_time_phase", tipData.time_range);
+            setCurrentTimePhase(tipData.time_range);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching time-based tip:", error);
+      }
+    };
+
+    fetchTimeBasedTip();
+    
+    // Check for new time phase every minute
+    const interval = setInterval(fetchTimeBasedTip, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Update time every minute
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000); // Update every minute
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -505,7 +548,7 @@ export default function HomeScreen() {
             riskLabel={riskLabel}
             safetyTip={
               safetyData?.safetyTips?.[0] ||
-              "AI suggests caution in your area. Avoid isolated areas after 10 PM."
+              "Stay alert and aware of your surroundings."
             }
           />
         )}

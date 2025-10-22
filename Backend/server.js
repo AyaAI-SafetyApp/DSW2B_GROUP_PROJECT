@@ -10,7 +10,6 @@ const { db } = require("./firebaseConfig");
 const dotenv = require('dotenv');
 const twilio = require("twilio");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
-const sqlite3 = require("sqlite3").verbose();
 const multer = require("multer");
 
 // Load environment variables
@@ -31,27 +30,6 @@ const client = twilio(accountSid, authToken);
 // Initialize Google Generative AI for therapist chat
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 const therapistModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
-// SQLite database for therapist conversations
-const therapistDb = new sqlite3.Database("conversations.db", (err) => {
-  if (err) {
-    console.error("Therapist DB connection failed:", err.message);
-  } else {
-    console.log("Therapist SQLite connected");
-  }
-});
-
-// Create therapist conversations table
-therapistDb.serialize(() => {
-  therapistDb.run(`
-    CREATE TABLE IF NOT EXISTS conversations (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_message TEXT,
-      ai_response TEXT,
-      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-});
 
 // Emergency alert system
 const alerts = [];
@@ -255,7 +233,128 @@ const storePasskey = async (userId, credentialId, publicKey) => {
     }
 };
 
+// Initialize time-based safety tips in Supabase
+async function initializeTimeBasedTips() {
+    const tips = [
+        {
+            time_range: "00:00–06:00",
+            hour_start: 0,
+            hour_end: 6,
+            awareness: "Break-ins, night theft",
+            tip: "Lock everything and avoid late-night movement.",
+            icon: "moon"
+        },
+        {
+            time_range: "06:00–12:00",
+            hour_start: 6,
+            hour_end: 12,
+            awareness: "Phone snatching, muggings",
+            tip: "Stay alert on commute; keep valuables hidden.",
+            icon: "sunny-outline"
+        },
+        {
+            time_range: "12:00–18:00",
+            hour_start: 12,
+            hour_end: 18,
+            awareness: "Burglaries, car theft",
+            tip: "Lock your home and car; don't leave items visible.",
+            icon: "partly-sunny"
+        },
+        {
+            time_range: "18:00–24:00",
+            hour_start: 18,
+            hour_end: 24,
+            awareness: "Hijackings, robberies",
+            tip: "Stay alert when driving; avoid dark, quiet areas.",
+            icon: "moon-outline"
+        }
+    ];
+
+    try {
+        // Check if tips already exist
+        const { data: existingTips, error: selectError } = await supabase
+            .from('time_based_safety_tips')
+            .select('*')
+            .limit(1);
+
+        if (selectError) {
+            if (selectError.code === 'PGRST205') {
+                console.error('⚠️  Table "time_based_safety_tips" does not exist in Supabase.');
+                console.error('📝 Please create the table using the SQL script in Backend/supabase_schema.sql');
+                console.error('   1. Go to your Supabase Dashboard → SQL Editor');
+                console.error('   2. Copy the contents of Backend/supabase_schema.sql');
+                console.error('   3. Run the SQL script');
+                console.error('   4. Restart the server');
+            } else {
+                console.error('Error checking time-based tips:', selectError);
+            }
+            return;
+        }
+
+        if (!existingTips || existingTips.length === 0) {
+            // Insert tips into Supabase
+            const { error } = await supabase
+                .from('time_based_safety_tips')
+                .insert(tips);
+
+            if (error) {
+                console.error('Error inserting time-based tips:', error);
+            } else {
+                console.log('✅ Time-based safety tips initialized in Supabase');
+            }
+        } else {
+            console.log('✅ Time-based safety tips already exist in Supabase');
+        }
+    } catch (error) {
+        console.error('Error initializing time-based tips:', error);
+    }
+}
+
 // Routes
+
+// Get current time-based safety tip
+app.get('/api/time-based-tip', async (req, res) => {
+    try {
+        const currentHour = new Date().getHours();
+        
+        const { data, error } = await supabase
+            .from('time_based_safety_tips')
+            .select('*')
+            .lte('hour_start', currentHour)
+            .gt('hour_end', currentHour)
+            .single();
+
+        if (error) {
+            console.error('Error fetching time-based tip:', error);
+            return res.status(500).json({ error: 'Failed to fetch time-based tip' });
+        }
+
+        res.json(data);
+    } catch (error) {
+        console.error('Error in /api/time-based-tip:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Get all time-based safety tips
+app.get('/api/time-based-tips/all', async (req, res) => {
+    try {
+        const { data, error } = await supabase
+            .from('time_based_safety_tips')
+            .select('*')
+            .order('hour_start');
+
+        if (error) {
+            console.error('Error fetching all time-based tips:', error);
+            return res.status(500).json({ error: 'Failed to fetch time-based tips' });
+        }
+
+        res.json(data);
+    } catch (error) {
+        console.error('Error in /api/time-based-tips/all:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
 
 // Get safety status
 app.get('/api/safety-status/:area', (req, res) => {
@@ -674,17 +773,6 @@ app.post("/therapist/chat", async (req, res) => {
 
         const aiReply = aiResult.response.text();
         
-        // Store conversation in database
-        therapistDb.run(
-            "INSERT INTO conversations (user_message, ai_response) VALUES (?, ?)",
-            [message, aiReply],
-            (err) => {
-                if (err) {
-                    console.error("Failed to store therapist conversation:", err);
-                }
-            }
-        );
-        
         res.json({ reply: aiReply });
     } catch (err) {
         console.error("Therapist AI chat error:", err.message);
@@ -736,17 +824,6 @@ app.post("/therapist/chat-audio", upload.single("audio"), async (req, res) => {
 
         const aiReply = replyResult.response.text();
 
-        // Store conversation
-        therapistDb.run(
-            "INSERT INTO conversations (user_message, ai_response) VALUES (?, ?)",
-            [transcription, aiReply],
-            (err) => {
-                if (err) {
-                    console.error("Failed to store audio therapist conversation:", err);
-                }
-            }
-        );
-
         // Clean up audio file
         fs.unlink(audioPath, (err) => {
             if (err) console.error("Failed to delete audio file:", err);
@@ -761,90 +838,12 @@ app.post("/therapist/chat-audio", upload.single("audio"), async (req, res) => {
 
 // Therapist conversation summary endpoint
 app.get("/therapist/summary", async (req, res) => {
-    therapistDb.all(
-        "SELECT user_message, ai_response FROM conversations ORDER BY timestamp DESC LIMIT 20",
-        async (err, rows) => {
-            if (err) {
-                return res.status(500).json({ error: "Database error" });
-            }
-            
-            if (!rows.length) {
-                return res.json({ summary: "No recent conversations" });
-            }
-
-            const convoText = rows
-                .map((r) => `User: ${r.user_message}\nAI: ${r.ai_response}`)
-                .join("\n");
-
-            try {
-                const summary = await therapistModel.generateContent({
-                    contents: [
-                        {
-                            role: "model",
-                            parts: [{ text: THERAPIST_SYSTEM_PROMPT + "\nSummarize concisely:" }],
-                        },
-                        { role: "user", parts: [{ text: convoText }] },
-                    ],
-                    generationConfig: {
-                        temperature: 0.6,
-                        topP: 0.9,
-                        maxOutputTokens: 150,
-                    },
-                });
-
-                res.json({ summary: summary.response.text() });
-            } catch (err) {
-                console.error("Failed to generate therapist summary:", err);
-                res.status(500).json({ error: "Failed to generate summary" });
-            }
-        }
-    );
+    res.json({ summary: "Conversation history not available without database storage" });
 });
 
 // Therapist feedback endpoint
 app.get("/therapist/feedback", async (req, res) => {
-    therapistDb.all(
-        "SELECT user_message, ai_response FROM conversations ORDER BY timestamp DESC LIMIT 20",
-        async (err, rows) => {
-            if (err) {
-                return res.status(500).json({ error: "Database error" });
-            }
-            
-            if (!rows.length) {
-                return res.json({ feedback: "No recent conversations" });
-            }
-
-            const convoText = rows
-                .map((r) => `User: ${r.user_message}\nAI: ${r.ai_response}`)
-                .join("\n");
-
-            try {
-                const feedback = await therapistModel.generateContent({
-                    contents: [
-                        {
-                            role: "model",
-                            parts: [
-                                {
-                                    text: THERAPIST_SYSTEM_PROMPT + "\nProvide concise, empathetic feedback:",
-                                },
-                            ],
-                        },
-                        { role: "user", parts: [{ text: convoText }] },
-                    ],
-                    generationConfig: {
-                        temperature: 0.6,
-                        topP: 0.9,
-                        maxOutputTokens: 150,
-                    },
-                });
-
-                res.json({ feedback: feedback.response.text() });
-            } catch (err) {
-                console.error("Failed to generate therapist feedback:", err);
-                res.status(500).json({ error: "Failed to generate feedback" });
-            }
-        }
-    );
+    res.json({ feedback: "Conversation feedback not available without database storage" });
 });
 
 // === PAYPAL SUBSCRIPTION ENDPOINTS ===
@@ -1135,6 +1134,26 @@ function getRiskLevel(dangerPercentage) {
 
 // Generate safety tips
 function generateSafetyTips(areaData) {
+    // Get current hour for time-based tips
+    const hour = new Date().getHours();
+    
+    // Time-based safety tip (first tip)
+    let timeBasedTip = "";
+    
+    if (hour >= 0 && hour < 6) {
+        // 00:00–06:00
+        timeBasedTip = "Be aware: Break-ins, night theft.\nTip: Lock everything and avoid late-night movement.";
+    } else if (hour >= 6 && hour < 12) {
+        // 06:00–12:00
+        timeBasedTip = "Be aware: Phone snatching, muggings.\nTip: Stay alert on commute; keep valuables hidden.";
+    } else if (hour >= 12 && hour < 18) {
+        // 12:00–18:00
+        timeBasedTip = "Be aware: Burglaries, car theft.\nTip: Lock your home and car; don't leave items visible.";
+    } else {
+        // 18:00–24:00
+        timeBasedTip = "Be aware: Hijackings, robberies.\nTip: Stay alert when driving; avoid dark, quiet areas.";
+    }
+    
     const baseTips = [
         "Stay aware of your surroundings at all times",
         "Keep valuables out of sight and secure",
@@ -1143,43 +1162,8 @@ function generateSafetyTips(areaData) {
         "Avoid displaying expensive items publicly"
     ];
     
-    const dangerSpecificTips = [];
-    
-    if (areaData.Danger_Percentage >= 90) {
-        dangerSpecificTips.push(
-            "Exercise extreme caution - consider avoiding this area if possible",
-            "Travel in groups whenever possible",
-            "Avoid the area after dark",
-            "Keep emergency contacts readily available"
-        );
-    } else if (areaData.Danger_Percentage >= 70) {
-        dangerSpecificTips.push(
-            "Be extra vigilant in this high-risk area",
-            "Avoid isolated areas and stick to main roads",
-            "Consider using alternative routes during peak crime hours"
-        );
-    } else if (areaData.Danger_Percentage >= 50) {
-        dangerSpecificTips.push(
-            "Maintain heightened awareness",
-            "Avoid walking alone late at night"
-        );
-    } else if (areaData.Danger_Percentage >= 30) {
-        dangerSpecificTips.push(
-            "Standard safety precautions recommended",
-            "Be cautious during evening hours"
-        );
-    } else {
-        dangerSpecificTips.push(
-            "This area has relatively low crime rates",
-            "Continue following basic safety practices"
-        );
-    }
-    
-    if (areaData.Total_Crimes > 5000) {
-        dangerSpecificTips.push("High crime volume area - extra precautions advised");
-    }
-    
-    return [...dangerSpecificTips, ...baseTips].slice(0, 8);
+    // Return time-based tip first, then general base tips
+    return [timeBasedTip, ...baseTips].slice(0, 6);
 }
 
 // Passkey API endpoint
@@ -1386,6 +1370,9 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log(`API available at: http://localhost:${PORT}`);
     console.log(`Health check: http://localhost:${PORT}/api/health`);
     console.log(`Emergency alerts: WhatsApp + Retell AI enabled`);
+    
+    // Initialize time-based safety tips in Supabase
+    initializeTimeBasedTips();
 });
 
 module.exports = app;
