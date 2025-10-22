@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import * as LocalAuthentication from "expo-local-authentication";
 import { useNavigation } from "@react-navigation/native";
+import Ionicons from "react-native-vector-icons/Ionicons";
 import axios from "axios";
 
 const API_BASE = "https://dsw2b-backend.onrender.com";
@@ -173,7 +174,16 @@ export default function CreateCredentials() {
         <View style={styles.container}>
           <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
-          
+          {/* Back Arrow */}
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.replace("OnboardingScreen")}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="arrow-back" size={26} color="#1C1C1E" />
+          </TouchableOpacity>
+
+          {/* Header */}
           <View style={styles.headerSection}>
             <Image
               source={require("../../assets/Logos/Aya_AI_Logo.png")}
@@ -235,7 +245,7 @@ export default function CreateCredentials() {
                   activeOpacity={0.8}
                 >
                   <Image
-                    source={require("../../assets/google.png")}
+                    source={require("../../assets/googleicon.jpg")}
                     style={styles.buttonIcon}
                   />
                   {loading ? (
@@ -284,7 +294,6 @@ export default function CreateCredentials() {
                 ]}
               >
                 <Text style={styles.checkmark}>✓</Text>
-                {/* Confetti */}
                 {confetti.map((c, i) => (
                   <Animated.View
                     key={i}
@@ -312,11 +321,6 @@ export default function CreateCredentials() {
 
           {/* Footer */}
           <View style={styles.footerSection}>
-            <TouchableOpacity
-              style={styles.fallbackButton}
-              onPress={() => navigation.navigate("AccountForm", { userID })}
-              activeOpacity={0.6}
-            ></TouchableOpacity>
             <Text style={styles.disclaimerText}>
               Your passkey will be saved to your device and synced{"\n"}across
               your signed-in devices.
@@ -335,7 +339,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: Platform.OS === "ios" ? 60 : 40,
   },
-  headerSection: { alignItems: "center", paddingTop: 40, paddingBottom: 48 },
+  backButton: {
+    position: "absolute",
+    top: Platform.OS === "ios" ? 60 : 40,
+    left: 20,
+    zIndex: 10,
+    padding: 8,
+  },
+  headerSection: { alignItems: "center", paddingTop: 60, paddingBottom: 48 },
   appLogo: { width: 64, height: 64, marginBottom: 24, borderRadius: 14 },
   title: {
     fontSize: 28,
@@ -343,13 +354,6 @@ const styles = StyleSheet.create({
     color: "#1C1C1E",
     marginBottom: 8,
     textAlign: "center",
-  },
-  subtitle: {
-    fontSize: 17,
-    color: "#8E8E93",
-    textAlign: "center",
-    lineHeight: 24,
-    paddingHorizontal: 16,
   },
   formSection: { flex: 1, justifyContent: "flex-start", paddingTop: 8 },
   inputContainer: { marginBottom: 32 },
@@ -446,17 +450,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingBottom: Platform.OS === "ios" ? 34 : 24,
     paddingTop: 16,
-  },
-  fallbackButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    marginBottom: 20,
-  },
-  fallbackText: {
-    color: "#007AFF",
-    fontSize: 17,
-    fontWeight: "500",
-    textAlign: "center",
   },
   disclaimerText: {
     fontSize: 13,

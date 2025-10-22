@@ -18,27 +18,52 @@ export default function LoginScreen({ navigation }) {
 
     setLoading(true);
     try {
+      console.log("🔐 Attempting login for:", email);
       const data = await supabaseAuth.signIn(email, password);
+      
+      console.log("✅ Login response:", data);
+      
+      if (!data.session) {
+        Alert.alert(
+          "Email Not Verified",
+          "Please check your email and click the verification link before logging in.",
+          [{ text: "OK" }]
+        );
+        return;
+      }
+
+      if (!data.user) {
+        throw new Error("No user data returned");
+      }
       
       // Store user session
       await AsyncStorage.setItem("userSession", JSON.stringify(data.session));
       await AsyncStorage.setItem("userID", data.user.id);
       
-      Alert.alert("Success", "Login successful!", [
-        {
-          text: "OK",
-          onPress: () => {
-            // Navigate to main app
-            navigation.reset({
-              index: 0,
-              routes: [{ name: "MainTabs" }],
-            });
-          }
-        }
-      ]);
+      console.log("💾 Session stored for user:", data.user.id);
+      
+      // Navigate to main app
+      navigation.reset({
+        index: 0,
+        routes: [{ name: "MainTabs" }],
+      });
+      
+      Alert.alert("Success", "Login successful!");
     } catch (error) {
-      console.error("Login error:", error);
-      Alert.alert("Login Failed", error.message || "Invalid email or password");
+      console.error("❌ Login error:", error);
+      console.error("Error details:", JSON.stringify(error, null, 2));
+      
+      // Check if it's an email verification error
+      const errorMsg = error.message || "";
+      if (errorMsg.toLowerCase().includes("email") && errorMsg.toLowerCase().includes("confirm")) {
+        Alert.alert(
+          "Email Not Verified",
+          "Please check your email and click the verification link before logging in.",
+          [{ text: "OK" }]
+        );
+      } else {
+        Alert.alert("Login Failed", error.message || "Invalid email or password");
+      }
     } finally {
       setLoading(false);
     }

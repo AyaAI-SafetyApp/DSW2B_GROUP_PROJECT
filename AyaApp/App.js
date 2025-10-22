@@ -1,14 +1,10 @@
-import React from "react";
-import { StyleSheet, Platform } from "react-native";
+import React, { useState, useEffect, useRef } from "react";
+import { StyleSheet, Platform, View, TouchableOpacity, Animated } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import Ionicons from "react-native-vector-icons/Ionicons";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-} from "react-native-reanimated";
+import { Ionicons } from "@expo/vector-icons";
+import LottieView from "lottie-react-native";
 
 // Screens
 import HomeScreen from "./screens/HomeScreen";
@@ -31,6 +27,7 @@ import CreateCredential from "./screens/Auth/CreateCredential";
 import subscription from "./screens/Subscription/subscriptionScreen.js";
 import NewsFeed from "./screens/GBVNews/NewsFeed.js";
 import ArticleScreen from "./screens/GBVNews/ArticleScreen.js";
+import ProfileScreen from "./screens/UserProfile/ProfileScreen";
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -65,22 +62,27 @@ const TABS = [
 ];
 
 const TabsNavigator = () => {
-  const scrollY = useSharedValue(0);
-  const lastOffset = useSharedValue(0);
-  const tabVisible = useSharedValue(true);
+  const tabVisible = useRef(new Animated.Value(1)).current;
 
   const PremiumTabBar = ({ state, descriptors, navigation }) => {
-    const tabBarStyle = useAnimatedStyle(() => ({
-      transform: [
-        { translateY: tabVisible.value ? withTiming(0) : withTiming(100) },
-      ],
-    }));
-
     return (
-      <Animated.View style={[styles.tabBar, tabBarStyle]}>
+      <Animated.View 
+        style={[
+          styles.tabBar,
+          {
+            opacity: tabVisible,
+            transform: [{
+              translateY: tabVisible.interpolate({
+                inputRange: [0, 1],
+                outputRange: [100, 0],
+              }),
+            }],
+          },
+        ]}
+      >
         {state.routes.map((route, index) => {
           const isFocused = state.index === index;
-
+          
           const onPress = () => {
             const event = navigation.emit({
               type: "tabPress",
@@ -92,20 +94,21 @@ const TabsNavigator = () => {
           };
 
           return (
-            <Ionicons.Button
+            <TouchableOpacity
               key={route.key}
-              name={
-                isFocused
-                  ? TABS[index].icons.active
-                  : TABS[index].icons.inactive
-              }
-              size={28}
-              color={isFocused ? COLORS.ACTIVE : COLORS.INACTIVE}
-              backgroundColor="transparent"
-              underlayColor="transparent"
               onPress={onPress}
               style={styles.tabItem}
-            />
+            >
+              <Ionicons
+                name={
+                  isFocused
+                    ? TABS[index].icons.active
+                    : TABS[index].icons.inactive
+                }
+                size={28}
+                color={isFocused ? COLORS.ACTIVE : COLORS.INACTIVE}
+              />
+            </TouchableOpacity>
           );
         })}
       </Animated.View>
@@ -118,22 +121,33 @@ const TabsNavigator = () => {
       tabBar={(props) => <PremiumTabBar {...props} />}
     >
       {TABS.map((tab) => (
-        <Tab.Screen key={tab.name} name={tab.name}>
-          {(props) => (
-            <tab.component
-              {...props}
-              scrollY={scrollY}
-              lastOffset={lastOffset}
-              tabVisible={tabVisible}
-            />
-          )}
-        </Tab.Screen>
+        <Tab.Screen key={tab.name} name={tab.name} component={tab.component} />
       ))}
     </Tab.Navigator>
   );
 };
 
 export default function App() {
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setLoading(false), 2500); // 2.5s splash
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (loading) {
+    return (
+      <View style={styles.splashContainer}>
+        <LottieView
+          source={require("./assets/animations/Welcome.json")}
+          autoPlay
+          loop={false}
+          style={{ width: 250, height: 250 }}
+        />
+      </View>
+    );
+  }
+
   return (
     <NavigationContainer>
       <Stack.Navigator
@@ -156,12 +170,19 @@ export default function App() {
         <Stack.Screen name="GetAssertion" component={GetAssertion} />
         <Stack.Screen name="CreateCredential" component={CreateCredential} />
         <Stack.Screen name="MapViewScreen" component={MapViewScreen} />
+        <Stack.Screen name="ProfileScreen" component={ProfileScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
 }
 
 const styles = StyleSheet.create({
+  splashContainer: {
+    flex: 1,
+    backgroundColor: "#fff",
+    justifyContent: "center",
+    alignItems: "center",
+  },
   tabBar: {
     position: "absolute",
     bottom: 20,

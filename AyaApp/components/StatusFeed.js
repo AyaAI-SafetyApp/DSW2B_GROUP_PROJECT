@@ -1,89 +1,81 @@
 import { useEffect, useState } from "react";
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, FlatList, Alert } from "react-native";
-import { supabase } from "../lib/supabaseClient";
+import {
+  StyleSheet,
+  Text,
+  View,
+  TextInput,
+  TouchableOpacity,
+  FlatList,
+  Image,
+} from "react-native";
+import { supabase } from "./lib/supabaseClient";
 
-
-export default function StatusFeed() {
+export default function App() {
   const [statuses, setStatuses] = useState([]);
   const [inputText, setInputText] = useState("");
 
-
   const fetchStatuses = async () => {
-    console.log("Fetching statuses...");
     const { data, error } = await supabase
       .from("status")
       .select("*")
       .eq("isdeleted", false)
       .order("servertimestamp", { ascending: false });
 
-    console.log("Fetch result - data:", data, "error:", error);
-    if (error) {
-      console.error("Fetch error:", error);
-    } else {
-      console.log("Fetched statuses count:", data?.length || 0);
-      setStatuses(data);
-    }
-  };
-
-
-  const testConnection = async () => {
-    console.log("Testing Supabase connection...");
-    
-   
-    const { data: countData, error: countError } = await supabase.from("status").select("count", { count: "exact" });
-    console.log("Connection test result:", { countData, countError });
-    
- 
-    const { data: sampleData, error: sampleError } = await supabase.from("status").select("*").limit(1);
-    console.log("Sample data structure:", { sampleData, sampleError });
-    
-   
-    if (sampleData && sampleData.length > 0) {
-      console.log("Available columns:", Object.keys(sampleData[0]));
+    if (error) console.error(error);
+    else {
+      const withReactions = data.map((item) => ({
+        ...item,
+        userReaction: null,
+      }));
+      setStatuses(withReactions);
     }
   };
 
   useEffect(() => {
-    testConnection();
     fetchStatuses();
   }, []);
 
- 
   const addStatus = async () => {
-    console.log("addStatus called, inputText:", inputText);
-    
-    if (inputText.trim() === "") {
-      console.log("Input text is empty, returning");
-      return;
-    }
+    if (inputText.trim() === "") return;
 
-    console.log("Attempting to insert status...");
-    
-   
-    const newStatus = {
-      content: inputText,
-    };
-    
-    console.log("New status object:", newStatus);
+    const { data, error } = await supabase.from("status").insert([
+      {
+        content: inputText,
+        syncstatus: "synced",
+        isdeleted: false,
+      },
+    ]);
 
-    const { data, error } = await supabase.from("status").insert([newStatus]).select();
-
-    console.log("Insert result - data:", data, "error:", error);
-
-    if (error) {
-      console.error("Supabase error:", error);
-      Alert.alert('Error', `Could not post status: ${error.message}`);
-    } else {
-      console.log("Success! Data:", data);
-      setStatuses([...data, ...statuses]); 
+    if (error) console.error(error);
+    else {
+      const newStatus = {
+        ...data[0],
+        userReaction: null,
+      };
+      setStatuses([newStatus, ...statuses]);
       setInputText("");
-      Alert.alert('Success', 'Status posted successfully!');
     }
   };
 
+  const handleReaction = (id, emoji) => {
+    setStatuses((prev) =>
+      prev.map((item) => {
+        if (item.id === id) {
+          if (item.userReaction === emoji) {
+            return item;
+          }
+          return { ...item, userReaction: emoji };
+        }
+        return item;
+      })
+    );
+  };
+
+  const avatarUrl = "https://cdn-icons-png.flaticon.com/512/149/149071.png";
+  const reactionEmojis = ["👍", "😆", "❤️", "🔥"];
+
   return (
     <View style={styles.container}>
-    
       <View style={styles.inputRow}>
         <TextInput
           style={styles.input}
@@ -91,24 +83,45 @@ export default function StatusFeed() {
           value={inputText}
           onChangeText={setInputText}
         />
-        <TouchableOpacity style={styles.button} onPress={() => {
-          console.log("Post button pressed!");
-          addStatus();
-        }}>
+        <TouchableOpacity style={styles.button} onPress={addStatus}>
           <Text style={styles.buttonText}>Post</Text>
         </TouchableOpacity>
       </View>
 
-     
       <FlatList
         data={statuses}
         keyExtractor={(item) => item.id.toString()}
         renderItem={({ item }) => (
           <View style={styles.statusCard}>
-            <Text style={styles.text}>{item.content}</Text>
-            <Text style={styles.meta}>
-              {item.syncstatus} • {new Date(item.servertimestamp).toLocaleString()}
-            </Text>
+            <View style={styles.headerRow}>
+              <View style={styles.avatarBorder}>
+                <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.text}>{item.content}</Text>
+                <Text style={styles.meta}>
+                  {item.syncstatus} •{" "}
+                  {new Date(item.servertimestamp).toLocaleString()}
+                </Text>
+              </View>
+            </View>
+
+            {/* Reaction Row */}
+            <View style={styles.reactionRow}>
+              {reactionEmojis.map((emoji) => (
+                <TouchableOpacity
+                  key={emoji}
+                  style={styles.reactionButton}
+                  onPress={() => handleReaction(item.id, emoji)}
+                  activeOpacity={0.6}
+                >
+                  <Text style={styles.reactionText}>{emoji}</Text>
+                  <Text style={styles.reactionCount}>
+                    {item.userReaction === emoji ? 1 : 0}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         )}
       />
@@ -118,7 +131,6 @@ export default function StatusFeed() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, backgroundColor: "#f9f9f9" },
-  centerContent: { justifyContent: "center", alignItems: "center" },
   inputRow: { flexDirection: "row", marginBottom: 12 },
   input: {
     flex: 1,
@@ -130,7 +142,7 @@ const styles = StyleSheet.create({
   },
   button: {
     marginLeft: 8,
-    backgroundColor: "#007bff",
+    backgroundColor: "#ff4da6",
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 10,
@@ -143,6 +155,27 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     elevation: 2,
   },
-  text: { fontSize: 16 },
+  headerRow: { flexDirection: "row", alignItems: "center" },
+  avatarBorder: {
+    borderWidth: 2,
+    borderColor: "#ff4da6",
+    borderRadius: 25,
+    padding: 2,
+    marginRight: 10,
+  },
+  avatar: { width: 40, height: 40, borderRadius: 20 },
+  text: { fontSize: 16, flexShrink: 1 },
   meta: { fontSize: 12, color: "#555", marginTop: 4 },
+  reactionRow: {
+    flexDirection: "row",
+    marginTop: 8,
+    justifyContent: "space-around",
+  },
+  reactionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 4,
+  },
+  reactionText: { fontSize: 18, marginRight: 4 },
+  reactionCount: { fontSize: 14, color: "#333" },
 });

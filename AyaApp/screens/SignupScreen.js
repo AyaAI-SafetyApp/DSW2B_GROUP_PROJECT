@@ -6,13 +6,12 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabaseAuth } from "../lib/supabaseClient";
 
 export default function SignupScreen({ navigation }) {
-  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSignup = async () => {
-    if (!name || !email || !password) {
+    if (!email || !password) {
       Alert.alert("Error", "Please fill in all fields");
       return;
     }
@@ -24,36 +23,32 @@ export default function SignupScreen({ navigation }) {
 
     setLoading(true);
     try {
-      const data = await supabaseAuth.signUp(email, password, {
-        full_name: name,
-      });
+      const data = await supabaseAuth.signUp(email, password);
       
-      // Store user session
-      if (data.session) {
-        await AsyncStorage.setItem("userSession", JSON.stringify(data.session));
+      // Check if signup was successful
+      if (data.user) {
+        // Store user ID even if session is not created yet (email verification pending)
         await AsyncStorage.setItem("userID", data.user.id);
         
-        Alert.alert("Success", "Account created successfully!", [
-          {
-            text: "OK",
-            onPress: () => {
-              // Navigate to AccountForm to complete profile
-              navigation.navigate("AccountForm", { userID: data.user.id });
-            }
-          }
-        ]);
+        if (data.session) {
+          await AsyncStorage.setItem("userSession", JSON.stringify(data.session));
+        }
+        
+        // Navigate to AccountForm to complete profile
+        navigation.navigate("AccountForm", { userID: data.user.id });
+        
+        // Show different message based on whether email verification is required
+        if (data.session) {
+          Alert.alert("Success", "Account created! Please complete your profile.");
+        } else {
+          Alert.alert(
+            "Account Created!", 
+            "Please check your email to verify your account. You can complete your profile now and login after verification.",
+            [{ text: "Continue" }]
+          );
+        }
       } else {
-        // Email confirmation might be required
-        Alert.alert(
-          "Verify Your Email", 
-          "Please check your email to verify your account before logging in.",
-          [
-            {
-              text: "OK",
-              onPress: () => navigation.navigate("Login")
-            }
-          ]
-        );
+        throw new Error("Failed to create account. Please try again.");
       }
     } catch (error) {
       console.error("Signup error:", error);
@@ -70,17 +65,12 @@ export default function SignupScreen({ navigation }) {
 
         <View style={styles.inputContainer}>
           <TextInput
-            placeholder="Enter your full name"
-            value={name}
-            onChangeText={setName}
-            style={styles.input}
-          />
-          <TextInput
             placeholder="Enter your email"
             value={email}
             onChangeText={setEmail}
             style={styles.input}
             keyboardType="email-address"
+            autoCapitalize="none"
           />
           <TextInput
             placeholder="Enter your password"
