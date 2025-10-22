@@ -1,14 +1,9 @@
-import React, { useState, useEffect } from "react";
-import { StyleSheet, Platform, View } from "react-native";
+import React, { useState, useEffect, useRef } from "react";
+import { StyleSheet, Platform, View, TouchableOpacity, Animated } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import Ionicons from "react-native-vector-icons/Ionicons";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-} from "react-native-reanimated";
+import { Ionicons } from "@expo/vector-icons";
 import LottieView from "lottie-react-native";
 
 // Screens
@@ -65,26 +60,27 @@ const TABS = [
 ];
 
 const TabsNavigator = () => {
-  const scrollY = useSharedValue(0);
-  const lastOffset = useSharedValue(0);
-  const tabVisible = useSharedValue(true);
+  const tabVisible = useRef(new Animated.Value(1)).current;
 
   const PremiumTabBar = ({ state, descriptors, navigation }) => {
-    const tabBarStyle = useAnimatedStyle(() => ({
-      transform: [
-        {
-          translateY: tabVisible.value
-            ? withTiming(0, { duration: 200 })
-            : withTiming(100, { duration: 200 }),
-        },
-      ],
-      opacity: tabVisible.value ? 1 : 0,
-    }));
-
     return (
-      <Animated.View style={[styles.tabBar, tabBarStyle]}>
+      <Animated.View 
+        style={[
+          styles.tabBar,
+          {
+            opacity: tabVisible,
+            transform: [{
+              translateY: tabVisible.interpolate({
+                inputRange: [0, 1],
+                outputRange: [100, 0],
+              }),
+            }],
+          },
+        ]}
+      >
         {state.routes.map((route, index) => {
           const isFocused = state.index === index;
+          
           const onPress = () => {
             const event = navigation.emit({
               type: "tabPress",
@@ -94,21 +90,23 @@ const TabsNavigator = () => {
             if (!isFocused && !event.defaultPrevented)
               navigation.navigate(route.name);
           };
+
           return (
-            <Ionicons.Button
+            <TouchableOpacity
               key={route.key}
-              name={
-                isFocused
-                  ? TABS[index].icons.active
-                  : TABS[index].icons.inactive
-              }
-              size={28}
-              color={isFocused ? COLORS.ACTIVE : COLORS.INACTIVE}
-              backgroundColor="transparent"
-              underlayColor="transparent"
               onPress={onPress}
               style={styles.tabItem}
-            />
+            >
+              <Ionicons
+                name={
+                  isFocused
+                    ? TABS[index].icons.active
+                    : TABS[index].icons.inactive
+                }
+                size={28}
+                color={isFocused ? COLORS.ACTIVE : COLORS.INACTIVE}
+              />
+            </TouchableOpacity>
           );
         })}
       </Animated.View>
@@ -121,16 +119,7 @@ const TabsNavigator = () => {
       tabBar={(props) => <PremiumTabBar {...props} />}
     >
       {TABS.map((tab) => (
-        <Tab.Screen key={tab.name} name={tab.name}>
-          {(props) => (
-            <tab.component
-              {...props}
-              scrollY={scrollY}
-              lastOffset={lastOffset}
-              tabVisible={tabVisible}
-            />
-          )}
-        </Tab.Screen>
+        <Tab.Screen key={tab.name} name={tab.name} component={tab.component} />
       ))}
     </Tab.Navigator>
   );
@@ -208,5 +197,9 @@ const styles = StyleSheet.create({
     elevation: 10,
     paddingHorizontal: 10,
   },
-  tabItem: { flex: 1, alignItems: "center", justifyContent: "center" },
+  tabItem: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
 });

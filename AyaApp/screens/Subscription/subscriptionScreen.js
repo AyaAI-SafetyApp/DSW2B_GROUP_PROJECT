@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -9,19 +9,19 @@ import {
   ScrollView,
   Dimensions,
   Platform,
+  SafeAreaView,
 } from "react-native";
 import { WebView } from "react-native-webview";
 import axios from "axios";
-import { FontAwesome5, MaterialIcons } from "@expo/vector-icons";
+import { FontAwesome5, Ionicons } from "@expo/vector-icons";
 import * as Animatable from "react-native-animatable";
-import { supabase } from "../../lib/supabaseClient";
 
-const { width } = Dimensions.get("window");
+// Constants
+const { width, height } = Dimensions.get("window");
 
 const CONFIG = {
   API_BASE_URL: "https://dsw2b-backend.onrender.com",
-  DEMO_USER_ID: "demo-user-123",
-  REQUEST_TIMEOUT: 10000,
+  REQUEST_TIMEOUT: 15000,
 };
 
 const PLANS = {
@@ -32,16 +32,17 @@ const PLANS = {
       price: "R350",
       period: "month",
       icon: "user",
-      iconColor: "#3B82F6",
-      description:
-        "Individual safety with premium features and priority support.",
+      iconColor: "#DE0973",
+      description: "Perfect for individual safety with premium features",
       features: [
         "Real-time alerts & notifications",
         "Offline emergency support",
         "AI-powered safe routes",
         "24/7 priority support",
         "Advanced location sharing",
+        "Unlimited emergency contacts",
       ],
+      popular: false,
     },
     {
       id: "P-5PD448977L069480VNC5CZYY",
@@ -50,311 +51,313 @@ const PLANS = {
       period: "3 months",
       icon: "users",
       iconColor: "#8B5CF6",
-      description:
-        "Complete family protection with shared alerts and group features.",
+      description: "Complete protection for your entire family",
       features: [
         "Up to 5 family members",
         "Shared emergency alerts",
         "Family location tracking",
         "Group safety zones",
         "Priority family support",
+        "Child safety features",
       ],
-      highlight: true,
+      popular: true,
+      savings: "Save R150",
     },
   ],
   yearly: [
     {
       id: "P-9U8910582N234330WNC5C2OQ",
-      title: "Personal",
+      title: "Personal Pro",
       price: "R3,500",
       period: "year",
-      icon: "user",
-      iconColor: "#3B82F6",
-      description: "Annual plan with significant savings and premium features.",
+      icon: "user-shield",
+      iconColor: "#10B981",
+      description: "Advanced protection with maximum savings",
       features: [
-        "All Personal monthly features",
+        "All Personal features",
         "Annual billing discount",
         "Extended offline maps",
         "Advanced analytics",
         "Priority feature access",
+        "Dedicated support line",
       ],
+      popular: false,
       savings: "Save R700",
     },
     {
       id: "P-9L275883JF591292KNC5CX5I",
-      title: "Premium",
+      title: "Family Premium",
       price: "R8,000",
       period: "year",
       icon: "crown",
       iconColor: "#F59E0B",
-      description:
-        "Premium annual plan with maximum savings and premium support.",
+      description: "Ultimate family protection package",
       features: [
         "All Family features",
         "Up to 10 family members",
         "Advanced family analytics",
         "Dedicated family manager",
         "Custom safety zones",
+        "Premium support 24/7",
       ],
-      highlight: true,
+      popular: true,
       savings: "Save R2,800",
     },
   ],
 };
 
-// Hook for subscription logic (unchanged backend)
-const useSubscription = (navigation) => {
+// Custom Hook
+const useSubscription = (navigation, userID) => {
   const [checkoutUrl, setCheckoutUrl] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [activePlan, setActivePlan] = useState(null);
   const [billingCycle, setBillingCycle] = useState("monthly");
-  const [currentSubscription, setCurrentSubscription] = useState(null);
+  const [selectedPlan, setSelectedPlan] = useState(null);
 
-  useEffect(() => {
-    fetchCurrentSubscription();
+  const handlePlanSelect = useCallback((plan) => {
+    setSelectedPlan((current) => (current?.id === plan.id ? null : plan));
   }, []);
 
-  const fetchCurrentSubscription = async () => {
-    console.log("Skipping database check - no active subscription");
-    setCurrentSubscription(null);
-  };
-
-  const createSubscription = async (planId) => {
-    if (!planId || planId.trim() === "") {
-      Alert.alert("Error", "Please select a valid plan");
+  const createSubscription = async () => {
+    if (!selectedPlan) {
+      Alert.alert("Selection Required", "Please select a subscription plan to continue");
       return;
     }
+    
+    if (!userID) {
+      Alert.alert("Authentication Error", "User authentication required");
+      return;
+    }
+
     try {
       setLoading(true);
-      const selectedPlan = [...PLANS.monthly, ...PLANS.yearly].find(
-        (plan) => plan.id === planId
-      );
-      setActivePlan(selectedPlan);
+
       const response = await axios.post(
         `${CONFIG.API_BASE_URL}/create-subscription`,
-        { planId, userId: CONFIG.DEMO_USER_ID, billingCycle },
-        { timeout: CONFIG.REQUEST_TIMEOUT }
+        {
+          planId: selectedPlan.id,
+          userId: userID,
+          billingCycle,
+          planName: selectedPlan.title,
+          amount: selectedPlan.price,
+        },
+        {
+          timeout: CONFIG.REQUEST_TIMEOUT,
+          headers: { 
+            "Content-Type": "application/json",
+          },
+        }
       );
+
       if (response.data?.approvalUrl) {
         setCheckoutUrl(response.data.approvalUrl);
-      } else throw new Error("Invalid response from server - no approval URL");
-    } catch (error) {
-      let errorMessage = "Failed to start subscription.";
-      if (error.code === "ECONNABORTED") {
-        errorMessage = "Request timed out. Please check your connection.";
-      } else if (error.response?.status === 429) {
-        errorMessage = "Too many requests. Please try again later.";
-      } else if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
+      } else {
+        throw new Error("Invalid response from server");
       }
-      Alert.alert("Error", errorMessage);
+    } catch (error) {
+      console.error("Subscription Error:", error);
+      Alert.alert(
+        "Subscription Error",
+        "Failed to process subscription. Please try again."
+      );
     } finally {
       setLoading(false);
-    }
-  };
-
-  const saveSubscriptionToSupabase = async (
-    planId,
-    status,
-    subscriptionId = null
-  ) => {
-    console.log(
-      `Subscription ${status} for plan ${planId} (Database recording skipped)`
-    );
-    if (status === "ACTIVE") {
-      console.log("Subscription is now ACTIVE!");
     }
   };
 
   const handleWebViewNavigation = useCallback(
     (navState) => {
       const { url } = navState;
+      
+      if (!url) return;
+
       if (url.includes("success")) {
         setCheckoutUrl(null);
-        Alert.alert("Success!", "Your subscription has been activated.", [
-          {
-            text: "OK",
-            onPress: () =>
-              navigation.reset({ index: 0, routes: [{ name: "MainTabs" }] }),
-          },
-        ]);
+        setTimeout(() => {
+          Alert.alert(
+            "Subscription Successful!",
+            `Your ${selectedPlan?.title} plan has been activated.`,
+            [
+              {
+                text: "OK",
+                onPress: () =>
+                  navigation.reset({
+                    index: 0,
+                    routes: [{ name: "MainTabs" }],
+                  }),
+              },
+            ]
+          );
+        }, 300);
       } else if (url.includes("cancel")) {
         setCheckoutUrl(null);
-        Alert.alert(
-          "Subscription Cancelled",
-          "You can subscribe again anytime"
-        );
-      } else if (url.includes("error")) {
-        setCheckoutUrl(null);
-        Alert.alert("Payment Error", "There was an issue processing payment.");
+        Alert.alert("Cancelled", "Subscription was cancelled.");
       }
     },
-    [activePlan, billingCycle]
+    [navigation, selectedPlan]
   );
+
+  const resetCheckout = useCallback(() => {
+    setCheckoutUrl(null);
+    setLoading(false);
+  }, []);
 
   return {
     checkoutUrl,
     loading,
-    activePlan,
     billingCycle,
-    currentSubscription,
+    selectedPlan,
     setBillingCycle,
     createSubscription,
     handleWebViewNavigation,
-    setCheckoutUrl,
+    setCheckoutUrl: resetCheckout,
+    handlePlanSelect,
   };
 };
 
-// Card Component (UI cleaned)
-const PlanCard = ({
-  plan,
-  onSubscribe,
-  loading,
-  activePlan,
-  currentSubscription,
-  index,
-}) => {
-  const isCurrent = currentSubscription?.plan_id === plan.id;
-  const isLoading = loading && activePlan?.id === plan.id;
-  const isDisabled = isCurrent || loading;
-
-  const buttonText = isCurrent
-    ? "Current Plan"
-    : isLoading
-    ? "Processing..."
-    : "Subscribe Now";
+// Plan Card Component
+const PlanCard = React.memo(({ plan, selectedPlan, onSelectPlan, index }) => {
+  const isSelected = selectedPlan?.id === plan.id;
 
   return (
     <Animatable.View
       animation="fadeInUp"
-      delay={index * 100}
-      duration={600}
-      style={[
-        styles.planCard,
-        plan.highlight && styles.highlightedCard,
-        isCurrent && styles.currentPlanCard,
-      ]}
+      delay={index * 200}
+      duration={800}
+      useNativeDriver
     >
-      {plan.highlight && (
-        <View style={styles.popularBadge}>
-          <MaterialIcons name="star" size={14} color="#FFF" />
-          <Text style={styles.popularText}>MOST POPULAR</Text>
-        </View>
-      )}
-      {plan.savings && (
-        <View style={styles.savingsBadge}>
-          <MaterialIcons name="trending-down" size={14} color="#10B981" />
-          <Text style={styles.savingsText}>{plan.savings}</Text>
-        </View>
-      )}
-      <View style={styles.iconWrapper}>
-        <FontAwesome5 name={plan.icon} size={28} color={plan.iconColor} />
-      </View>
-      <Text style={styles.planTitle}>{plan.title}</Text>
-      <View style={styles.priceRow}>
-        <Text style={styles.planPrice}>{plan.price}</Text>
-        <Text style={styles.planPeriod}>/{plan.period}</Text>
-      </View>
-      <Text style={styles.planDescription}>{plan.description}</Text>
-      <View style={styles.divider} />
-      {plan.features.map((f, i) => (
-        <View key={i} style={styles.featureRow}>
-          <MaterialIcons name="check-circle" size={18} color="#10B981" />
-          <Text style={styles.featureText}>{f}</Text>
-        </View>
-      ))}
       <TouchableOpacity
+        activeOpacity={0.9}
+        onPress={() => onSelectPlan(plan)}
         style={[
-          styles.subscribeButton,
-          plan.highlight && styles.highlightButton,
-          isCurrent && styles.currentButton,
-          isDisabled && styles.disabledButton,
+          styles.planCard,
+          plan.popular && styles.popularCard,
+          isSelected && styles.selectedCard,
         ]}
-        onPress={() => !isDisabled && onSubscribe(plan.id)}
-        disabled={isDisabled}
-        activeOpacity={0.8}
       >
-        {isLoading ? (
-          <ActivityIndicator size="small" color="#FFF" />
-        ) : (
-          <>
-            <Text style={styles.buttonText}>{buttonText}</Text>
-            {!isCurrent && (
-              <MaterialIcons
-                name="arrow-forward"
-                size={18}
-                color="#FFF"
-                style={styles.buttonIcon}
-              />
-            )}
-          </>
+        {isSelected && (
+          <View style={styles.tickContainer}>
+            <Ionicons name="checkmark-circle" size={22} color="#DE0973" />
+          </View>
         )}
+
+        {plan.popular && (
+          <View style={styles.popularBadge}>
+            <Ionicons name="star" size={14} color="#FFF" />
+            <Text style={styles.popularText}>MOST POPULAR</Text>
+          </View>
+        )}
+
+        {plan.savings && (
+          <View style={styles.savingsBadge}>
+            <Ionicons name="pricetag" size={12} color="#10B981" />
+            <Text style={styles.savingsText}>{plan.savings}</Text>
+          </View>
+        )}
+
+        <View style={styles.iconContainer}>
+          <FontAwesome5 name={plan.icon} size={32} color={plan.iconColor} />
+        </View>
+
+        <Text style={styles.planTitle}>{plan.title}</Text>
+
+        <View style={styles.priceContainer}>
+          <Text style={styles.planPrice}>{plan.price}</Text>
+          <Text style={styles.planPeriod}>/{plan.period}</Text>
+        </View>
+
+        <Text style={styles.planDescription}>{plan.description}</Text>
+
+        <View style={styles.divider} />
+
+        <View style={styles.featuresContainer}>
+          {plan.features.map((feature, idx) => (
+            <View key={idx} style={styles.featureItem}>
+              <Ionicons name="checkmark-circle" size={18} color="#10B981" />
+              <Text style={styles.featureText}>{feature}</Text>
+            </View>
+          ))}
+        </View>
       </TouchableOpacity>
     </Animatable.View>
   );
-};
+});
 
-// Main Screen
-export default function SubscriptionScreen({ navigation }) {
+// Main Component
+export default function SubscriptionScreen({ navigation, route }) {
+  const { userID } = route.params || {};
+  
   const {
     checkoutUrl,
     loading,
-    activePlan,
     billingCycle,
-    currentSubscription,
+    selectedPlan,
     setBillingCycle,
     createSubscription,
     handleWebViewNavigation,
     setCheckoutUrl,
-  } = useSubscription(navigation);
+    handlePlanSelect,
+  } = useSubscription(navigation, userID);
 
+  const plans = useMemo(() => PLANS[billingCycle], [billingCycle]);
+
+ 
   if (checkoutUrl) {
     return (
-      <View style={styles.webviewContainer}>
+      <SafeAreaView style={styles.webviewContainer}>
         <View style={styles.webviewHeader}>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => setCheckoutUrl(null)}
+            onPress={setCheckoutUrl}
           >
-            <MaterialIcons name="arrow-back" size={24} color="#1F2937" />
+            <Ionicons name="arrow-back" size={24} color="#1F2937" />
           </TouchableOpacity>
           <Text style={styles.webviewTitle}>Complete Payment</Text>
+          <View style={styles.lockContainer}>
+            <Ionicons name="lock-closed" size={16} color="#6B7280" />
+          </View>
         </View>
-        <WebView
-          source={{ uri: checkoutUrl }}
-          onNavigationStateChange={handleWebViewNavigation}
-          style={styles.webview}
-          startInLoadingState
-          renderLoading={() => (
-            <View style={styles.webviewLoading}>
-              <ActivityIndicator size="large" color="#3B82F6" />
-              <Text style={styles.loadingText}>Loading secure payment...</Text>
-            </View>
-          )}
-        />
-      </View>
+        
+        {/* WebView - Takes remaining space */}
+        <View style={styles.webviewWrapper}>
+          <WebView
+            source={{ uri: checkoutUrl }}
+            onNavigationStateChange={handleWebViewNavigation}
+            style={styles.webview}
+            startInLoadingState
+            renderLoading={() => (
+              <View style={styles.webviewLoading}>
+                <ActivityIndicator size="large" color="#3B82F6" />
+              </View>
+            )}
+          />
+        </View>
+
+        {/* Fixed Footer  */}
+        <View style={styles.paypalFooter}>
+          <Ionicons name="lock-closed" size={14} color="#6B7280" />
+          <Text style={styles.footerText}>Secure payments with PayPal</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <ScrollView
-        showsVerticalScrollIndicator={false}
+        style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
       >
-        <Animatable.View
-          animation="fadeInDown"
-          duration={800}
-          style={styles.header}
-        >
-          <Text style={styles.headerTitle}>Choose Your Plan</Text>
+        <Animatable.View animation="fadeInDown" duration={1000} style={styles.header}>
+          <Text style={styles.title}>Choose Your Safety Plan</Text>
+          <Text style={styles.subtitle}>
+            Select a subscription plan to continue. Subscription is required to
+            use the application.
+          </Text>
         </Animatable.View>
-        <Animatable.View
-          animation="fadeIn"
-          delay={300}
-          duration={600}
-          style={styles.toggleWrapper}
-        >
+
+        <Animatable.View animation="fadeIn" delay={400} duration={800} style={styles.toggleSection}>
+          <Text style={styles.toggleLabel}>Billing Cycle</Text>
           <View style={styles.toggleContainer}>
             {["monthly", "yearly"].map((cycle) => (
               <TouchableOpacity
@@ -364,6 +367,7 @@ export default function SubscriptionScreen({ navigation }) {
                   billingCycle === cycle && styles.toggleActive,
                 ]}
                 onPress={() => setBillingCycle(cycle)}
+                disabled={loading}
               >
                 <Text
                   style={[
@@ -382,51 +386,107 @@ export default function SubscriptionScreen({ navigation }) {
             ))}
           </View>
         </Animatable.View>
-        <View style={styles.plansWrapper}>
-          {PLANS[billingCycle].map((plan, i) => (
+
+        <View style={styles.plansContainer}>
+          {plans.map((plan, index) => (
             <PlanCard
               key={plan.id}
               plan={plan}
-              onSubscribe={createSubscription}
-              loading={loading}
-              activePlan={activePlan}
-              currentSubscription={currentSubscription}
-              index={i}
+              selectedPlan={selectedPlan}
+              onSelectPlan={handlePlanSelect}
+              index={index}
             />
           ))}
         </View>
-        <Animatable.View animation="fadeIn" delay={900} style={styles.footer}>
-          <View style={styles.securityContainer}>
-            <MaterialIcons name="lock" size={16} color="#6B7280" />
-            <Text style={styles.securityText}>Secure payment with PayPal</Text>
-          </View>
-        </Animatable.View>
+
+        {selectedPlan && (
+          <Animatable.View animation="fadeInUp" duration={600} style={styles.paymentSection}>
+            <View style={styles.selectedPlanSummary}>
+              <Text style={styles.selectedPlanTitle}>Selected Plan:</Text>
+              <Text style={styles.selectedPlanName}>{selectedPlan.title}</Text>
+              <Text style={styles.selectedPlanPrice}>
+                {selectedPlan.price}/{selectedPlan.period}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={[
+                styles.proceedButton,
+                loading && styles.proceedButtonDisabled,
+              ]}
+              onPress={createSubscription}
+              disabled={loading}
+              activeOpacity={0.8}
+            >
+              {loading ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <>
+                  <Text style={styles.proceedButtonText}>Proceed to Payment</Text>
+                  <Ionicons name="lock-closed" size={20} color="#FFF" />
+                </>
+              )}
+            </TouchableOpacity>
+
+            {/* Simple Footer */}
+            <View style={styles.footer}>
+              <Ionicons name="lock-closed" size={14} color="#6B7280" />
+              <Text style={styles.footerText}>Secure payments with PayPal</Text>
+            </View>
+          </Animatable.View>
+        )}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
-// Theme + Styles (streamlined)
-const theme = {
-  background: "#FFF",
-  text: "#1F2937",
-  textLight: "#6B7280",
-  primary: "#3B82F6",
-  highlight: "#FF0099",
-  success: "#10B981",
-  border: "#E5E7EB",
-  shadow: "rgba(0,0,0,0.08)",
-};
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F9FAFB" },
+  container: { 
+    flex: 1, 
+    backgroundColor: "#F9FAFB" 
+  },
+  
+  scrollView: { 
+    flex: 1 
+  },
+  
   scrollContent: {
+    flexGrow: 1,
     paddingTop: Platform.OS === "ios" ? 60 : 40,
+    paddingBottom: 20,
     paddingHorizontal: 20,
   },
-  header: { alignItems: "center", marginBottom: 20 },
-  headerTitle: { fontSize: 26, fontWeight: "700", color: "#111827" },
-  toggleWrapper: { alignItems: "center", marginBottom: 20 },
+
+  header: { 
+    alignItems: "center", 
+    marginBottom: 30 
+  },
+  
+  title: { 
+    fontSize: 28, 
+    fontWeight: "700", 
+    color: "#111827", 
+    marginBottom: 8 
+  },
+  
+  subtitle: { 
+    fontSize: 16, 
+    color: "#6B7280", 
+    textAlign: "center" 
+  },
+
+  toggleSection: { 
+    alignItems: "center", 
+    marginBottom: 20 
+  },
+  
+  toggleLabel: { 
+    fontSize: 16, 
+    fontWeight: "600", 
+    color: "#1F2937", 
+    marginBottom: 12 
+  },
+  
   toggleContainer: {
     flexDirection: "row",
     backgroundColor: "#E5E7EB",
@@ -435,10 +495,29 @@ const styles = StyleSheet.create({
     width: width - 80,
     maxWidth: 320,
   },
-  toggleButton: { flex: 1, paddingVertical: 12, alignItems: "center" },
-  toggleActive: { backgroundColor: "#2563EB", borderRadius: 8, elevation: 2 },
-  toggleText: { fontSize: 14, fontWeight: "600", color: "#6B7280" },
-  toggleTextActive: { color: "#FFF", fontWeight: "700" },
+  
+  toggleButton: { 
+    flex: 1, 
+    paddingVertical: 12, 
+    alignItems: "center" 
+  },
+  
+  toggleActive: { 
+    backgroundColor: "#DE0973", 
+    borderRadius: 8 
+  },
+  
+  toggleText: { 
+    fontSize: 14, 
+    fontWeight: "600", 
+    color: "#6B7280" 
+  },
+  
+  toggleTextActive: { 
+    color: "#FFF", 
+    fontWeight: "700" 
+  },
+  
   discountTag: {
     position: "absolute",
     top: -6,
@@ -447,40 +526,62 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     borderRadius: 8,
   },
-  discountText: { fontSize: 10, fontWeight: "700", color: "#FFF" },
-  plansWrapper: { gap: 16 },
+  
+  discountText: { 
+    fontSize: 10, 
+    fontWeight: "700", 
+    color: "#FFF" 
+  },
+
+  plansContainer: { 
+    gap: 16 
+  },
+  
   planCard: {
     backgroundColor: "#FFF",
     borderRadius: 16,
     padding: 20,
-    minHeight: 260,
-    justifyContent: "space-between",
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 4,
     marginBottom: 12,
     position: "relative",
+    borderWidth: 2,
+    borderColor: "transparent",
   },
-  highlightedCard: { borderColor: "#FF0099" },
-  currentPlanCard: { borderColor: "#10B981", backgroundColor: "#F0FDF4" },
+  
+  popularCard: { 
+    borderColor: "#DE0973" 
+  },
+  
+  selectedCard: { 
+    borderColor: "#DE0973", 
+    backgroundColor: "#FDF2F8" 
+  },
+
+  tickContainer: {
+    position: "absolute",
+    top: 8,
+    right: 12,
+    zIndex: 3,
+  },
+
   popularBadge: {
     position: "absolute",
-    top: 12,
+    top: 32,
     right: 12,
-    backgroundColor: "#FF0099",
+    backgroundColor: "#DE0973",
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 16,
     flexDirection: "row",
     alignItems: "center",
   },
-  popularText: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: "#FFF",
-    marginLeft: 4,
+  
+  popularText: { 
+    fontSize: 10, 
+    fontWeight: "700", 
+    color: "#FFF", 
+    marginLeft: 4 
   },
+
   savingsBadge: {
     position: "absolute",
     top: 12,
@@ -492,72 +593,191 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
-  savingsText: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: "#10B981",
-    marginLeft: 4,
+  
+  savingsText: { 
+    fontSize: 10, 
+    fontWeight: "700", 
+    color: "#10B981", 
+    marginLeft: 4 
   },
-  iconWrapper: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: "#F3F4F6",
-    justifyContent: "center",
-    alignItems: "center",
-    alignSelf: "center",
-    marginBottom: 12,
+
+  iconContainer: { 
+    alignItems: "center", 
+    marginBottom: 10 
   },
-  planTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    textAlign: "center",
-    marginBottom: 6,
+  
+  planTitle: { 
+    fontSize: 20, 
+    fontWeight: "700", 
+    color: "#1F2937", 
+    textAlign: "center" 
   },
-  priceRow: { flexDirection: "row", justifyContent: "center", marginBottom: 6 },
-  planPrice: { fontSize: 28, fontWeight: "800", color: "#2563EB" },
-  planPeriod: {
-    fontSize: 14,
-    color: "#6B7280",
-    marginLeft: 4,
-    alignSelf: "flex-end",
+  
+  priceContainer: { 
+    flexDirection: "row", 
+    justifyContent: "center", 
+    alignItems: "flex-end" 
   },
-  planDescription: {
-    fontSize: 14,
-    color: "#6B7280",
-    textAlign: "center",
-    marginBottom: 12,
+  
+  planPrice: { 
+    fontSize: 26, 
+    fontWeight: "800", 
+    color: "#DE0973" 
   },
-  divider: { height: 1, backgroundColor: "#E5E7EB", marginVertical: 12 },
-  featureRow: { flexDirection: "row", alignItems: "center", marginBottom: 6 },
-  featureText: { fontSize: 13, color: "#111827", marginLeft: 8 },
-  subscribeButton: {
-    paddingVertical: 12,
-    borderRadius: 10,
+  
+  planPeriod: { 
+    fontSize: 14, 
+    color: "#6B7280", 
+    marginLeft: 4 
+  },
+  
+  planDescription: { 
+    fontSize: 14, 
+    color: "#6B7280", 
+    textAlign: "center" 
+  },
+  
+  divider: { 
+    height: 1, 
+    backgroundColor: "#E5E7EB", 
+    marginVertical: 10 
+  },
+  
+  featuresContainer: { 
+    gap: 8 
+  },
+  
+  featureItem: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    gap: 8 
+  },
+  
+  featureText: { 
+    fontSize: 14, 
+    color: "#374151" 
+  },
+
+  paymentSection: { 
+    marginTop: 20, 
+    alignItems: "center" 
+  },
+  
+  selectedPlanSummary: { 
+    alignItems: "center", 
+    marginBottom: 16 
+  },
+  
+  selectedPlanTitle: { 
+    fontSize: 14, 
+    color: "#6B7280" 
+  },
+  
+  selectedPlanName: { 
+    fontSize: 18, 
+    fontWeight: "700", 
+    color: "#111827" 
+  },
+  
+  selectedPlanPrice: { 
+    fontSize: 16, 
+    color: "#DE0973", 
+    fontWeight: "700" 
+  },
+  
+  proceedButton: {
     flexDirection: "row",
-    justifyContent: "center",
     alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#DE0973",
+    paddingVertical: 14,
+    paddingHorizontal: 40,
+    borderRadius: 12,
+    gap: 8,
   },
-  highlightButton: { backgroundColor: "#FF0099" },
-  currentButton: { backgroundColor: "#10B981" },
-  disabledButton: { backgroundColor: "#9CA3AF" },
-  buttonText: { fontSize: 15, fontWeight: "700", color: "#FFF" },
-  buttonIcon: { marginLeft: 6 },
-  footer: { alignItems: "center", marginTop: 20 },
-  securityContainer: { flexDirection: "row", alignItems: "center", gap: 6 },
-  securityText: { fontSize: 12, color: "#6B7280" },
-  webviewContainer: { flex: 1, backgroundColor: "#FFF" },
+  
+  proceedButtonDisabled: { 
+    opacity: 0.7 
+  },
+  
+  proceedButtonText: { 
+    fontSize: 16, 
+    fontWeight: "700", 
+    color: "#FFF" 
+  },
+
+  footer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    marginTop: 16,
+  },
+  
+  footerText: {
+    fontSize: 12,
+    color: "#6B7280",
+  },
+
+  // Fixed WebView Styles
+  webviewContainer: { 
+    flex: 1, 
+    backgroundColor: "#FFF" 
+  },
+  
   webviewHeader: {
     flexDirection: "row",
     alignItems: "center",
-    paddingTop: Platform.OS === "ios" ? 50 : 20,
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: "#F3F4F6",
     borderBottomWidth: 1,
     borderBottomColor: "#E5E7EB",
+    height: 60, 
   },
-  backButton: { marginRight: 12 },
-  webviewTitle: { fontSize: 18, fontWeight: "600", color: "#111827" },
-  webview: { flex: 1 },
-  webviewLoading: { flex: 1, justifyContent: "center", alignItems: "center" },
-  loadingText: { marginTop: 12, fontSize: 14, color: "#6B7280" },
+  
+  backButton: { 
+    marginRight: 12,
+    padding: 4,
+  },
+  
+  webviewTitle: { 
+    fontSize: 16, 
+    fontWeight: "700", 
+    color: "#1F2937",
+    flex: 1,
+    textAlign: "center",
+  },
+  
+  lockContainer: {
+    marginLeft: 8,
+    width: 24, 
+  },
+  
+  webviewWrapper: {
+    flex: 1, 
+  },
+  
+  webview: { 
+    flex: 1 
+  },
+  
+  webviewLoading: { 
+    flex: 1, 
+    justifyContent: "center", 
+    alignItems: "center" 
+  },
+
+  paypalFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: "#F3F4F6",
+    borderTopWidth: 1,
+    borderTopColor: "#E5E7EB",
+    height: 50,
+  },
 });
