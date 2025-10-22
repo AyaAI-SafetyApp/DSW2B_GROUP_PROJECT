@@ -1,3 +1,4 @@
+// ...existing code...
 import React, {
   useState,
   useCallback,
@@ -26,6 +27,13 @@ import {
   PanResponder,
 } from "react-native";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
+import Modal from "react-native-modal";
+import { Button, FAB } from "react-native-paper";
+import { Video } from "expo-av";
+
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import NetInfo from "@react-native-community/netinfo";
+
 import {
   fetchPosts,
   createPost,
@@ -33,8 +41,10 @@ import {
   deletePost,
 } from "../../NewsfeedCRUD/api/posts";
 import { pickMedia } from "../../NewsfeedCRUD/api/media";
-import Modal from "react-native-modal";
-import { Button, FAB } from "react-native-paper";
+
+// added imports for offline queue and storage upload
+import { enqueuePost, startAutoSync } from "../../NewsfeedCRUD/api/offlineQueue";
+import { uploadFileToBucket } from "../../NewsfeedCRUD/api/storage";
 
 const { width, height } = Dimensions.get("window");
 
@@ -51,6 +61,9 @@ const COLORS = {
 
 const STORY_DURATION = 5000;
 const STORY_PROGRESS_INTERVAL = 50;
+
+const OFFLINE_POST_QUEUE_KEY = "OFFLINE_POST_QUEUE"; // used by offlineQueue.js
+const OFFLINE_CRUD_QUEUE_KEY = "OFFLINE_CRUD_QUEUE"; // local ops (delete/like/comment/update)
 
 const DUMMY_STORIES = [
   {
@@ -90,6 +103,47 @@ const DUMMY_STORIES = [
     likedByMe: false,
   },
 ];
+
+// ============ small helpers for offline CRUD queue ============
+async function getOpsQueue() {
+  try {
+    const raw = await AsyncStorage.getItem(OFFLINE_CRUD_QUEUE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    console.error("getOpsQueue error", e);
+    return [];
+  }
+}
+async function setOpsQueue(q) {
+  try {
+    await AsyncStorage.setItem(OFFLINE_CRUD_QUEUE_KEY, JSON.stringify(q || []));
+  } catch (e) {
+    console.error("setOpsQueue error", e);
+  }
+}
+async function enqueueOp(op) {
+  const q = await getOpsQueue();
+  q.push(op);
+  await setOpsQueue(q);
+}
+async function removeQueuedCreateByLocalId(localId) {
+  try {
+    const raw = await AsyncStorage.getItem(OFFLINE_POST_QUEUE_KEY);
+    if (!raw) return;
+    const queue = JSON.parse(raw);
+    const filtered = (queue || []).filter((i) => {
+      // keep items that do not match localId
+      try {
+        return !(i.payload && i.payload.localId && i.payload.localId === localId);
+      } catch {
+        return true;
+      }
+    });
+    await AsyncStorage.setItem(OFFLINE_POST_QUEUE_KEY, JSON.stringify(filtered));
+  } catch (e) {
+    console.error("removeQueuedCreateByLocalId", e);
+  }
+}
 
 // ============ STORY ITEM COMPONENT ============
 const StoryItem = React.memo(({ story, index, onPress }) => {
@@ -616,34 +670,123 @@ const Newsfeed = () => {
     loadPosts();
   }, [loadPosts]);
 
+  // start offline auto-sync (uploads + create handled by offlineQueue)
+  useEffect(() => {
+    const unsubscribe = startAutoSync({
+      createPostFn: createPost,
+      uploadFn: uploadFileToBucket,
+    });
+    return () => {
+      if (typeof unsubscribe === "function") unsubscribe();
+    };
+  }, []);
+
+  // process CRUD ops queue (delete/like/comment/update on server) when network available
+  const processOpsQueue = useCallback(async () => {
+    try {
+      const state = await NetInfo.fetch();
+      if (!state.isConnected) return;
+      let q = await getOpsQueue();
+      if (!q || q.length === 0) return;
+
+      // process sequentially
+      for (const op of q.slice()) {
+        try {
+          // If op targets a local placeholder id, skip processing here.
+          // These ops must be applied after the create sync maps localId -> serverId.
+          if (String(op.postId || "").startsWith("local_")) {
+            // keep in queue for now
+            continue;
+          }
+
+          if (op.type === "delete") {
+            await deletePost(op.postId);
+          } else if (op.type === "update") {
+            await updatePost(op.postId, op.payload);
+          } else if (op.type === "like") {
+            // payload contains likes array
+            await updatePost(op.postId, { likes: op.payload.likes });
+          } else if (op.type === "comment") {
+            // comments array
+            await updatePost(op.postId, { comments: op.payload.comments });
+          }
+          // on success remove the op from queue
+          q = q.filter((x) => x.id !== op.id);
+          await setOpsQueue(q);
+        } catch (err) {
+          console.error("processOpsQueue item failed, stop and retry later", err);
+          break; // stop and retry later
+        }
+      }
+    } catch (e) {
+      console.error("processOpsQueue failed", e);
+    }
+  }, []);
+
+  useEffect(() => {
+    // run on mount and when connectivity changes
+    processOpsQueue();
+    const unsub = NetInfo.addEventListener((state) => {
+      if (state.isConnected) processOpsQueue();
+    });
+    return () => unsub();
+  }, [processOpsQueue]);
+
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     await loadPosts();
     setRefreshing(false);
   }, [loadPosts]);
 
+  // Toggle like with optimistic update. Skip server update for local-only posts; if offline queue server op.
   const toggleLikePost = useCallback(
     async (postId) => {
       try {
+        // optimistic local update
         setPosts((prev) =>
           prev.map((p) => {
             if (p.id !== postId) return p;
-            const already = p.likes.includes("current_user");
+            const already = (p.likes || []).includes("current_user");
             const likes = already
-              ? p.likes.filter((l) => l !== "current_user")
-              : [...p.likes, "current_user"];
+              ? (p.likes || []).filter((l) => l !== "current_user")
+              : [...(p.likes || []), "current_user"];
             return { ...p, likes };
           })
         );
 
-        const target = posts.find((p) => p.id === postId);
-        if (target) {
-          const already = target.likes.includes("current_user");
-          const likes = already
-            ? target.likes.filter((l) => l !== "current_user")
-            : [...target.likes, "current_user"];
-          await updatePost(postId, { likes });
+        // if local placeholder, do not call server — enqueue op referencing local id
+        if (String(postId).startsWith("local_")) {
+          await enqueueOp({
+            id: `op_${Date.now()}`,
+            type: "like",
+            postId,
+            payload: {
+              likes: (posts.find((p) => p.id === postId)?.likes || []),
+            },
+          });
+          return;
         }
+
+        const state = await NetInfo.fetch();
+        const target = posts.find((p) => p.id === postId);
+        if (!target) return;
+        const already = (target.likes || []).includes("current_user");
+        const likes = already
+          ? (target.likes || []).filter((l) => l !== "current_user")
+          : [...(target.likes || []), "current_user"];
+
+        if (!state.isConnected) {
+          // enqueue op to update likes later
+          await enqueueOp({
+            id: `op_${Date.now()}`,
+            type: "like",
+            postId,
+            payload: { likes },
+          });
+          return;
+        }
+
+        await updatePost(postId, { likes });
       } catch (e) {
         console.error("Like failed:", e);
       }
@@ -663,20 +806,45 @@ const Newsfeed = () => {
         created_at: Date.now(),
       };
 
+      // optimistic local update
       setPosts((prev) =>
         prev.map((p) =>
-          p.id === postId ? { ...p, comments: [...p.comments, comment] } : p
+          p.id === postId ? { ...p, comments: [...(p.comments || []), comment] } : p
         )
       );
 
       // Update selected post for modal
       setSelectedPost((prev) =>
         prev && prev.id === postId
-          ? { ...prev, comments: [...prev.comments, comment] }
+          ? { ...prev, comments: [...(prev.comments || []), comment] }
           : prev
       );
 
       try {
+        // If target is a local placeholder, enqueue local comment op and do NOT call server.
+        if (String(postId).startsWith("local_")) {
+          await enqueueOp({
+            id: `op_${Date.now()}`,
+            type: "comment",
+            postId,
+            payload: { comments: (posts.find((p) => p.id === postId)?.comments || []).concat(comment) },
+          });
+          return;
+        }
+
+        const state = await NetInfo.fetch();
+        if (!state.isConnected) {
+          // enqueue comment update for later
+          const target = posts.find((p) => p.id === postId) || {};
+          await enqueueOp({
+            id: `op_${Date.now()}`,
+            type: "comment",
+            postId,
+            payload: { comments: [...(target.comments || []), comment] },
+          });
+          return;
+        }
+
         const target = posts.find((p) => p.id === postId);
         if (target) {
           await updatePost(postId, {
@@ -706,7 +874,7 @@ const Newsfeed = () => {
                   p.id === postId
                     ? {
                         ...p,
-                        comments: p.comments.filter((c) => c.id !== commentId),
+                        comments: (p.comments || []).filter((c) => c.id !== commentId),
                       }
                     : p
                 )
@@ -716,12 +884,36 @@ const Newsfeed = () => {
                 prev && prev.id === postId
                   ? {
                       ...prev,
-                      comments: prev.comments.filter((c) => c.id !== commentId),
+                      comments: (prev.comments || []).filter((c) => c.id !== commentId),
                     }
                   : prev
               );
 
               try {
+                // If local placeholder, enqueue local comment change and do not call server
+                if (String(postId).startsWith("local_")) {
+                  const target = posts.find((p) => p.id === postId) || {};
+                  await enqueueOp({
+                    id: `op_${Date.now()}`,
+                    type: "comment",
+                    postId,
+                    payload: { comments: (target.comments || []).filter((c) => c.id !== commentId) },
+                  });
+                  return;
+                }
+
+                const state = await NetInfo.fetch();
+                if (!state.isConnected) {
+                  const target = posts.find((p) => p.id === postId) || {};
+                  await enqueueOp({
+                    id: `op_${Date.now()}`,
+                    type: "comment",
+                    postId,
+                    payload: { comments: (target.comments || []).filter((c) => c.id !== commentId) },
+                  });
+                  return;
+                }
+
                 const target = posts.find((p) => p.id === postId);
                 if (target) {
                   await updatePost(postId, {
@@ -754,9 +946,7 @@ const Newsfeed = () => {
       setEditingPostId(postId);
       setPostContent(post.content || "");
       setPostType(
-        post.media_urls && post.media_urls.length
-          ? post.media_type || "image"
-          : "text"
+        post.media_urls && post.media_urls.length ? post.media_type || "image" : "text"
       );
       setMediaUris(post.media_urls || []);
       setModalVisible(true);
@@ -780,6 +970,7 @@ const Newsfeed = () => {
     setMediaUris((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
+  // Submit post. If offline, create local placeholder and enqueue create payload (with localId).
   const handleSubmitPost = useCallback(async () => {
     if (!postContent.trim() && mediaUris.length === 0) {
       Alert.alert("Validation", "Please enter text or select media.");
@@ -788,12 +979,90 @@ const Newsfeed = () => {
 
     try {
       if (editingPostId) {
-        await updatePost(editingPostId, {
-          content: postContent,
-          media_type: mediaUris.length ? postType : "none",
-          media_urls: mediaUris,
-        });
+        // editing existing post - if local placeholder just update local state,
+        // otherwise attempt server update or enqueue.
+        if (String(editingPostId).startsWith("local_")) {
+          setPosts((prev) =>
+            prev.map((p) =>
+              p.id === editingPostId
+                ? { ...p, content: postContent, media_urls: mediaUris, media_type: mediaUris.length ? postType : "none" }
+                : p
+            )
+          );
+        } else {
+          const state = await NetInfo.fetch();
+          if (!state.isConnected) {
+            await enqueueOp({
+              id: `op_${Date.now()}`,
+              type: "update",
+              postId: editingPostId,
+              payload: {
+                content: postContent,
+                media_type: mediaUris.length ? postType : "none",
+                media_urls: mediaUris,
+              },
+            });
+            setPosts((prev) =>
+              prev.map((p) =>
+                p.id === editingPostId
+                  ? { ...p, content: postContent, media_urls: mediaUris, media_type: mediaUris.length ? postType : "none" }
+                  : p
+              )
+            );
+          } else {
+            await updatePost(editingPostId, {
+              content: postContent,
+              media_type: mediaUris.length ? postType : "none",
+              media_urls: mediaUris,
+            });
+          }
+        }
       } else {
+        // new post
+        const state = await NetInfo.fetch();
+        if (!state.isConnected) {
+          // offline -> create local placeholder + enqueue create payload (include localId)
+          const localId = `local_${Date.now()}`;
+          const createdAtIso = new Date().toISOString();
+          await enqueuePost({
+            // offlineQueue expects simple post payload; include localId so we can remove it if user deletes before sync
+            localId,
+            username: "current_user",
+            avatar: "https://i.pravatar.cc/150?img=1",
+            content: postContent,
+            mediaUris, // local URIs so offlineQueue can upload later
+            media_type: postType,
+            likes: [],
+            comments: [],
+            created_at: createdAtIso,
+          });
+
+          // optimistic UI: add local placeholder post
+          setPosts((prev) => [
+            {
+              id: localId,
+              username: "current_user",
+              avatar: "https://i.pravatar.cc/150?img=1",
+              content: postContent,
+              media_urls: mediaUris,
+              media_type: postType,
+              likes: [],
+              comments: [],
+              created_at: Date.now(),
+              _offline: true,
+            },
+            ...prev,
+          ]);
+
+          Alert.alert("Saved offline", "Your post will be uploaded when network is available.");
+          setModalVisible(false);
+          setPostContent("");
+          setMediaUris([]);
+          setEditingPostId(null);
+          return;
+        }
+
+        // online: create immediately
         await createPost({
           username: "current_user",
           avatar: "https://i.pravatar.cc/150?img=1",
@@ -802,9 +1071,10 @@ const Newsfeed = () => {
           media_urls: mediaUris,
           likes: [],
           comments: [],
-          created_at: Date.now(),
+          created_at: new Date().toISOString(),
         });
       }
+
       setModalVisible(false);
       setPostContent("");
       setMediaUris([]);
@@ -812,10 +1082,59 @@ const Newsfeed = () => {
       await loadPosts();
     } catch (e) {
       console.error("Post submission failed:", e);
+
+      const msg = (e && e.message) ? String(e.message) : "";
+      const isNetworkErr =
+        msg.toLowerCase().includes("network") || msg === "Network request failed";
+
+      if (isNetworkErr) {
+        // fallback to offline create path
+        try {
+          const localId = `local_${Date.now()}`;
+          await enqueuePost({
+            localId,
+            username: "current_user",
+            avatar: "https://i.pravatar.cc/150?img=1",
+            content: postContent,
+            mediaUris,
+            media_type: postType,
+            likes: [],
+            comments: [],
+            created_at: new Date().toISOString(),
+          });
+
+          setPosts((prev) => [
+            {
+              id: localId,
+              username: "current_user",
+              avatar: "https://i.pravatar.cc/150?img=1",
+              content: postContent,
+              media_urls: mediaUris,
+              media_type: postType,
+              likes: [],
+              comments: [],
+              created_at: Date.now(),
+              _offline: true,
+            },
+            ...prev,
+          ]);
+
+          Alert.alert("Saved offline", "Your post will be uploaded when network is available.");
+          setModalVisible(false);
+          setPostContent("");
+          setMediaUris([]);
+          setEditingPostId(null);
+          return;
+        } catch (qErr) {
+          console.error("Failed to enqueue post:", qErr);
+        }
+      }
+
       Alert.alert("Error", "Failed to submit post");
     }
   }, [postContent, mediaUris, editingPostId, postType, loadPosts]);
 
+  // Delete post handler: works for local placeholders and server posts.
   const handleDeletePost = useCallback(async (postId) => {
     Alert.alert("Delete Post", "Are you sure you want to delete this post?", [
       { text: "Cancel", style: "cancel" },
@@ -824,6 +1143,28 @@ const Newsfeed = () => {
         style: "destructive",
         onPress: async () => {
           try {
+            // if local placeholder -> remove locally and remove queued create if exists
+            if (String(postId).startsWith("local_")) {
+              setPosts((prev) => prev.filter((p) => p.id !== postId));
+              // remove from offline create queue so it won't be uploaded later
+              await removeQueuedCreateByLocalId(postId);
+              return;
+            }
+
+            // for server posts: if offline, remove locally and enqueue delete op to run later
+            const state = await NetInfo.fetch();
+            if (!state.isConnected) {
+              setPosts((prev) => prev.filter((p) => p.id !== postId));
+              await enqueueOp({
+                id: `op_${Date.now()}`,
+                type: "delete",
+                postId,
+              });
+              Alert.alert("Will delete when online", "The post will be deleted on the server when network is available.");
+              return;
+            }
+
+            // online: call API
             await deletePost(postId);
             setPosts((prev) => prev.filter((p) => p.id !== postId));
           } catch (e) {
@@ -1670,3 +2011,4 @@ const styles = StyleSheet.create({
 });
 
 export default Newsfeed;
+// ...existing code...

@@ -8,6 +8,7 @@ import {
   Dimensions,
 } from "react-native";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
+import { Video } from "expo-av"; // Use expo-av for video playback
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -60,12 +61,13 @@ const PostCard = ({ post, onAddReaction, onEdit, onDelete }) => {
 
       {post.media_type === "video" && post.media_url ? (
         <View style={styles.mediaVideo}>
-          <MaterialCommunityIcons
-            name="play-circle"
-            size={48}
-            color={COLORS.textSecondary}
+          <Video
+            source={{ uri: post.media_url }}
+            style={styles.videoPlayer}
+            useNativeControls
+            resizeMode="cover"
+            isLooping
           />
-          <Text style={styles.videoText}>Video: {post.media_url}</Text>
         </View>
       ) : null}
 
@@ -177,10 +179,12 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginBottom: 8,
   },
-  videoText: {
-    color: COLORS.textSecondary,
-    marginTop: 8,
-    fontSize: 13,
+  videoPlayer: {
+    width: SCREEN_WIDTH - 48,
+    height: 220,
+    borderRadius: 10,
+    backgroundColor: "#000",
+    alignSelf: "center",
   },
   footer: {
     flexDirection: "row",

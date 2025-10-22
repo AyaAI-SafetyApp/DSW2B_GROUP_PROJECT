@@ -1,16 +1,6 @@
-import { supabase } from '../supabaseClient.js';
+import { supabase } from '../supabaseClient';
 
-// CREATE
-export async function createPost({ username, content, media_type, media_url }) {
-  const { data, error } = await supabase
-    .from('posts')
-    .insert([{ username, content, media_type, media_url }])
-    .single();
-  if (error) throw error;
-  return data;
-}
-
-// READ (all posts, newest first)
+// Fetch posts
 export async function fetchPosts() {
   const { data, error } = await supabase
     .from('posts')
@@ -20,22 +10,32 @@ export async function fetchPosts() {
   return data;
 }
 
-// UPDATE
-export async function updatePost(id, updates) {
+// Create post
+export async function createPost(post) {
   const { data, error } = await supabase
     .from('posts')
-    .update({ ...updates, updated_at: new Date().toISOString() })
-    .eq('id', id)
-    .single();
+    .insert([post])
+    .select();
   if (error) throw error;
   return data;
 }
 
-// DELETE
-export async function deletePost(id) {
+// Update post
+export async function updatePost(postId, updates) {
+  const { data, error } = await supabase
+    .from('posts')
+    .update(updates)
+    .eq('id', postId)
+    .select();
+  if (error) throw error;
+  return data;
+}
+
+// Delete post
+export async function deletePost(postId) {
   const { error } = await supabase
     .from('posts')
     .delete()
-    .eq('id', id);
+    .eq('id', postId);
   if (error) throw error;
 }
