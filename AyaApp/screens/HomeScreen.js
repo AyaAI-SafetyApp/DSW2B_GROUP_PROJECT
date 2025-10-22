@@ -78,7 +78,6 @@ const Header = ({
   notificationsCount,
   onOpenNotifications,
   onProfilePress,
-  onLogout,
   riskColor,
 }) => (
   <FadeView style={styles.header} delay={100}>
@@ -447,19 +446,6 @@ export default function HomeScreen() {
     setRefreshing(false);
   }, [currentLocation]);
 
-  const handleLogout = useCallback(async () => {
-    try {
-      await AsyncStorage.removeItem("userSession");
-      await AsyncStorage.removeItem("userID");
-      navigation.reset({
-        index: 0,
-        routes: [{ name: "Welcome" }],
-      });
-    } catch (error) {
-      console.error("Logout error:", error);
-    }
-  }, [navigation]);
-
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar
@@ -471,7 +457,6 @@ export default function HomeScreen() {
         notificationsCount={notifications.length}
         onOpenNotifications={() => setModalVisible(true)}
         onProfilePress={() => navigation.navigate("ProfileScreen")}
-        onLogout={handleLogout}
         riskColor={riskColor}
       />
       <NotificationModal

@@ -175,14 +175,14 @@ const useSubscription = (navigation, userID) => {
         setTimeout(() => {
           Alert.alert(
             "Subscription Successful!",
-            `Your ${selectedPlan?.title} plan has been activated. Please login to continue.`,
+            `Your ${selectedPlan?.title} plan has been activated.`,
             [
               {
                 text: "OK",
                 onPress: () =>
                   navigation.reset({
                     index: 0,
-                    routes: [{ name: "Login" }],
+                    routes: [{ name: "MainTabs" }],
                   }),
               },
             ]
