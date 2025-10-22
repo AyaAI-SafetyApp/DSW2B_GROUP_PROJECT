@@ -62,7 +62,7 @@ export default function NewsFeed({ navigation }) {
           renderItem={({ item }) => (
             <TouchableOpacity
               style={styles.card}
-              onPress={() => navigation.navigate("Article", { url: item.url })}
+              onPress={() => navigation.navigate("ArticleScreen", { url: item.url })}
             >
               {item.urlToImage && (
                 <Image source={{ uri: item.urlToImage }} style={styles.image} />
