@@ -9,7 +9,6 @@ const dotenv = require('dotenv');
 const passkeyService = require('./passkeyService');
 const twilio = require("twilio");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
-const sqlite3 = require("sqlite3").verbose();
 const multer = require("multer");
 
 // Load environment variables
@@ -30,27 +29,6 @@ const client = twilio(accountSid, authToken);
 // Initialize Google Generative AI for therapist chat
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 const therapistModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
-// SQLite database for therapist conversations
-const therapistDb = new sqlite3.Database("conversations.db", (err) => {
-  if (err) {
-    console.error("Therapist DB connection failed:", err.message);
-  } else {
-    console.log("Therapist SQLite connected");
-  }
-});
-
-// Create therapist conversations table
-therapistDb.serialize(() => {
-  therapistDb.run(`
-    CREATE TABLE IF NOT EXISTS conversations (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_message TEXT,
-      ai_response TEXT,
-      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-});
 
 // Emergency alert system
 const alerts = [];
@@ -665,17 +643,6 @@ app.post("/therapist/chat", async (req, res) => {
 
         const aiReply = aiResult.response.text();
         
-        // Store conversation in database
-        therapistDb.run(
-            "INSERT INTO conversations (user_message, ai_response) VALUES (?, ?)",
-            [message, aiReply],
-            (err) => {
-                if (err) {
-                    console.error("Failed to store therapist conversation:", err);
-                }
-            }
-        );
-        
         res.json({ reply: aiReply });
     } catch (err) {
         console.error("Therapist AI chat error:", err.message);
@@ -727,17 +694,6 @@ app.post("/therapist/chat-audio", upload.single("audio"), async (req, res) => {
 
         const aiReply = replyResult.response.text();
 
-        // Store conversation
-        therapistDb.run(
-            "INSERT INTO conversations (user_message, ai_response) VALUES (?, ?)",
-            [transcription, aiReply],
-            (err) => {
-                if (err) {
-                    console.error("Failed to store audio therapist conversation:", err);
-                }
-            }
-        );
-
         // Clean up audio file
         fs.unlink(audioPath, (err) => {
             if (err) console.error("Failed to delete audio file:", err);
@@ -750,92 +706,14 @@ app.post("/therapist/chat-audio", upload.single("audio"), async (req, res) => {
     }
 });
 
-// Therapist conversation summary endpoint
+// Therapist conversation summary endpoint (disabled - no conversation storage)
 app.get("/therapist/summary", async (req, res) => {
-    therapistDb.all(
-        "SELECT user_message, ai_response FROM conversations ORDER BY timestamp DESC LIMIT 20",
-        async (err, rows) => {
-            if (err) {
-                return res.status(500).json({ error: "Database error" });
-            }
-            
-            if (!rows.length) {
-                return res.json({ summary: "No recent conversations" });
-            }
-
-            const convoText = rows
-                .map((r) => `User: ${r.user_message}\nAI: ${r.ai_response}`)
-                .join("\n");
-
-            try {
-                const summary = await therapistModel.generateContent({
-                    contents: [
-                        {
-                            role: "model",
-                            parts: [{ text: THERAPIST_SYSTEM_PROMPT + "\nSummarize concisely:" }],
-                        },
-                        { role: "user", parts: [{ text: convoText }] },
-                    ],
-                    generationConfig: {
-                        temperature: 0.6,
-                        topP: 0.9,
-                        maxOutputTokens: 150,
-                    },
-                });
-
-                res.json({ summary: summary.response.text() });
-            } catch (err) {
-                console.error("Failed to generate therapist summary:", err);
-                res.status(500).json({ error: "Failed to generate summary" });
-            }
-        }
-    );
+    res.json({ summary: "Conversation history not available - conversations are not stored" });
 });
 
-// Therapist feedback endpoint
+// Therapist feedback endpoint (disabled - no conversation storage)
 app.get("/therapist/feedback", async (req, res) => {
-    therapistDb.all(
-        "SELECT user_message, ai_response FROM conversations ORDER BY timestamp DESC LIMIT 20",
-        async (err, rows) => {
-            if (err) {
-                return res.status(500).json({ error: "Database error" });
-            }
-            
-            if (!rows.length) {
-                return res.json({ feedback: "No recent conversations" });
-            }
-
-            const convoText = rows
-                .map((r) => `User: ${r.user_message}\nAI: ${r.ai_response}`)
-                .join("\n");
-
-            try {
-                const feedback = await therapistModel.generateContent({
-                    contents: [
-                        {
-                            role: "model",
-                            parts: [
-                                {
-                                    text: THERAPIST_SYSTEM_PROMPT + "\nProvide concise, empathetic feedback:",
-                                },
-                            ],
-                        },
-                        { role: "user", parts: [{ text: convoText }] },
-                    ],
-                    generationConfig: {
-                        temperature: 0.6,
-                        topP: 0.9,
-                        maxOutputTokens: 150,
-                    },
-                });
-
-                res.json({ feedback: feedback.response.text() });
-            } catch (err) {
-                console.error("Failed to generate therapist feedback:", err);
-                res.status(500).json({ error: "Failed to generate feedback" });
-            }
-        }
-    );
+    res.json({ feedback: "Conversation history not available - conversations are not stored" });
 });
 
 // === PAYPAL SUBSCRIPTION ENDPOINTS ===
