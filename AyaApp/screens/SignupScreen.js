@@ -25,19 +25,15 @@ export default function SignupScreen({ navigation }) {
     try {
       const data = await supabaseAuth.signUp(email, password);
       
-      // Check if signup was successful
       if (data.user) {
-        // Store user ID even if session is not created yet (email verification pending)
         await AsyncStorage.setItem("userID", data.user.id);
         
         if (data.session) {
           await AsyncStorage.setItem("userSession", JSON.stringify(data.session));
         }
         
-        // Navigate to AccountForm to complete profile
         navigation.navigate("AccountForm", { userID: data.user.id });
         
-        // Show different message based on whether email verification is required
         if (data.session) {
           Alert.alert("Success", "Account created! Please complete your profile.");
         } else {
