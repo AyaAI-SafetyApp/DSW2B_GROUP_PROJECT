@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,12 +6,173 @@ import {
   StyleSheet,
   SafeAreaView,
   ScrollView,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, CommonActions, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { supabaseAuth } from '../../lib/supabaseClient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const ProfileScreen = () => {
   const navigation = useNavigation();
+  const [userEmail, setUserEmail] = useState('');
+  const [userName, setUserName] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
+
+  useEffect(() => {
+    loadUserData();
+  }, []);
+
+  // Reload data when screen comes back into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      loadUserData();
+    }, [])
+  );
+
+  const loadUserData = async () => {
+    try {
+      setLoading(true);
+      
+      // Get current user from Supabase
+      const user = await supabaseAuth.getCurrentUser();
+      
+      if (user && user.email) {
+        setUserEmail(user.email);
+        // Get full name from user metadata or default to email username
+        const fullName = user.user_metadata?.full_name || user.email.split('@')[0];
+        setUserName(fullName);
+      }
+    } catch (error) {
+      console.error('Error loading user data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      console.log("🚪 ProfileScreen: Starting logout...");
+      
+      // Sign out from Supabase
+      await supabaseAuth.signOut();
+      console.log("✅ Supabase signout complete");
+      
+      // Clear local storage
+      await AsyncStorage.removeItem("userSession");
+      await AsyncStorage.removeItem("userID");
+      console.log("✅ AsyncStorage cleared");
+      
+      // Navigate to OnboardingScreen using CommonActions
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: "OnboardingScreen" }],
+        })
+      );
+      console.log("✅ Navigation reset to OnboardingScreen");
+    } catch (error) {
+      console.error("❌ Logout error:", error);
+      alert("Logout failed. Please try again.");
+    }
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      "Delete Account",
+      "Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently deleted.",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+          onPress: () => console.log("Account deletion cancelled")
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setDeleting(true);
+              console.log("🗑️ Starting account deletion...");
+
+              // Get current user
+              const user = await supabaseAuth.getCurrentUser();
+              
+              if (!user || !user.id) {
+                Alert.alert("Error", "No user found. Please log in again.");
+                setDeleting(false);
+                return;
+              }
+
+              console.log(`Deleting user ID: ${user.id}`);
+
+              // Call backend API to delete user
+              const apiUrl = `https://dsw2b-backend.onrender.com/api/user/${user.id}`;
+              console.log(`📡 Calling DELETE: ${apiUrl}`);
+              
+              const response = await fetch(apiUrl, {
+                method: 'DELETE',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+              });
+
+              console.log(`📥 Response status: ${response.status}`);
+              
+              const result = await response.json();
+              console.log(`📥 Response data:`, result);
+
+              if (!response.ok || !result.success) {
+                throw new Error(result.error || 'Failed to delete account');
+              }
+
+              console.log("✅ Account deleted from backend");
+
+              // Sign out from Supabase
+              await supabaseAuth.signOut();
+              console.log("✅ Signed out from Supabase");
+
+              // Clear all local storage
+              await AsyncStorage.clear();
+              console.log("✅ All local data cleared");
+
+              // Show success message
+              Alert.alert(
+                "Account Deleted",
+                "Your account has been successfully deleted.",
+                [
+                  {
+                    text: "OK",
+                    onPress: () => {
+                      // Navigate to onboarding screen
+                      navigation.dispatch(
+                        CommonActions.reset({
+                          index: 0,
+                          routes: [{ name: "OnboardingScreen" }],
+                        })
+                      );
+                    }
+                  }
+                ]
+              );
+
+            } catch (error) {
+              console.error("❌ Account deletion error:", error);
+              Alert.alert(
+                "Error",
+                error.message || "Failed to delete account. Please try again or contact support."
+              );
+            } finally {
+              setDeleting(false);
+            }
+          }
+        }
+      ],
+      { cancelable: true }
+    );
+  };
 
   const profileOptions = [
     { id: 1, title: 'Safety Preferences', icon: 'shield-outline', subtitle: 'Configure safety settings' },
@@ -27,53 +188,80 @@ const ProfileScreen = () => {
           <Ionicons name="arrow-back" size={24} color="#FF1493" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Profile</Text>
-        <TouchableOpacity style={styles.editButton}>
+        <TouchableOpacity 
+          style={styles.editButton}
+          onPress={() => navigation.navigate('EditProfileScreen')}
+        >
           <Ionicons name="create-outline" size={24} color="#FF1493" />
         </TouchableOpacity>
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.profileSection}>
-          <View style={styles.avatarContainer}>
-            <View style={styles.avatar}>
-              <Ionicons name="person" size={40} color="#FF1493" />
-            </View>
-            <TouchableOpacity style={styles.cameraButton}>
-              <Ionicons name="camera" size={16} color="#FFFFFF" />
-            </TouchableOpacity>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#FF1493" />
+            <Text style={styles.loadingText}>Loading profile...</Text>
           </View>
-          <Text style={styles.userName}>Lethabo Scofield</Text>
-          <Text style={styles.userEmail}>lethabo@admin.co.za</Text>
-          <View style={styles.statusBadge}>
-            <View style={styles.statusDot} />
-            <Text style={styles.statusText}>Verified Account</Text>
-          </View>
-        </View>
-
-        <View style={styles.optionsSection}>
-          {profileOptions.map((option) => (
-            <TouchableOpacity key={option.id} style={styles.optionItem}>
-              <View style={styles.optionLeft}>
-                <View style={styles.optionIcon}>
-                  <Ionicons name={option.icon} size={20} color="#FF1493" />
+        ) : (
+          <>
+            <View style={styles.profileSection}>
+              <View style={styles.avatarContainer}>
+                <View style={styles.avatar}>
+                  <Ionicons name="person" size={40} color="#FF1493" />
                 </View>
-                <View>
-                  <Text style={styles.optionTitle}>{option.title}</Text>
-                  <Text style={styles.optionSubtitle}>{option.subtitle}</Text>
-                </View>
+                <TouchableOpacity style={styles.cameraButton}>
+                  <Ionicons name="camera" size={16} color="#FFFFFF" />
+                </TouchableOpacity>
               </View>
-              <Ionicons name="chevron-forward" size={20} color="#FF1493" />
-            </TouchableOpacity>
-          ))}
-        </View>
+              <Text style={styles.userName}>{userName || 'User'}</Text>
+              <Text style={styles.userEmail}>{userEmail || 'No email available'}</Text>
+              <View style={styles.statusBadge}>
+                <View style={styles.statusDot} />
+                <Text style={styles.statusText}>Verified Account</Text>
+              </View>
+            </View>
 
-        <TouchableOpacity 
-          style={styles.logoutButton} 
-          onPress={() => navigation.navigate('Login')}
-        >
-          <Ionicons name="log-out-outline" size={20} color="#FF1493" />
-          <Text style={styles.logoutText}>Logout</Text>
-        </TouchableOpacity>
+            <View style={styles.optionsSection}>
+              {profileOptions.map((option) => (
+                <TouchableOpacity key={option.id} style={styles.optionItem}>
+                  <View style={styles.optionLeft}>
+                    <View style={styles.optionIcon}>
+                      <Ionicons name={option.icon} size={20} color="#FF1493" />
+                    </View>
+                    <View>
+                      <Text style={styles.optionTitle}>{option.title}</Text>
+                      <Text style={styles.optionSubtitle}>{option.subtitle}</Text>
+                    </View>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color="#FF1493" />
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <TouchableOpacity 
+              style={styles.logoutButton} 
+              onPress={handleLogout}
+            >
+              <Ionicons name="log-out-outline" size={20} color="#FF1493" />
+              <Text style={styles.logoutText}>Logout</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.deleteButton} 
+              onPress={handleDeleteAccount}
+              disabled={deleting}
+            >
+              {deleting ? (
+                <ActivityIndicator size="small" color="#FF3B30" />
+              ) : (
+                <>
+                  <Ionicons name="trash-outline" size={20} color="#FF3B30" />
+                  <Text style={styles.deleteText}>Delete Account</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -107,6 +295,17 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#FF1493',
   },
   profileSection: {
     backgroundColor: '#FFFFFF',
@@ -216,7 +415,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     marginHorizontal: 20,
     marginTop: 24,
-    marginBottom: 32,
+    marginBottom: 12,
     paddingVertical: 16,
     borderRadius: 12,
     borderWidth: 1,
@@ -225,7 +424,25 @@ const styles = StyleSheet.create({
   logoutText: {
     fontSize: 16,
     fontWeight: '600',
-    color: 'red',
+    color: '#FF1493',
+    marginLeft: 8,
+  },
+  deleteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 20,
+    marginBottom: 32,
+    paddingVertical: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FFCCCC',
+  },
+  deleteText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FF3B30',
     marginLeft: 8,
   },
 });

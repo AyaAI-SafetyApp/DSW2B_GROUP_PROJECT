@@ -222,6 +222,16 @@ const SUPABASE_URL = "https://mcjjabajtfodvmixklfj.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1jamphYmFqdGZvZHZtaXhrbGZqIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NjQ3NTg0MywiZXhwIjoyMDcyMDUxODQzfQ.NbVNBTcC3Cr9ili0EFa9o4IiMhdZRREKlthVJjMW0Xg";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
+// Supabase Auth client setup (for user management)
+const AUTH_SUPABASE_URL = "https://gfrnxqhivmgfgdersflu.supabase.co";
+const AUTH_SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdmcm54cWhpdm1nZmdkZXJzZmx1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MTA0NjY2NiwiZXhwIjoyMDc2NjIyNjY2fQ.4rYkTs5G3OLbqBbCxSzZ7pqTHe-AxsPvMqzIUw_rTm0";
+const authSupabase = createClient(AUTH_SUPABASE_URL, AUTH_SUPABASE_SERVICE_KEY, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false
+  }
+});
+
 // Generate PayPal access token
 async function generateAccessToken() {
     const response = await axios({
@@ -1103,6 +1113,39 @@ app.delete("/posts/:id", async (req, res) => {
 
     if (error) return res.status(400).json({ error: error.message });
     res.json({ message: "Post deleted successfully" });
+});
+
+// Delete user account
+app.delete("/api/user/:userId", async (req, res) => {
+    try {
+        const { userId } = req.params;
+        
+        console.log(`🗑️ Attempting to delete user: ${userId}`);
+
+        // Delete user from Supabase Auth
+        const { data, error } = await authSupabase.auth.admin.deleteUser(userId);
+
+        if (error) {
+            console.error("❌ Error deleting user:", error);
+            return res.status(400).json({ 
+                success: false, 
+                error: error.message 
+            });
+        }
+
+        console.log("✅ User deleted successfully from Supabase");
+        res.json({ 
+            success: true, 
+            message: "User account deleted successfully" 
+        });
+
+    } catch (error) {
+        console.error("❌ Server error deleting user:", error);
+        res.status(500).json({ 
+            success: false, 
+            error: "Failed to delete user account" 
+        });
+    }
 });
 
 // Helper functions

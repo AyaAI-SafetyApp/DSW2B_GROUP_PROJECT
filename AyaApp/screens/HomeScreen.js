@@ -24,11 +24,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import * as Location from "expo-location";
 import { Ionicons } from "@expo/vector-icons";
 import Svg, { Circle } from "react-native-svg";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, CommonActions } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
 import * as Speech from "expo-speech";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import LottieView from "lottie-react-native";
+import { supabaseAuth } from "../lib/supabaseClient";
 
 const { width } = Dimensions.get("window");
 export const PRIMARY = "#D81B60";
@@ -447,6 +448,33 @@ export default function HomeScreen() {
     setRefreshing(false);
   }, [currentLocation]);
 
+  const handleLogout = useCallback(async () => {
+    try {
+      console.log("🚪 HomeScreen: Starting logout...");
+      
+      // Sign out from Supabase
+      await supabaseAuth.signOut();
+      console.log("✅ Supabase signout complete");
+      
+      // Clear local storage
+      await AsyncStorage.removeItem("userSession");
+      await AsyncStorage.removeItem("userID");
+      console.log("✅ AsyncStorage cleared");
+      
+      // Navigate to OnboardingScreen using CommonActions
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: "OnboardingScreen" }],
+        })
+      );
+      console.log("✅ Navigation reset to OnboardingScreen");
+    } catch (error) {
+      console.error("❌ Logout error:", error);
+      alert("Logout failed. Please try again.");
+    }
+  }, [navigation]);
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar
@@ -459,7 +487,7 @@ export default function HomeScreen() {
         onOpenNotifications={() => setModalVisible(true)}
         onProfilePress={() => navigation.navigate("ProfileScreen")}
         riskColor={riskColor}
-        onLogout={() => navigation.navigate("Login")}
+        onLogout={handleLogout}
       />
       <NotificationModal
         visible={modalVisible}

@@ -98,5 +98,8 @@ export const supabaseAuth = {
   onAuthStateChange(callback) {
     return supabase.auth.onAuthStateChange(callback);
   },
+
+  // Expose supabase instance for advanced operations
+  supabase: supabase,
 };
 
