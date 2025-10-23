@@ -5,6 +5,7 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 import LottieView from "lottie-react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Screens
 import HomeScreen from "./screens/HomeScreen";
@@ -28,6 +29,11 @@ import subscription from "./screens/Subscription/subscriptionScreen.js";
 import NewsFeed from "./screens/GBVNews/NewsFeed.js";
 import ArticleScreen from "./screens/GBVNews/ArticleScreen.js";
 import ProfileScreen from "./screens/UserProfile/ProfileScreen";
+import AccountDetailsScreen from "./screens/UserProfile/AccountDetailsScreen";
+import SafetyPreferencesScreen from "./screens/UserProfile/SafetyPreferencesScreen";
+import PrivacySecurityScreen from "./screens/UserProfile/PrivacySecurityScreen";
+import HelpSupportScreen from "./screens/UserProfile/HelpSupportScreen";
+import AchievementsScreen from "./screens/UserProfile/AchievementsScreen";
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -129,11 +135,35 @@ const TabsNavigator = () => {
 
 export default function App() {
   const [loading, setLoading] = useState(true);
+  const [initialRoute, setInitialRoute] = useState("OnboardingScreen");
 
   useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 2500); // 2.5s splash
-    return () => clearTimeout(timer);
+    checkUserSession();
   }, []);
+
+  const checkUserSession = async () => {
+    try {
+      // Check if user has an active session
+      const sessionData = await AsyncStorage.getItem("@user_session");
+      
+      if (sessionData) {
+        const session = JSON.parse(sessionData);
+        console.log("✅ Found existing session for:", session.email);
+        // User is logged in, go directly to main app
+        setInitialRoute("MainTabs");
+      } else {
+        console.log("❌ No session found, showing onboarding");
+        // No session, show onboarding
+        setInitialRoute("OnboardingScreen");
+      }
+    } catch (error) {
+      console.error("Error checking session:", error);
+      setInitialRoute("OnboardingScreen");
+    } finally {
+      // Show splash for at least 2.5 seconds
+      setTimeout(() => setLoading(false), 2500);
+    }
+  };
 
   if (loading) {
     return (
@@ -152,7 +182,7 @@ export default function App() {
     <NavigationContainer>
       <Stack.Navigator
         screenOptions={{ headerShown: false }}
-        initialRouteName="OnboardingScreen"
+        initialRouteName={initialRoute}
       >
         <Stack.Screen name="OnboardingScreen" component={OnboardingScreen} />
         <Stack.Screen name="Login" component={LoginScreen} />
@@ -171,6 +201,11 @@ export default function App() {
         <Stack.Screen name="CreateCredential" component={CreateCredential} />
         <Stack.Screen name="MapViewScreen" component={MapViewScreen} />
         <Stack.Screen name="ProfileScreen" component={ProfileScreen} />
+        <Stack.Screen name="AccountDetailsScreen" component={AccountDetailsScreen} />
+        <Stack.Screen name="SafetyPreferencesScreen" component={SafetyPreferencesScreen} />
+        <Stack.Screen name="PrivacySecurityScreen" component={PrivacySecurityScreen} />
+        <Stack.Screen name="HelpSupportScreen" component={HelpSupportScreen} />
+        <Stack.Screen name="AchievementsScreen" component={AchievementsScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

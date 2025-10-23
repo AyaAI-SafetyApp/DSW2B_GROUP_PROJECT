@@ -258,7 +258,7 @@ const PostCard = React.memo(
               data={post.media_urls}
               horizontal
               pagingEnabled
-              keyExtractor={(_, i) => ${post.id}_m_${i}}
+              keyExtractor={(_, i) => `${post.id}_m_${i}`}
               renderItem={({ item }) => (
                 <Image
                   source={{ uri: item }}
@@ -535,7 +535,7 @@ const StoryViewer = ({
                       i < activeIndex
                         ? "100%"
                         : i === activeIndex
-                        ? ${progress}%
+                        ? `${progress}%`
                         : "0%",
                   },
                 ]}
@@ -623,9 +623,9 @@ const getTimeAgo = (timestamp) => {
   const days = Math.floor(hours / 24);
 
   if (days > 7) return new Date(ts).toLocaleDateString();
-  if (days > 0) return ${days}d ago;
-  if (hours > 0) return ${hours}h ago;
-  if (minutes > 0) return ${minutes}m ago;
+  if (days > 0) return `${days}d ago`;
+  if (hours > 0) return `${hours}h ago`;
+  if (minutes > 0) return `${minutes}m ago`;
   return "Just now";
 };
 
@@ -687,7 +687,7 @@ const Newsfeed = () => {
           username: p.username || "unknown",
           avatar:
             p.avatar ||
-            https://i.pravatar.cc/150?img=${Math.floor(Math.random() * 70)},
+            `https://i.pravatar.cc/150?img=${Math.floor(Math.random() * 70)}`,
           content: p.content || "",
           media_type: p.media_type || "none",
           media_urls: Array.isArray(p.media_urls)
@@ -805,7 +805,7 @@ const Newsfeed = () => {
         // if local placeholder, do not call server — enqueue op referencing local id
         if (String(postId).startsWith("local_")) {
           await enqueueOp({
-            id: op_${Date.now()},
+            id: `op_${Date.now()}`,
             type: "like",
             postId,
             payload: {
@@ -826,7 +826,7 @@ const Newsfeed = () => {
         if (!state.isConnected) {
           // enqueue op to update likes later
           await enqueueOp({
-            id: op_${Date.now()},
+            id: `op_${Date.now()}`,
             type: "like",
             postId,
             payload: { likes },
@@ -847,7 +847,7 @@ const Newsfeed = () => {
       if (!text.trim()) return;
 
       const comment = {
-        id: c_${Date.now()}_${Math.random()},
+        id: `c_${Date.now()}_${Math.random()}`,
         user: "current_user",
         avatar: "https://i.pravatar.cc/150?img=1",
         text: text.trim(),
@@ -872,7 +872,7 @@ const Newsfeed = () => {
         // If target is a local placeholder, enqueue local comment op and do NOT call server.
         if (String(postId).startsWith("local_")) {
           await enqueueOp({
-            id: op_${Date.now()},
+            id: `op_${Date.now()}`,
             type: "comment",
             postId,
             payload: { comments: (posts.find((p) => p.id === postId)?.comments || []).concat(comment) },
@@ -885,7 +885,7 @@ const Newsfeed = () => {
           // enqueue comment update for later
           const target = posts.find((p) => p.id === postId) || {};
           await enqueueOp({
-            id: op_${Date.now()},
+            id: `op_${Date.now()}`,
             type: "comment",
             postId,
             payload: { comments: [...(target.comments || []), comment] },
@@ -942,7 +942,7 @@ const Newsfeed = () => {
                 if (String(postId).startsWith("local_")) {
                   const target = posts.find((p) => p.id === postId) || {};
                   await enqueueOp({
-                    id: op_${Date.now()},
+                    id: `op_${Date.now()}`,
                     type: "comment",
                     postId,
                     payload: { comments: (target.comments || []).filter((c) => c.id !== commentId) },
@@ -954,7 +954,7 @@ const Newsfeed = () => {
                 if (!state.isConnected) {
                   const target = posts.find((p) => p.id === postId) || {};
                   await enqueueOp({
-                    id: op_${Date.now()},
+                    id: `op_${Date.now()}`,
                     type: "comment",
                     postId,
                     payload: { comments: (target.comments || []).filter((c) => c.id !== commentId) },
@@ -1041,7 +1041,7 @@ const Newsfeed = () => {
           const state = await NetInfo.fetch();
           if (!state.isConnected) {
             await enqueueOp({
-              id: op_${Date.now()},
+              id: `op_${Date.now()}`,
               type: "update",
               postId: editingPostId,
               payload: {
@@ -1070,7 +1070,7 @@ const Newsfeed = () => {
         const state = await NetInfo.fetch();
         if (!state.isConnected) {
           // offline -> create local placeholder + enqueue create payload (include localId)
-          const localId = local_${Date.now()};
+          const localId = `local_${Date.now()}`;
           const createdAtIso = new Date().toISOString();
           await enqueuePost({
             // offlineQueue expects simple post payload; include localId so we can remove it if user deletes before sync
@@ -1138,7 +1138,7 @@ const Newsfeed = () => {
       if (isNetworkErr) {
         // fallback to offline create path
         try {
-          const localId = local_${Date.now()};
+          const localId = `local_${Date.now()}`;
           await enqueuePost({
             localId,
             username: "current_user",
@@ -1204,7 +1204,7 @@ const Newsfeed = () => {
             if (!state.isConnected) {
               setPosts((prev) => prev.filter((p) => p.id !== postId));
               await enqueueOp({
-                id: op_${Date.now()},
+                id: `op_${Date.now()}`,
                 type: "delete",
                 postId,
               });

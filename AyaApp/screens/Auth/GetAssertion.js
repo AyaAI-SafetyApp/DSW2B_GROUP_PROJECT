@@ -9,10 +9,9 @@ import {
 } from "react-native";
 import * as LocalAuthentication from "expo-local-authentication";
 import { Ionicons } from "@expo/vector-icons";
-import axios from "axios";
 import { useNavigation, useRoute } from "@react-navigation/native";
-
-const API_BASE = "https://dsw2b-backend.onrender.com";
+import { supabase } from "../../lib/supabaseClient";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function GetAssertion() {
   const navigation = useNavigation();
@@ -70,46 +69,89 @@ export default function GetAssertion() {
 
       showStatus("Verifying passkey...");
 
-      // Get user's passkeys from backend
-      try {
-        const passkeysResponse = await axios.get(`${API_BASE}/api/passkey/${userID}`);
-        
-        if (!passkeysResponse.data.passkeys || passkeysResponse.data.passkeys.length === 0) {
-          showStatus("No passkey found. Please register first.");
-          setLoading(false);
-          return;
-        }
+      // Fetch user's passkeys directly from Supabase
+      const { data: passkeys, error } = await supabase
+        .from("passkeys")
+        .select("*")
+        .eq("user_id", userID)
+        .order("created_at", { ascending: false });
 
-        // Use the most recent passkey
-        const latestPasskey = passkeysResponse.data.passkeys[0];
-        
-        // Verify login with the passkey
-        const verifyResponse = await axios.post(`${API_BASE}/login/verify`, {
-          userID,
-          assertion: {
-            id: latestPasskey.credential_id,
-            type: "public-key"
-          },
-        });
-
-        if (verifyResponse.data.authenticated) {
-          showStatus("Login successful!");
-          
-          // Navigate to main app
-          setTimeout(() => {
-            navigation.reset({
-              index: 0,
-              routes: [{ name: "MainTabs" }],
-            });
-          }, 1000);
-        }
-      } catch (err) {
-        console.error("Login verification error:", err);
-        const errorMsg = err.response?.data?.error || "Failed to verify login";
-        showStatus(errorMsg);
+      if (error) {
+        console.error("Supabase error:", error);
+        showStatus("Failed to retrieve passkey");
         setLoading(false);
         return;
       }
+
+      if (!passkeys || passkeys.length === 0) {
+        showStatus("No passkey found. Please register first.");
+        setLoading(false);
+        return;
+      }
+
+      // Use the most recent passkey
+      const latestPasskey = passkeys[0];
+      console.log("Login successful with passkey:", latestPasskey.credential_id);
+
+      // Update last_used_at timestamp
+      await supabase
+        .from("passkeys")
+        .update({ last_used_at: new Date().toISOString() })
+        .eq("id", latestPasskey.id);
+
+      // Load full user profile from Supabase
+      const { getUserProfile, updateLastLogin } = require('../../lib/profileService');
+      console.log('🔍 Loading profile for user:', userID);
+      
+      let userProfile = null;
+      try {
+        userProfile = await getUserProfile(userID);
+        console.log('📊 Profile loaded:', userProfile);
+      } catch (profileError) {
+        console.warn('⚠️ Could not load profile:', profileError);
+      }
+
+      // Store comprehensive user session data
+      const userData = {
+        email: userID,
+        userId: latestPasskey.user_id,
+        name: userProfile?.full_name || (userID.includes("@") ? userID.split("@")[0] : userID),
+        provider: latestPasskey.provider || "Biometric",
+        loginTime: new Date().toISOString(),
+        fullName: userProfile?.full_name,
+        phone: userProfile?.phone,
+        location: userProfile?.location,
+        age: userProfile?.age,
+        gender: userProfile?.gender,
+        profilePicture: userProfile?.profile_picture_url,
+        username: userProfile?.username,
+      };
+      
+      console.log('💾 Saving session data:', userData);
+      await AsyncStorage.setItem("@user_session", JSON.stringify(userData));
+      
+      // Verify session was saved
+      const savedSession = await AsyncStorage.getItem("@user_session");
+      console.log('✅ Session verified:', savedSession ? 'Saved successfully' : 'Failed to save');
+
+      // Update last login timestamp in profile
+      if (userProfile) {
+        try {
+          await updateLastLogin(userID);
+        } catch (updateError) {
+          console.warn('⚠️ Could not update last login:', updateError);
+        }
+      }
+
+      showStatus("Login successful!");
+
+      // Navigate to main app
+      setTimeout(() => {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: "MainTabs" }],
+        });
+      }, 1000);
     } catch (err) {
       console.error("Login error:", err);
       showStatus("Something went wrong");

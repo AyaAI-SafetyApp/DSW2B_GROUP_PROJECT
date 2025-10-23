@@ -13,22 +13,30 @@ import {
   ScrollView,
   Animated,
   Easing,
+  Alert,
 } from "react-native";
 import * as LocalAuthentication from "expo-local-authentication";
 import { useNavigation } from "@react-navigation/native";
 import Ionicons from "react-native-vector-icons/Ionicons";
-import axios from "axios";
+import { supabase } from "../../lib/supabaseClient";
 
-const API_BASE = "https://dsw2b-backend.onrender.com";
 const CONFETTI_COUNT = 10;
 
-export default function CreateCredentials() {
+export default function CreateCredentials({ route }) {
   const navigation = useNavigation();
-  const [userID, setUserID] = useState("");
+  
+  // Get data from previous screen (AccountForm)
+  const { userID: passedUserID, initialFullName, userEmail } = route?.params || {};
+  
+  const [fullName, setFullName] = useState(initialFullName || "");
+  const [userID, setUserID] = useState(passedUserID || "");
+  const [email, setEmail] = useState(userEmail || "");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [inputFocused, setInputFocused] = useState(false);
+  const [nameFocused, setNameFocused] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [selectedProvider, setSelectedProvider] = useState(null); // 'Apple' or 'Google'
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const successScale = useRef(new Animated.Value(0)).current;
@@ -123,8 +131,19 @@ export default function CreateCredentials() {
     ]).start();
   };
 
-  const handleRegister = async (provider) => {
-    if (!userID) return setMessage("Enter email or phone");
+  const handleCreatePasskey = async () => {
+    if (!selectedProvider) {
+      Alert.alert("Error", "Please select a passkey provider (Apple or Google)");
+      return;
+    }
+    if (!fullName.trim()) {
+      setMessage("Please enter your full name");
+      return;
+    }
+    if (!userID) {
+      setMessage("Enter email or phone");
+      return;
+    }
     setLoading(true);
     setMessage("");
     animateButton();
@@ -132,7 +151,7 @@ export default function CreateCredentials() {
     try {
       // First authenticate with biometrics
       const bioAuth = await LocalAuthentication.authenticateAsync({
-        promptMessage: `Authenticate with ${provider}`,
+        promptMessage: `Authenticate with ${selectedProvider}`,
         fallbackLabel: "Use PIN",
       });
       
@@ -140,24 +159,104 @@ export default function CreateCredentials() {
         throw new Error("Biometric authentication failed");
       }
 
-      // Send registration request to backend - it will generate the passkey
-      const response = await axios.post(`${API_BASE}/register`, {
-        userID,
-        provider,
-      });
+      // Generate unique passkey credentials
+      const timestamp = Date.now();
+      const randomString = Math.random().toString(36).substring(2, 15);
+      const credentialId = `cred_${userID}_${timestamp}_${randomString}`;
+      const publicKey = `key_${userID}_${timestamp}_${randomString}`;
 
-      console.log("Registration response:", response.data);
+      // Store passkey directly in Supabase
+      const { data, error } = await supabase
+        .from("passkeys")
+        .insert([
+          {
+            user_id: userID,
+            credential_id: credentialId,
+            public_key: publicKey,
+            provider: selectedProvider,
+            created_at: new Date().toISOString(),
+          },
+        ])
+        .select();
+
+      if (error) {
+        console.error("Supabase error:", error);
+        throw new Error(error.message || "Failed to store passkey");
+      }
+
+      console.log("Passkey stored successfully:", data);
+
+      // Send welcome email with passkey if user provided an email address
+      if (email && email.includes('@')) {
+        try {
+          console.log('📧 Attempting to send welcome email...');
+          console.log('📧 Email:', email);
+          console.log('📧 Credential ID:', credentialId);
+          console.log('📧 Provider:', selectedProvider);
+          console.log('📧 User Name:', fullName.trim());
+          console.log('📧 Is Welcome:', true);
+          
+          const { data: emailData, error: emailError } = await supabase.functions.invoke('dynamic-api', {
+            body: {
+              email: email,
+              credentialId: credentialId,
+              provider: selectedProvider,
+              userName: fullName.trim(),
+              isWelcome: true,
+            },
+          });
+
+          if (emailError) {
+            console.error("⚠️ Email sending failed!");
+            console.error("Error name:", emailError.name);
+            console.error("Error message:", emailError.message);
+            console.error("Error context:", emailError.context);
+            console.error("Full email error:", JSON.stringify(emailError, null, 2));
+            
+            // Show user-friendly error
+            Alert.alert(
+              "Email Error",
+              "Passkey created successfully but welcome email failed to send. Please check Supabase function logs.",
+              [{ text: "OK" }]
+            );
+          } else {
+            console.log("✅ Welcome email sent successfully!");
+            console.log("Email response:", emailData);
+            setMessage("Welcome email sent! Check your inbox.");
+            
+            Alert.alert(
+              "Success!",
+              "Passkey created and welcome email sent! 🎉",
+              [{ text: "OK" }]
+            );
+          }
+        } catch (emailErr) {
+          console.error("⚠️ Email sending exception caught!");
+          console.error("Exception type:", emailErr.constructor.name);
+          console.error("Exception message:", emailErr.message);
+          console.error("Exception stack:", emailErr.stack);
+          console.error("Full error details:", JSON.stringify(emailErr, null, 2));
+          
+          Alert.alert(
+            "Email Error",
+            "Passkey created but email failed: " + (emailErr.message || "Unknown error"),
+            [{ text: "OK" }]
+          );
+        }
+      }
 
       // Show success animation
       setSuccess(true);
       setLoading(false);
       showSuccess();
 
-      // Navigate to account form after success animation
-      setTimeout(() => navigation.navigate("AccountForm", { userID }), 1800);
+      // Navigate to subscription screen after success animation
+      setTimeout(() => navigation.navigate("subscription", { 
+        userID 
+      }), 1800);
     } catch (err) {
       console.error("Registration error:", err);
-      setMessage(err.response?.data?.error || err.message || "Registration failed");
+      setMessage(err.message || "Registration failed");
       setLoading(false);
     }
   };
@@ -177,7 +276,7 @@ export default function CreateCredentials() {
           {/* Back Arrow */}
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => navigation.replace("OnboardingScreen")}
+            onPress={() => navigation.goBack()}
             activeOpacity={0.7}
           >
             <Ionicons name="arrow-back" size={26} color="#1C1C1E" />
@@ -196,9 +295,41 @@ export default function CreateCredentials() {
           <View style={styles.formSection}>
             <View style={styles.inputContainer}>
               <TextInput
+                placeholder="Full Name"
+                placeholderTextColor="#8E8E93"
+                style={[
+                  styles.input, 
+                  nameFocused && styles.inputFocused,
+                  initialFullName && styles.inputPrefilled
+                ]}
+                value={fullName}
+                onChangeText={setFullName}
+                onFocus={() => setNameFocused(true)}
+                onBlur={() => setNameFocused(false)}
+                autoCapitalize="words"
+                autoComplete="name"
+                textContentType="name"
+                editable={!initialFullName}
+              />
+              {initialFullName && (
+                <Ionicons 
+                  name="checkmark-circle" 
+                  size={20} 
+                  color="#34C759" 
+                  style={styles.checkIcon} 
+                />
+              )}
+            </View>
+
+            <View style={styles.inputContainer}>
+              <TextInput
                 placeholder="Email or Phone"
                 placeholderTextColor="#8E8E93"
-                style={[styles.input, inputFocused && styles.inputFocused]}
+                style={[
+                  styles.input, 
+                  inputFocused && styles.inputFocused,
+                  passedUserID && styles.inputPrefilled
+                ]}
                 value={userID}
                 onChangeText={setUserID}
                 onFocus={() => setInputFocused(true)}
@@ -207,61 +338,104 @@ export default function CreateCredentials() {
                 autoCapitalize="none"
                 autoComplete="email"
                 textContentType="emailAddress"
+                editable={!passedUserID}
               />
+              {passedUserID && (
+                <Ionicons 
+                  name="checkmark-circle" 
+                  size={20} 
+                  color="#34C759" 
+                  style={styles.checkIcon} 
+                />
+              )}
             </View>
 
-            {/* Buttons */}
+            {/* Provider Selection Buttons */}
             <View style={styles.buttonContainer}>
-              <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
-                <TouchableOpacity
-                  style={styles.primaryButton}
-                  onPress={() => handleRegister("Apple")}
-                  disabled={loading}
-                  activeOpacity={0.8}
-                >
-                  <Image
-                    source={require("../../assets/apple.png")}
-                    style={styles.buttonIcon}
+              <TouchableOpacity
+                style={[
+                  styles.primaryButton,
+                  selectedProvider === 'Apple' && styles.selectedButton
+                ]}
+                onPress={() => setSelectedProvider("Apple")}
+                disabled={loading}
+                activeOpacity={0.8}
+              >
+                <Image
+                  source={require("../../assets/apple.png")}
+                  style={styles.buttonIcon}
+                />
+                <Text style={[
+                  styles.primaryButtonText,
+                  selectedProvider === 'Apple' && styles.selectedButtonText
+                ]}>
+                  iCloud Keychain
+                </Text>
+                {selectedProvider === 'Apple' && (
+                  <Ionicons 
+                    name="checkmark-circle" 
+                    size={20} 
+                    color="#34C759" 
+                    style={{ marginLeft: 8 }} 
                   />
-                  {loading ? (
-                    <ActivityIndicator
-                      color="#fff"
-                      size="small"
-                      style={{ marginLeft: 8 }}
-                    />
-                  ) : (
-                    <Text style={styles.primaryButtonText}>
-                      Continue with iCloud Keychain
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              </Animated.View>
+                )}
+              </TouchableOpacity>
 
+              <TouchableOpacity
+                style={[
+                  styles.secondaryButton,
+                  selectedProvider === 'Google' && styles.selectedButton
+                ]}
+                onPress={() => setSelectedProvider("Google")}
+                disabled={loading}
+                activeOpacity={0.8}
+              >
+                <Image
+                  source={require("../../assets/googleicon.jpg")}
+                  style={styles.buttonIcon}
+                />
+                <Text style={[
+                  styles.secondaryButtonText,
+                  selectedProvider === 'Google' && styles.selectedButtonText
+                ]}>
+                  Google Passkey
+                </Text>
+                {selectedProvider === 'Google' && (
+                  <Ionicons 
+                    name="checkmark-circle" 
+                    size={20} 
+                    color="#34C759" 
+                    style={{ marginLeft: 8 }} 
+                  />
+                )}
+              </TouchableOpacity>
+            </View>
+
+            {/* Create Passkey Button - Only show when provider is selected */}
+            {selectedProvider && (
               <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
                 <TouchableOpacity
-                  style={styles.secondaryButton}
-                  onPress={() => handleRegister("Google")}
+                  style={[
+                    styles.createPasskeyButton,
+                    loading && styles.createPasskeyButtonDisabled
+                  ]}
+                  onPress={handleCreatePasskey}
                   disabled={loading}
                   activeOpacity={0.8}
                 >
-                  <Image
-                    source={require("../../assets/googleicon.jpg")}
-                    style={styles.buttonIcon}
-                  />
                   {loading ? (
-                    <ActivityIndicator
-                      color="#1C1C1E"
-                      size="small"
-                      style={{ marginLeft: 8 }}
-                    />
+                    <ActivityIndicator color="#fff" size="small" />
                   ) : (
-                    <Text style={styles.secondaryButtonText}>
-                      Continue with Google Passkey
-                    </Text>
+                    <>
+                      <Ionicons name="finger-print" size={24} color="#fff" style={{ marginRight: 8 }} />
+                      <Text style={styles.createPasskeyButtonText}>
+                        Create Passkey
+                      </Text>
+                    </>
                   )}
                 </TouchableOpacity>
               </Animated.View>
-            </View>
+            )}
 
             {/* Error */}
             {message ? (
@@ -356,7 +530,10 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   formSection: { flex: 1, justifyContent: "flex-start", paddingTop: 8 },
-  inputContainer: { marginBottom: 32 },
+  inputContainer: { 
+    marginBottom: 32,
+    position: 'relative',
+  },
   input: {
     height: 50,
     backgroundColor: "#F2F2F7",
@@ -368,6 +545,17 @@ const styles = StyleSheet.create({
     borderColor: "transparent",
   },
   inputFocused: { backgroundColor: "#FFFFFF", borderColor: "#007AFF" },
+  inputPrefilled: {
+    backgroundColor: "#E8F5E9",
+    borderColor: "#34C759",
+    color: "#1C1C1E",
+    fontWeight: "500",
+  },
+  checkIcon: {
+    position: 'absolute',
+    right: 16,
+    top: 15,
+  },
   buttonContainer: { gap: 12, marginBottom: 24 },
   primaryButton: {
     flexDirection: "row",
@@ -402,6 +590,39 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   buttonIcon: { width: 20, height: 20 },
+  selectedButton: {
+    borderColor: "#34C759",
+    borderWidth: 2,
+    backgroundColor: "#E8F5E9",
+  },
+  selectedButtonText: {
+    color: "#34C759",
+    fontWeight: "700",
+  },
+  createPasskeyButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FF1493",
+    height: 56,
+    borderRadius: 14,
+    paddingHorizontal: 20,
+    marginTop: 16,
+    marginBottom: 16,
+    shadowColor: "#FF1493",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  createPasskeyButtonDisabled: {
+    opacity: 0.6,
+  },
+  createPasskeyButtonText: {
+    color: "#FFFFFF",
+    fontSize: 18,
+    fontWeight: "700",
+  },
   errorContainer: {
     backgroundColor: "#FFEBEE",
     paddingVertical: 12,

@@ -78,6 +78,7 @@ const Header = ({
   notificationsCount,
   onOpenNotifications,
   onProfilePress,
+  onLogout,
   riskColor,
 }) => (
   <FadeView style={styles.header} delay={100}>
@@ -328,6 +329,20 @@ export default function HomeScreen() {
   const [loadingSafety, setLoadingSafety] = useState(true);
   const [showLottie, setShowLottie] = useState(true);
 
+  // Logout handler
+  const handleLogout = useCallback(async () => {
+    try {
+      await AsyncStorage.removeItem("@user_session");
+      await AsyncStorage.removeItem("@safety_last");
+      navigation.reset({
+        index: 0,
+        routes: [{ name: "WelcomeScreen" }],
+      });
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+  }, [navigation]);
+
   useEffect(() => {
     (async () => {
       try {
@@ -457,6 +472,7 @@ export default function HomeScreen() {
         notificationsCount={notifications.length}
         onOpenNotifications={() => setModalVisible(true)}
         onProfilePress={() => navigation.navigate("ProfileScreen")}
+        onLogout={handleLogout}
         riskColor={riskColor}
       />
       <NotificationModal
