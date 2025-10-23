@@ -159,7 +159,6 @@ const NotificationModal = ({ visible, notifications, onClose }) => (
     </View>
   </Modal>
 );
-
 const RiskCard = ({ crimeProbability, riskColor, riskLabel, safetyTip }) => (
   <FadeView style={styles.riskCard} delay={200}>
     <View style={styles.riskHeader}>
@@ -196,6 +195,8 @@ const RiskCard = ({ crimeProbability, riskColor, riskLabel, safetyTip }) => (
     </View>
   </FadeView>
 );
+
+
 
 const QuickActions = ({ navigation }) => {
   const actions = [

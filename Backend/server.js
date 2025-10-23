@@ -1037,51 +1037,38 @@ function getRiskLevel(dangerPercentage) {
 
 // Generate safety tips
 function generateSafetyTips(areaData) {
+    // Get current hour for time-based tips
+    const hour = new Date().getHours();
+    
+    // Time-based safety tip (first tip)
+    let timeBasedTip = "";
+    
+    if (hour >= 0 && hour < 6) {
+        // 00:00–06:00
+        timeBasedTip = "Be aware: Break-ins, night theft.\nTip: Lock everything and avoid late-night movement.";
+    } else if (hour >= 6 && hour < 12) {
+        // 06:00–12:00
+        timeBasedTip = "Be aware: Phone snatching, muggings.\nTip: Stay alert on commute; keep valuables hidden.";
+    } else if (hour >= 12 && hour < 18) {
+        // 12:00–18:00
+        timeBasedTip = "Be aware: Burglaries, car theft.\nTip: Lock your home and car; don't leave items visible.";
+    } else {
+        // 18:00–24:00
+        timeBasedTip = "Be aware: Hijackings, robberies.\nTip: Stay alert when driving; avoid dark, quiet areas.";
+    }
+    
     const baseTips = [
         "Stay aware of your surroundings at all times",
         "Keep valuables out of sight and secure",
-        "Use well-lit routes, especially at night",
+        "Trust your instincts - if something feels wrong, it probably is",
+        "Use well-lit routes and busy areas when possible",
         "Share your location with trusted contacts",
+        "Keep emergency contacts readily accessible",
         "Avoid displaying expensive items publicly"
     ];
-    
-    const dangerSpecificTips = [];
-    
-    if (areaData.Danger_Percentage >= 90) {
-        dangerSpecificTips.push(
-            "Exercise extreme caution - consider avoiding this area if possible",
-            "Travel in groups whenever possible",
-            "Avoid the area after dark",
-            "Keep emergency contacts readily available"
-        );
-    } else if (areaData.Danger_Percentage >= 70) {
-        dangerSpecificTips.push(
-            "Be extra vigilant in this high-risk area",
-            "Avoid isolated areas and stick to main roads",
-            "Consider using alternative routes during peak crime hours"
-        );
-    } else if (areaData.Danger_Percentage >= 50) {
-        dangerSpecificTips.push(
-            "Maintain heightened awareness",
-            "Avoid walking alone late at night"
-        );
-    } else if (areaData.Danger_Percentage >= 30) {
-        dangerSpecificTips.push(
-            "Standard safety precautions recommended",
-            "Be cautious during evening hours"
-        );
-    } else {
-        dangerSpecificTips.push(
-            "This area has relatively low crime rates",
-            "Continue following basic safety practices"
-        );
-    }
-    
-    if (areaData.Total_Crimes > 5000) {
-        dangerSpecificTips.push("High crime volume area - extra precautions advised");
-    }
-    
-    return [...dangerSpecificTips, ...baseTips].slice(0, 8);
+
+    // Return time-based tip first, then general base tips
+    return [timeBasedTip, ...baseTips].slice(0, 6);
 }
 
 // Passkey API endpoints
