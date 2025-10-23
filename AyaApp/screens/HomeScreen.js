@@ -123,9 +123,6 @@ const Header = ({
           <Ionicons name="person" size={18} color="#FFFFFF" />
         </View>
       </TouchableOpacity>
-      <TouchableOpacity style={styles.logoutButton} onPress={onLogout}>
-        <Ionicons name="log-out-outline" size={24} color="#FF3B30" />
-      </TouchableOpacity>
     </View>
   </FadeView>
 );

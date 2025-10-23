@@ -13,6 +13,7 @@ import {
   StatusBar,
 } from "react-native";
 import { fetchNews } from "./newsService";
+import { Ionicons } from '@expo/vector-icons';
 
 export default function NewsFeed({ navigation }) {
   const [articles, setArticles] = useState([]);
@@ -126,6 +127,9 @@ export default function NewsFeed({ navigation }) {
 
       {/* Header */}
       <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={24} color="#D81B60" />
+        </TouchableOpacity>
         <Text style={styles.headerTitle}>GBV News</Text>
       </View>
 
@@ -190,6 +194,8 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: 16,
     paddingVertical: 12,
+    flexDirection: 'row',
+    gap: 10,
   },
   headerTitle: {
     fontSize: 24,
