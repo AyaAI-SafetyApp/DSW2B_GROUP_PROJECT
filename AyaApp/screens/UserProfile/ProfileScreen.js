@@ -333,21 +333,6 @@ const ProfileScreen = () => {
               <Ionicons name="log-out-outline" size={20} color="#FF1493" />
               <Text style={styles.logoutText}>Logout</Text>
             </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={styles.deleteButton} 
-              onPress={handleDeleteAccount}
-              disabled={deleting}
-            >
-              {deleting ? (
-                <ActivityIndicator size="small" color="#FF3B30" />
-              ) : (
-                <>
-                  <Ionicons name="trash-outline" size={20} color="#FF3B30" />
-                  <Text style={styles.deleteText}>Delete Account</Text>
-                </>
-              )}
-            </TouchableOpacity>
           </>
         )}
       </ScrollView>
@@ -553,24 +538,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#FF1493',
-    marginLeft: 8,
-  },
-  deleteButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    marginHorizontal: 20,
-    marginBottom: 32,
-    paddingVertical: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#FFCCCC',
-  },
-  deleteText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FF3B30',
     marginLeft: 8,
   },
 });

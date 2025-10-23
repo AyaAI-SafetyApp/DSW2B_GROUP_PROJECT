@@ -14,7 +14,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { fetchNews } from "./newsService";
-import { Ionicons } from '@expo/vector-icons';
+
 
 export default function NewsFeed({ navigation }) {
   const [articles, setArticles] = useState([]);
