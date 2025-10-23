@@ -31,10 +31,10 @@ const MINIMUM_AGE = 13;
 export default function PremiumMultiStepForm() {
   const route = useRoute();
   const navigation = useNavigation();
-  const { userID } = route.params;
+  const { userID, initialFullName, userEmail } = route.params;
 
   const [step, setStep] = useState(0);
-  const [fullName, setFullName] = useState("");
+  const [fullName, setFullName] = useState(initialFullName || "");
   const [username, setUsername] = useState("");
   const [phone, setPhone] = useState("");
   const [location, setLocation] = useState("");
@@ -384,13 +384,56 @@ export default function PremiumMultiStepForm() {
     setLoading(true);
     try {
       const accountData = { fullName, username, age, gender, phone, location, profilePic };
+      
+      // Save to backend API
       await axios.post(`https://dsw2b-backend.onrender.com/account`, {
         userID,
         account: accountData,
       });
+      
+      // Save to Supabase
+      const { saveUserProfile } = require('../../lib/profileService');
+      const savedProfile = await saveUserProfile({
+        userId: userID,
+        email: userID,
+        fullName,
+        username,
+        phone,
+        location,
+        age: parseInt(age),
+        gender,
+        profilePicUri: profilePic,
+        provider: 'email'
+      });
+      
+      // Create and save user session
+      const userData = {
+        email: userID,
+        userId: userID,
+        name: fullName,
+        provider: 'email',
+        loginTime: new Date().toISOString(),
+        fullName: fullName,
+        phone: phone,
+        location: location,
+        age: age,
+        gender: gender,
+        profilePicture: savedProfile?.profile_picture_url || null,
+        username: username,
+      };
+      
+      console.log('💾 Saving session after profile creation:', userData);
+      await AsyncStorage.setItem("@user_session", JSON.stringify(userData));
+      
       animateStepCompletion(step);
-      navigation.navigate("subscription", { userID });
+      // Navigate to passkey creation first (before subscription)
+      navigation.navigate("CreateCredential", { 
+        userID,
+        initialFullName: fullName,
+        userEmail: userEmail
+      });
     } catch (err) {
+      console.error('Account creation error:', err);
       setErrors({ submit: "Something went wrong. Try again." });
     } finally {
       setLoading(false);

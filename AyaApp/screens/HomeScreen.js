@@ -57,6 +57,7 @@ const Header = ({
   notificationsCount,
   onOpenNotifications,
   onProfilePress,
+  onLogout,
   riskColor,
   onLogout,
 }) => (
@@ -101,9 +102,6 @@ const Header = ({
         <View style={styles.profilePicture}>
           <Ionicons name="person" size={18} color="#FFFFFF" />
         </View>
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.logoutButton} onPress={onLogout}>
-        <Ionicons name="log-out-outline" size={24} color="#FF3B30" />
       </TouchableOpacity>
     </View>
   </FadeView>
@@ -306,6 +304,20 @@ export default function HomeScreen() {
   const [newsArticles, setNewsArticles] = useState([]);
   const [loadingNews, setLoadingNews] = useState(true);
 
+  // Logout handler
+  const handleLogout = useCallback(async () => {
+    try {
+      await AsyncStorage.removeItem("@user_session");
+      await AsyncStorage.removeItem("@safety_last");
+      navigation.reset({
+        index: 0,
+        routes: [{ name: "WelcomeScreen" }],
+      });
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+  }, [navigation]);
+
   useEffect(() => {
     (async () => {
       try {
@@ -505,6 +517,7 @@ export default function HomeScreen() {
         notificationsCount={notifications.length}
         onOpenNotifications={() => setModalVisible(true)}
         onProfilePress={() => navigation.navigate("ProfileScreen")}
+        onLogout={handleLogout}
         riskColor={riskColor}
         onLogout={handleLogout}
       />

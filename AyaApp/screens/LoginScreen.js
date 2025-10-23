@@ -1,14 +1,122 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, TextInput, TouchableOpacity, Image, StyleSheet, Alert, ActivityIndicator } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { AntDesign, FontAwesome, Ionicons } from "@expo/vector-icons";
+import { AntDesign, FontAwesome, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as LocalAuthentication from "expo-local-authentication";
 import { supabaseAuth } from "../lib/supabaseClient";
+import { supabase } from "../lib/supabaseClient";
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [hasPasskey, setHasPasskey] = useState(false);
+  const [savedEmail, setSavedEmail] = useState("");
+
+  // Check if user has a saved passkey on component mount
+  useEffect(() => {
+    checkForPasskey();
+  }, []);
+
+  const checkForPasskey = async () => {
+    try {
+      // Check if biometric is available
+      const compatible = await LocalAuthentication.hasHardwareAsync();
+      const enrolled = await LocalAuthentication.isEnrolledAsync();
+      
+      if (!compatible || !enrolled) {
+        return;
+      }
+
+      // Check last logged in user
+      const lastSession = await AsyncStorage.getItem("@user_session");
+      if (lastSession) {
+        const userData = JSON.parse(lastSession);
+        const userEmail = userData.email;
+        
+        // Check if this user has a passkey saved
+        const { data: passkeys } = await supabase
+          .from('passkeys')
+          .select('*')
+          .eq('user_id', userEmail)
+          .limit(1);
+        
+        if (passkeys && passkeys.length > 0) {
+          setHasPasskey(true);
+          setSavedEmail(userEmail);
+          setEmail(userEmail);
+        }
+      }
+    } catch (error) {
+      console.log("Passkey check error:", error);
+    }
+  };
+
+  const handlePasskeyLogin = async () => {
+    try {
+      setLoading(true);
+      
+      // Authenticate with biometrics
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: "Login with your passkey",
+        fallbackLabel: "Use password instead",
+        cancelLabel: "Cancel",
+      });
+
+      if (!result.success) {
+        Alert.alert("Authentication Failed", "Biometric authentication was cancelled or failed");
+        return;
+      }
+
+      // Biometric authentication successful - load user session
+      const userEmail = savedEmail || email;
+      
+      // Load full user profile from Supabase
+      const { getUserProfile } = require('../lib/profileService');
+      console.log('🔍 Loading profile for passkey user:', userEmail);
+      
+      const userProfile = await getUserProfile(userEmail);
+      
+      if (!userProfile) {
+        throw new Error("User profile not found");
+      }
+      
+      // Create comprehensive user session data
+      const userData = {
+        email: userEmail,
+        userId: userProfile.user_id,
+        name: userProfile.full_name || userEmail.split("@")[0],
+        provider: 'passkey',
+        loginTime: new Date().toISOString(),
+        fullName: userProfile.full_name,
+        phone: userProfile.phone,
+        location: userProfile.location,
+        age: userProfile.age,
+        gender: userProfile.gender,
+        profilePicture: userProfile.profile_picture_url,
+        username: userProfile.username,
+      };
+      
+      // Store user session
+      console.log('💾 Saving passkey session data:', userData);
+      await AsyncStorage.setItem("@user_session", JSON.stringify(userData));
+      
+      // Navigate to main app
+      navigation.reset({
+        index: 0,
+        routes: [{ name: "MainTabs" }],
+      });
+      
+      Alert.alert("Success", "Login successful with passkey! 🔐");
+      
+    } catch (error) {
+      console.error("❌ Passkey login error:", error);
+      Alert.alert("Login Failed", error.message || "Failed to login with passkey");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -36,9 +144,41 @@ export default function LoginScreen({ navigation }) {
         throw new Error("No user data returned");
       }
       
-      // Store user session
-      await AsyncStorage.setItem("userSession", JSON.stringify(data.session));
-      await AsyncStorage.setItem("userID", data.user.id);
+      // Load full user profile from Supabase
+      const { getUserProfile } = require('../lib/profileService');
+      console.log('🔍 Loading profile for user:', email);
+      
+      let userProfile = null;
+      try {
+        userProfile = await getUserProfile(email);
+        console.log('📊 Profile loaded:', userProfile);
+      } catch (profileError) {
+        console.warn('⚠️ Could not load profile:', profileError);
+      }
+      
+      // Create comprehensive user session data
+      const userData = {
+        email: email,
+        userId: data.user.id,
+        name: userProfile?.full_name || email.split("@")[0],
+        provider: 'email',
+        loginTime: new Date().toISOString(),
+        fullName: userProfile?.full_name,
+        phone: userProfile?.phone,
+        location: userProfile?.location,
+        age: userProfile?.age,
+        gender: userProfile?.gender,
+        profilePicture: userProfile?.profile_picture_url,
+        username: userProfile?.username,
+      };
+      
+      // Store user session with correct key
+      console.log('💾 Saving session data:', userData);
+      await AsyncStorage.setItem("@user_session", JSON.stringify(userData));
+      
+      // Verify session was saved
+      const savedSession = await AsyncStorage.getItem("@user_session");
+      console.log('✅ Session verified:', savedSession ? 'Saved successfully' : 'Failed to save');
       
       console.log("💾 Session stored for user:", data.user.id);
       
@@ -122,6 +262,20 @@ export default function LoginScreen({ navigation }) {
             )}
           </TouchableOpacity>
 
+          {hasPasskey && (
+            <>
+              <Text style={styles.orText}>or</Text>
+              <TouchableOpacity 
+                style={[styles.passkeyButton, loading && styles.disabledButton]} 
+                onPress={handlePasskeyLogin}
+                disabled={loading}
+              >
+                <MaterialCommunityIcons name="fingerprint" size={24} color="#fff" style={styles.passkeyIcon} />
+                <Text style={styles.passkeyText}>Login with Passkey</Text>
+              </TouchableOpacity>
+            </>
+          )}
+
           <Text style={styles.orText}>or continue with</Text>
 
           <View style={styles.socialRow}>
@@ -173,6 +327,24 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   signInText: { color: "#fff", fontWeight: "600", textAlign: "center" },
+  passkeyButton: {
+    backgroundColor: "#4CAF50",
+    borderRadius: 8,
+    paddingVertical: 14,
+    marginTop: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  passkeyIcon: {
+    marginRight: 8,
+  },
+  passkeyText: { 
+    color: "#fff", 
+    fontWeight: "600", 
+    textAlign: "center",
+    fontSize: 16,
+  },
   orText: { textAlign: "center", color: "#999", marginTop: 20 },
   socialRow: { flexDirection: "row", justifyContent: "center", marginTop: 12 },
   socialButton: {

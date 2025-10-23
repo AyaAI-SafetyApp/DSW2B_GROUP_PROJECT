@@ -6,18 +6,30 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabaseAuth } from "../lib/supabaseClient";
 
 export default function SignupScreen({ navigation }) {
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleSignup = async () => {
-    if (!email || !password) {
+    if (!fullName || !email || !password) {
       Alert.alert("Error", "Please fill in all fields");
+      return;
+    }
+
+    if (fullName.trim().length < 2) {
+      Alert.alert("Error", "Please enter your full name");
       return;
     }
 
     if (password.length < 6) {
       Alert.alert("Error", "Password must be at least 6 characters long");
+      return;
+    }
+
+    if (!agreedToTerms) {
+      Alert.alert("Terms Required", "Please agree to the Terms of Service and Privacy Policy to continue");
       return;
     }
 
@@ -61,6 +73,13 @@ export default function SignupScreen({ navigation }) {
 
         <View style={styles.inputContainer}>
           <TextInput
+            placeholder="Enter your full name"
+            value={fullName}
+            onChangeText={setFullName}
+            style={styles.input}
+            autoCapitalize="words"
+          />
+          <TextInput
             placeholder="Enter your email"
             value={email}
             onChangeText={setEmail}
@@ -76,10 +95,21 @@ export default function SignupScreen({ navigation }) {
             secureTextEntry
           />
 
-          <Text style={styles.termsText}>
-            I agree to the <Text style={styles.link}>Terms of Service</Text> and{" "}
-            <Text style={styles.link}>Privacy Policy</Text>
-          </Text>
+          <TouchableOpacity 
+            style={styles.checkboxContainer} 
+            onPress={() => setAgreedToTerms(!agreedToTerms)}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.checkbox, agreedToTerms && styles.checkboxChecked]}>
+              {agreedToTerms && (
+                <Ionicons name="checkmark" size={16} color="#fff" />
+              )}
+            </View>
+            <Text style={styles.termsText}>
+              I agree to the <Text style={styles.link}>Terms of Service</Text> and{" "}
+              <Text style={styles.link}>Privacy Policy</Text>
+            </Text>
+          </TouchableOpacity>
 
           <TouchableOpacity 
             style={[styles.signUpButton, loading && styles.disabledButton]} 
@@ -133,7 +163,31 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#eee",
   },
-  termsText: { fontSize: 13, color: "#777", marginTop: 10 },
+  checkboxContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 15,
+    marginBottom: 5,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: "#e91e63",
+    marginRight: 10,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#fff",
+  },
+  checkboxChecked: {
+    backgroundColor: "#e91e63",
+  },
+  termsText: { 
+    fontSize: 13, 
+    color: "#777", 
+    flex: 1,
+  },
   link: { color: "#e91e63", fontWeight: "600" },
   signUpButton: {
     backgroundColor: "#e91e63",

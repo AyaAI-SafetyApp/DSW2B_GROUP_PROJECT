@@ -22,7 +22,7 @@ const screens = [
     title: "Your Voice is Your Shield",
     subtitle: "Instant emergency response with just your voice",
     description:
-      'Simply say "Dear Lord" or "Aya" and we\'ll immediately activate emergency assistance - even when you can\'t reach your phone.',
+      'Simply say "Help" or "Aya" and we\'ll immediately activate emergency assistance - even when you can\'t reach your phone.',
     image: require("../assets/9.png"),
   },
   {
@@ -51,25 +51,30 @@ const screens = [
   },
 ];
 
-const ProgressDots = memo(({ total, current }) => (
-  <View style={styles.progressContainer}>
-    {Array.from({ length: total }).map((_, index) => {
-      const isActive = index === current;
-      return (
-        <Animated.View
-          key={index}
-          style={[
-            styles.progressDot,
-            {
-              backgroundColor: isActive ? "#d63384" : "#afafaf",
-              transform: [{ scale: isActive ? 1.2 : 1 }],
-            },
-          ]}
-        />
-      );
-    })}
-  </View>
-));
+const ProgressDots = memo(({ total, current }) => {
+  if (current === 3) return null;
+
+  return (
+    <View style={styles.progressContainer}>
+      {Array.from({ length: total }).map((_, index) => {
+        const isActive = index === current;
+        return (
+          <Animated.View
+            key={index}
+            style={[
+              styles.progressDot,
+              {
+                backgroundColor: isActive ? "#d63384" : "#afafaf",
+                transform: [{ scale: isActive ? 1.2 : 1 }],
+              },
+            ]}
+          />
+        );
+      })}
+    </View>
+  );
+});
+
 
 const OnboardingScreen = () => {
   const navigation = useNavigation();
@@ -118,7 +123,7 @@ const OnboardingScreen = () => {
         extrapolate: "clamp",
       });
 
-      // 🔥 Circular rotation + scale
+      // Circular rotation + scale
         const rotateY = scrollX.interpolate({
         inputRange,
         outputRange: ["60deg", "0deg", "-60deg"],
@@ -224,7 +229,7 @@ const OnboardingScreen = () => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "white" },
   header: { paddingTop: 64, paddingBottom: 32, alignItems: "center" },
-  logoImage: { width: 44, height: 44, resizeMode: "contain" },
+  logoImage: { width: 50, height: 50, resizeMode: "contain" },
   appTagline: { fontSize: 14, color: "#6b7280" },
   screenContainer: {
     width,
@@ -233,7 +238,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: 10,
   },
-  screenImage: { width: 200, height: 250 },
+  screenImage: { width: 200, height: 200 },
   textContainer: {
     width: width * 0.8,
     alignItems: "center",

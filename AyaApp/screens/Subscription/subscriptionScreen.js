@@ -15,6 +15,7 @@ import { WebView } from "react-native-webview";
 import axios from "axios";
 import { FontAwesome5, Ionicons } from "@expo/vector-icons";
 import * as Animatable from "react-native-animatable";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Constants
 const { width, height } = Dimensions.get("window");
@@ -26,6 +27,24 @@ const CONFIG = {
 
 const PLANS = {
   monthly: [
+    {
+      id: "free",
+      title: "Free",
+      price: "R0",
+      period: "forever",
+      icon: "gift",
+      iconColor: "#10B981",
+      description: "Basic safety features at no cost",
+      features: [
+        "Emergency SOS button",
+        "Basic location sharing",
+        "Up to 3 emergency contacts",
+        "Community support",
+        "Safety tips & resources",
+      ],
+      popular: false,
+      isFree: true,
+    },
     {
       id: "P-1GN061938A031721GNC5CY4Q",
       title: "Personal",
@@ -65,6 +84,24 @@ const PLANS = {
     },
   ],
   yearly: [
+    {
+      id: "free",
+      title: "Free",
+      price: "R0",
+      period: "forever",
+      icon: "gift",
+      iconColor: "#10B981",
+      description: "Basic safety features at no cost",
+      features: [
+        "Emergency SOS button",
+        "Basic location sharing",
+        "Up to 3 emergency contacts",
+        "Community support",
+        "Safety tips & resources",
+      ],
+      popular: false,
+      isFree: true,
+    },
     {
       id: "P-9U8910582N234330WNC5C2OQ",
       title: "Personal Pro",
@@ -123,6 +160,35 @@ const useSubscription = (navigation, userID) => {
       return;
     }
     
+    // Handle free plan - skip payment and go directly to app
+    if (selectedPlan.isFree) {
+      // Verify session exists before navigating
+      const sessionData = await AsyncStorage.getItem("@user_session");
+      if (!sessionData) {
+        console.error('❌ No session found when trying to access app');
+        Alert.alert("Error", "Session not found. Please log in again.");
+        return;
+      }
+      
+      console.log('✅ Session verified, navigating to app');
+      Alert.alert(
+        "Welcome to Aya App! 🎉",
+        "You've selected the Free plan. You now have access to basic safety features.",
+        [
+          {
+            text: "Get Started",
+            onPress: () => {
+              navigation.reset({
+                index: 0,
+                routes: [{ name: "MainTabs" }],
+              });
+            },
+          },
+        ]
+      );
+      return;
+    }
+    
     if (!userID) {
       Alert.alert("Authentication Error", "User authentication required");
       return;
@@ -172,7 +238,16 @@ const useSubscription = (navigation, userID) => {
 
       if (url.includes("success")) {
         setCheckoutUrl(null);
-        setTimeout(() => {
+        setTimeout(async () => {
+          // Verify session exists before navigating
+          const sessionData = await AsyncStorage.getItem("@user_session");
+          if (!sessionData) {
+            console.error('❌ No session found after payment');
+            Alert.alert("Error", "Session not found. Please log in again.");
+            return;
+          }
+          
+          console.log('✅ Session verified after payment, navigating to app');
           Alert.alert(
             "Subscription Successful!",
             `Your ${selectedPlan?.title} plan has been activated.`,
@@ -413,6 +488,7 @@ export default function SubscriptionScreen({ navigation, route }) {
               style={[
                 styles.proceedButton,
                 loading && styles.proceedButtonDisabled,
+                selectedPlan.isFree && styles.freeButton,
               ]}
               onPress={createSubscription}
               disabled={loading}
@@ -422,17 +498,25 @@ export default function SubscriptionScreen({ navigation, route }) {
                 <ActivityIndicator size="small" color="#FFF" />
               ) : (
                 <>
-                  <Text style={styles.proceedButtonText}>Proceed to Payment</Text>
-                  <Ionicons name="lock-closed" size={20} color="#FFF" />
+                  <Text style={styles.proceedButtonText}>
+                    {selectedPlan.isFree ? "Continue with Free Plan" : "Proceed to Payment"}
+                  </Text>
+                  {selectedPlan.isFree ? (
+                    <Ionicons name="arrow-forward" size={20} color="#FFF" />
+                  ) : (
+                    <Ionicons name="lock-closed" size={20} color="#FFF" />
+                  )}
                 </>
               )}
             </TouchableOpacity>
 
             {/* Simple Footer */}
-            <View style={styles.footer}>
-              <Ionicons name="lock-closed" size={14} color="#6B7280" />
-              <Text style={styles.footerText}>Secure payments with PayPal</Text>
-            </View>
+            {!selectedPlan.isFree && (
+              <View style={styles.footer}>
+                <Ionicons name="lock-closed" size={14} color="#6B7280" />
+                <Text style={styles.footerText}>Secure payments with PayPal</Text>
+              </View>
+            )}
           </Animatable.View>
         )}
       </ScrollView>
@@ -694,6 +778,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
     borderRadius: 12,
     gap: 8,
+  },
+  
+  freeButton: {
+    backgroundColor: "#10B981",
   },
   
   proceedButtonDisabled: { 
