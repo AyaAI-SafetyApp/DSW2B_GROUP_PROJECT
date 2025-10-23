@@ -140,10 +140,9 @@ const ProfileScreen = () => {
   const uploadProfilePicture = async (imageUri) => {
     try {
       setUploading(true);
-      const { uploadProfilePicture: upload, saveUserProfile } = require('../../lib/profileService');
       
       // Upload image to Supabase
-      const publicUrl = await upload(imageUri, userData.email);
+      const publicUrl = await uploadProfilePic(imageUri, userData.email);
       
       // Update profile with new image URL
       await saveUserProfile({
