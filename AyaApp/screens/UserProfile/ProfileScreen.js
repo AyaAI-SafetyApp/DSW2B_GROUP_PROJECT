@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
   TextInput,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, CommonActions, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
@@ -378,7 +378,10 @@ const ProfileScreen = () => {
           <Ionicons name="arrow-back" size={24} color="#FF1493" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Profile</Text>
-        <TouchableOpacity style={styles.editButton}>
+        <TouchableOpacity 
+          style={styles.editButton}
+          onPress={() => navigation.navigate('EditProfileScreen')}
+        >
           <Ionicons name="create-outline" size={24} color="#FF1493" />
         </TouchableOpacity>
       </View>
@@ -387,6 +390,7 @@ const ProfileScreen = () => {
         {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#FF1493" />
+            <Text style={styles.loadingText}>Loading profile...</Text>
           </View>
         ) : (
           <>
@@ -484,6 +488,21 @@ const ProfileScreen = () => {
               <Ionicons name="log-out-outline" size={20} color="#FF1493" />
               <Text style={styles.logoutText}>Logout</Text>
             </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.deleteButton} 
+              onPress={handleDeleteAccount}
+              disabled={deleting}
+            >
+              {deleting ? (
+                <ActivityIndicator size="small" color="#FF3B30" />
+              ) : (
+                <>
+                  <Ionicons name="trash-outline" size={20} color="#FF3B30" />
+                  <Text style={styles.deleteText}>Delete Account</Text>
+                </>
+              )}
+            </TouchableOpacity>
           </>
         )}
       </ScrollView>
@@ -525,6 +544,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 100,
+   
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#FF1493',
   },
   profileSection: {
     backgroundColor: '#FFFFFF',
@@ -725,7 +750,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     marginHorizontal: 20,
     marginTop: 24,
-    marginBottom: 32,
+    marginBottom: 12,
     paddingVertical: 16,
     borderRadius: 12,
     borderWidth: 1,
@@ -734,7 +759,25 @@ const styles = StyleSheet.create({
   logoutText: {
     fontSize: 16,
     fontWeight: '600',
-    color: 'red',
+    color: '#FF1493',
+    marginLeft: 8,
+  },
+  deleteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 20,
+    marginBottom: 32,
+    paddingVertical: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FFCCCC',
+  },
+  deleteText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FF3B30',
     marginLeft: 8,
   },
 });

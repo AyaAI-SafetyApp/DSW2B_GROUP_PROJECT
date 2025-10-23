@@ -33,6 +33,7 @@ import { Video } from "expo-av";
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from "@react-native-community/netinfo";
+import { supabaseAuth } from "../../lib/supabaseClient";
 
 import {
   fetchPosts,
@@ -42,7 +43,6 @@ import {
 } from "../../NewsfeedCRUD/api/posts";
 import { pickMedia } from "../../NewsfeedCRUD/api/media";
 
-// added imports for offline queue and storage upload
 import { enqueuePost, startAutoSync } from "../../NewsfeedCRUD/api/offlineQueue";
 import { uploadFileToBucket } from "../../NewsfeedCRUD/api/storage";
 
@@ -145,6 +145,67 @@ async function removeQueuedCreateByLocalId(localId) {
   }
 }
 
+// ============ AVATAR COMPONENT ============
+const UserAvatar = React.memo(({ username, avatarUrl, size = 40, style }) => {
+  const getInitial = (name) => {
+    if (!name) return '?';
+    return name.charAt(0).toUpperCase();
+  };
+
+  const getBackgroundColor = (name) => {
+    // Generate a consistent color based on username
+    if (!name) return '#FF1493';
+    const colors = ['#FF1493', '#9C27B0', '#3F51B5', '#2196F3', '#00BCD4', '#009688', '#4CAF50', '#FF9800', '#FF5722', '#E91E63'];
+    const index = name.charCodeAt(0) % colors.length;
+    return colors[index];
+  };
+
+  // If there's an avatar URL and it's not the default placeholder, show the image
+  if (avatarUrl && !avatarUrl.includes('pravatar.cc')) {
+    return (
+      <Image
+        source={{ uri: avatarUrl }}
+        style={[
+          {
+            width: size,
+            height: size,
+            borderRadius: size / 2,
+            backgroundColor: '#f0f0f0',
+          },
+          style,
+        ]}
+      />
+    );
+  }
+
+  // Otherwise show the first letter
+  return (
+    <View
+      style={[
+        {
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: getBackgroundColor(username),
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        style,
+      ]}
+    >
+      <Text
+        style={{
+          color: '#FFFFFF',
+          fontSize: size * 0.5,
+          fontWeight: 'bold',
+        }}
+      >
+        {getInitial(username)}
+      </Text>
+    </View>
+  );
+});
+
 // ============ STORY ITEM COMPONENT ============
 const StoryItem = React.memo(({ story, index, onPress }) => {
   if (story.isAddStory) {
@@ -190,10 +251,10 @@ const StoryItem = React.memo(({ story, index, onPress }) => {
 
 // ============ POST CARD COMPONENT ============
 const PostCard = React.memo(
-  ({ post, onLike, onEdit, onDelete, onComment, onViewComments }) => {
+  ({ post, onLike, onEdit, onDelete, onComment, onViewComments, currentUsername }) => {
     const [imageLoading, setImageLoading] = useState(true);
-    const isLiked = post.likes && post.likes.includes("current_user");
-    const isOwnPost = post.username === "current_user";
+    const isLiked = post.likes && post.likes.includes(currentUsername);
+    const isOwnPost = post.username === currentUsername;
 
     const handleDoubleTap = useCallback(() => {
       if (!isLiked) {
@@ -215,8 +276,10 @@ const PostCard = React.memo(
         {/* Post Header */}
         <View style={styles.postHeader}>
           <View style={styles.postHeaderLeft}>
-            <Image
-              source={{ uri: post.avatar || "https://i.pravatar.cc/150?img=5" }}
+            <UserAvatar
+              username={post.username}
+              avatarUrl={post.avatar}
+              size={32}
               style={styles.postAvatar}
             />
             <View>
@@ -353,6 +416,8 @@ const CommentsModal = ({
   onClose,
   onAddComment,
   onDeleteComment,
+  currentUsername,
+  currentUser,
 }) => {
   const [commentText, setCommentText] = useState("");
   const flatListRef = useRef(null);
@@ -401,10 +466,10 @@ const CommentsModal = ({
           style={styles.commentsList}
           renderItem={({ item }) => (
             <View style={styles.commentItem}>
-              <Image
-                source={{
-                  uri: item.avatar || "https://i.pravatar.cc/150?img=6",
-                }}
+              <UserAvatar
+                username={item.user}
+                avatarUrl={item.avatar}
+                size={32}
                 style={styles.commentAvatar}
               />
               <View style={styles.commentContent}>
@@ -416,7 +481,7 @@ const CommentsModal = ({
                   {getTimeAgo(item.created_at)}
                 </Text>
               </View>
-              {item.user === "current_user" && (
+              {item.user === currentUsername && (
                 <TouchableOpacity
                   onPress={() => onDeleteComment(post.id, item.id)}
                 >
@@ -445,8 +510,10 @@ const CommentsModal = ({
         />
 
         <View style={styles.commentInputContainer}>
-          <Image
-            source={{ uri: "https://i.pravatar.cc/150?img=1" }}
+          <UserAvatar
+            username={currentUsername}
+            avatarUrl={currentUser?.user_metadata?.avatar_url}
+            size={32}
             style={styles.commentInputAvatar}
           />
           <RNTextInput
@@ -646,10 +713,28 @@ const Newsfeed = () => {
   const [storyProgress, setStoryProgress] = useState(0);
   const [commentsModalVisible, setCommentsModalVisible] = useState(false);
   const [selectedPost, setSelectedPost] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [currentUsername, setCurrentUsername] = useState("current_user");
   const storyTimerRef = useRef(null);
   const progressIntervalRef = useRef(null);
 
-  // ============ POST OPERATIONS ============
+  useEffect(() => {
+    loadCurrentUser();
+  }, []);
+
+  const loadCurrentUser = async () => {
+    try {
+      const user = await supabaseAuth.getCurrentUser();
+      if (user) {
+        setCurrentUser(user);
+        const fullName = user.user_metadata?.full_name || user.email?.split('@')[0] || "current_user";
+        setCurrentUsername(fullName);
+      }
+    } catch (error) {
+      console.error('Error loading current user:', error);
+    }
+  };
+
   const loadPosts = useCallback(async () => {
     setLoading(true);
     try {
@@ -790,14 +875,13 @@ const Newsfeed = () => {
   const toggleLikePost = useCallback(
     async (postId) => {
       try {
-        // optimistic local update
         setPosts((prev) =>
           prev.map((p) => {
             if (p.id !== postId) return p;
-            const already = (p.likes || []).includes("current_user");
+            const already = (p.likes || []).includes(currentUsername);
             const likes = already
-              ? (p.likes || []).filter((l) => l !== "current_user")
-              : [...(p.likes || []), "current_user"];
+              ? (p.likes || []).filter((l) => l !== currentUsername)
+              : [...(p.likes || []), currentUsername];
             return { ...p, likes };
           })
         );
@@ -818,10 +902,10 @@ const Newsfeed = () => {
         const state = await NetInfo.fetch();
         const target = posts.find((p) => p.id === postId);
         if (!target) return;
-        const already = (target.likes || []).includes("current_user");
+        const already = (target.likes || []).includes(currentUsername);
         const likes = already
-          ? (target.likes || []).filter((l) => l !== "current_user")
-          : [...(target.likes || []), "current_user"];
+          ? (target.likes || []).filter((l) => l !== currentUsername)
+          : [...(target.likes || []), currentUsername];
 
         if (!state.isConnected) {
           // enqueue op to update likes later
@@ -839,7 +923,7 @@ const Newsfeed = () => {
         console.error("Like failed:", e);
       }
     },
-    [posts]
+    [posts, currentUsername]
   );
 
   const addCommentToPost = useCallback(
@@ -848,8 +932,8 @@ const Newsfeed = () => {
 
       const comment = {
         id: `c_${Date.now()}_${Math.random()}`,
-        user: "current_user",
-        avatar: "https://i.pravatar.cc/150?img=1",
+        user: currentUsername,
+        avatar: currentUser?.user_metadata?.avatar_url || null,
         text: text.trim(),
         created_at: Date.now(),
       };
@@ -903,7 +987,7 @@ const Newsfeed = () => {
         console.error("Comment failed:", e);
       }
     },
-    [posts]
+    [posts, currentUsername, currentUser]
   );
 
   const deleteComment = useCallback(
@@ -1075,8 +1159,8 @@ const Newsfeed = () => {
           await enqueuePost({
             // offlineQueue expects simple post payload; include localId so we can remove it if user deletes before sync
             localId,
-            username: "current_user",
-            avatar: "https://i.pravatar.cc/150?img=1",
+            username: currentUsername,
+            avatar: currentUser?.user_metadata?.avatar_url || null,
             content: postContent,
             mediaUris, // local URIs so offlineQueue can upload later
             media_type: postType,
@@ -1089,8 +1173,8 @@ const Newsfeed = () => {
           setPosts((prev) => [
             {
               id: localId,
-              username: "current_user",
-              avatar: "https://i.pravatar.cc/150?img=1",
+              username: currentUsername,
+              avatar: currentUser?.user_metadata?.avatar_url || null,
               content: postContent,
               media_urls: mediaUris,
               media_type: postType,
@@ -1112,8 +1196,8 @@ const Newsfeed = () => {
 
         // online: create immediately
         await createPost({
-          username: "current_user",
-          avatar: "https://i.pravatar.cc/150?img=1",
+          username: currentUsername,
+          avatar: currentUser?.user_metadata?.avatar_url || null,
           content: postContent,
           media_type: mediaUris.length ? postType : "none",
           media_urls: mediaUris,
@@ -1141,8 +1225,8 @@ const Newsfeed = () => {
           const localId = `local_${Date.now()}`;
           await enqueuePost({
             localId,
-            username: "current_user",
-            avatar: "https://i.pravatar.cc/150?img=1",
+            username: currentUsername,
+            avatar: currentUser?.user_metadata?.avatar_url || null,
             content: postContent,
             mediaUris,
             media_type: postType,
@@ -1154,8 +1238,8 @@ const Newsfeed = () => {
           setPosts((prev) => [
             {
               id: localId,
-              username: "current_user",
-              avatar: "https://i.pravatar.cc/150?img=1",
+              username: currentUsername,
+              avatar: currentUser?.user_metadata?.avatar_url || null,
               content: postContent,
               media_urls: mediaUris,
               media_type: postType,
@@ -1180,7 +1264,7 @@ const Newsfeed = () => {
 
       Alert.alert("Error", "Failed to submit post");
     }
-  }, [postContent, mediaUris, editingPostId, postType, loadPosts]);
+  }, [postContent, mediaUris, editingPostId, postType, loadPosts, currentUsername, currentUser]);
 
   // Delete post handler: works for local placeholders and server posts.
   const handleDeletePost = useCallback(async (postId) => {
@@ -1366,6 +1450,7 @@ const Newsfeed = () => {
         onDelete={handleDeletePost}
         onComment={handleCommentPress}
         onViewComments={handleViewComments}
+        currentUsername={currentUsername}
       />
     ),
     [
@@ -1374,6 +1459,7 @@ const Newsfeed = () => {
       handleDeletePost,
       handleCommentPress,
       handleViewComments,
+      currentUsername,
     ]
   );
 
@@ -1484,11 +1570,13 @@ const Newsfeed = () => {
 
             <View style={styles.modalBody}>
               <View style={styles.modalUserInfo}>
-                <Image
-                  source={{ uri: "https://i.pravatar.cc/150?img=1" }}
+                <UserAvatar
+                  username={currentUsername}
+                  avatarUrl={currentUser?.user_metadata?.avatar_url}
+                  size={40}
                   style={styles.modalAvatar}
                 />
-                <Text style={styles.modalUsername}>current_user</Text>
+                <Text style={styles.modalUsername}>{currentUsername}</Text>
               </View>
 
               <RNTextInput
@@ -1566,6 +1654,8 @@ const Newsfeed = () => {
         }}
         onAddComment={addCommentToPost}
         onDeleteComment={deleteComment}
+        currentUsername={currentUsername}
+        currentUser={currentUser}
       />
 
       {/* Story Viewer */}

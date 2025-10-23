@@ -9,7 +9,6 @@ const dotenv = require('dotenv');
 const passkeyService = require('./passkeyService');
 const twilio = require("twilio");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
-const sqlite3 = require("sqlite3").verbose();
 const multer = require("multer");
 
 // Load environment variables
@@ -30,27 +29,6 @@ const client = twilio(accountSid, authToken);
 // Initialize Google Generative AI for therapist chat
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 const therapistModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
-// SQLite database for therapist conversations
-const therapistDb = new sqlite3.Database("conversations.db", (err) => {
-  if (err) {
-    console.error("Therapist DB connection failed:", err.message);
-  } else {
-    console.log("Therapist SQLite connected");
-  }
-});
-
-// Create therapist conversations table
-therapistDb.serialize(() => {
-  therapistDb.run(`
-    CREATE TABLE IF NOT EXISTS conversations (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_message TEXT,
-      ai_response TEXT,
-      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-});
 
 // Emergency alert system
 const alerts = [];
@@ -221,6 +199,16 @@ const PAYPAL_BASE = "https://api-m.sandbox.paypal.com";
 const SUPABASE_URL = "https://mcjjabajtfodvmixklfj.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1jamphYmFqdGZvZHZtaXhrbGZqIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NjQ3NTg0MywiZXhwIjoyMDcyMDUxODQzfQ.NbVNBTcC3Cr9ili0EFa9o4IiMhdZRREKlthVJjMW0Xg";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// Supabase Auth client setup (for user management)
+const AUTH_SUPABASE_URL = "https://gfrnxqhivmgfgdersflu.supabase.co";
+const AUTH_SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdmcm54cWhpdm1nZmdkZXJzZmx1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MTA0NjY2NiwiZXhwIjoyMDc2NjIyNjY2fQ.4rYkTs5G3OLbqBbCxSzZ7pqTHe-AxsPvMqzIUw_rTm0";
+const authSupabase = createClient(AUTH_SUPABASE_URL, AUTH_SUPABASE_SERVICE_KEY, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false
+  }
+});
 
 // Generate PayPal access token
 async function generateAccessToken() {
@@ -655,17 +643,6 @@ app.post("/therapist/chat", async (req, res) => {
 
         const aiReply = aiResult.response.text();
         
-        // Store conversation in database
-        therapistDb.run(
-            "INSERT INTO conversations (user_message, ai_response) VALUES (?, ?)",
-            [message, aiReply],
-            (err) => {
-                if (err) {
-                    console.error("Failed to store therapist conversation:", err);
-                }
-            }
-        );
-        
         res.json({ reply: aiReply });
     } catch (err) {
         console.error("Therapist AI chat error:", err.message);
@@ -717,17 +694,6 @@ app.post("/therapist/chat-audio", upload.single("audio"), async (req, res) => {
 
         const aiReply = replyResult.response.text();
 
-        // Store conversation
-        therapistDb.run(
-            "INSERT INTO conversations (user_message, ai_response) VALUES (?, ?)",
-            [transcription, aiReply],
-            (err) => {
-                if (err) {
-                    console.error("Failed to store audio therapist conversation:", err);
-                }
-            }
-        );
-
         // Clean up audio file
         fs.unlink(audioPath, (err) => {
             if (err) console.error("Failed to delete audio file:", err);
@@ -740,92 +706,14 @@ app.post("/therapist/chat-audio", upload.single("audio"), async (req, res) => {
     }
 });
 
-// Therapist conversation summary endpoint
+// Therapist conversation summary endpoint (disabled - no conversation storage)
 app.get("/therapist/summary", async (req, res) => {
-    therapistDb.all(
-        "SELECT user_message, ai_response FROM conversations ORDER BY timestamp DESC LIMIT 20",
-        async (err, rows) => {
-            if (err) {
-                return res.status(500).json({ error: "Database error" });
-            }
-            
-            if (!rows.length) {
-                return res.json({ summary: "No recent conversations" });
-            }
-
-            const convoText = rows
-                .map((r) => `User: ${r.user_message}\nAI: ${r.ai_response}`)
-                .join("\n");
-
-            try {
-                const summary = await therapistModel.generateContent({
-                    contents: [
-                        {
-                            role: "model",
-                            parts: [{ text: THERAPIST_SYSTEM_PROMPT + "\nSummarize concisely:" }],
-                        },
-                        { role: "user", parts: [{ text: convoText }] },
-                    ],
-                    generationConfig: {
-                        temperature: 0.6,
-                        topP: 0.9,
-                        maxOutputTokens: 150,
-                    },
-                });
-
-                res.json({ summary: summary.response.text() });
-            } catch (err) {
-                console.error("Failed to generate therapist summary:", err);
-                res.status(500).json({ error: "Failed to generate summary" });
-            }
-        }
-    );
+    res.json({ summary: "Conversation history not available - conversations are not stored" });
 });
 
-// Therapist feedback endpoint
+// Therapist feedback endpoint (disabled - no conversation storage)
 app.get("/therapist/feedback", async (req, res) => {
-    therapistDb.all(
-        "SELECT user_message, ai_response FROM conversations ORDER BY timestamp DESC LIMIT 20",
-        async (err, rows) => {
-            if (err) {
-                return res.status(500).json({ error: "Database error" });
-            }
-            
-            if (!rows.length) {
-                return res.json({ feedback: "No recent conversations" });
-            }
-
-            const convoText = rows
-                .map((r) => `User: ${r.user_message}\nAI: ${r.ai_response}`)
-                .join("\n");
-
-            try {
-                const feedback = await therapistModel.generateContent({
-                    contents: [
-                        {
-                            role: "model",
-                            parts: [
-                                {
-                                    text: THERAPIST_SYSTEM_PROMPT + "\nProvide concise, empathetic feedback:",
-                                },
-                            ],
-                        },
-                        { role: "user", parts: [{ text: convoText }] },
-                    ],
-                    generationConfig: {
-                        temperature: 0.6,
-                        topP: 0.9,
-                        maxOutputTokens: 150,
-                    },
-                });
-
-                res.json({ feedback: feedback.response.text() });
-            } catch (err) {
-                console.error("Failed to generate therapist feedback:", err);
-                res.status(500).json({ error: "Failed to generate feedback" });
-            }
-        }
-    );
+    res.json({ feedback: "Conversation history not available - conversations are not stored" });
 });
 
 // === PAYPAL SUBSCRIPTION ENDPOINTS ===
@@ -1103,6 +991,39 @@ app.delete("/posts/:id", async (req, res) => {
 
     if (error) return res.status(400).json({ error: error.message });
     res.json({ message: "Post deleted successfully" });
+});
+
+// Delete user account
+app.delete("/api/user/:userId", async (req, res) => {
+    try {
+        const { userId } = req.params;
+        
+        console.log(`🗑️ Attempting to delete user: ${userId}`);
+
+        // Delete user from Supabase Auth
+        const { data, error } = await authSupabase.auth.admin.deleteUser(userId);
+
+        if (error) {
+            console.error("❌ Error deleting user:", error);
+            return res.status(400).json({ 
+                success: false, 
+                error: error.message 
+            });
+        }
+
+        console.log("✅ User deleted successfully from Supabase");
+        res.json({ 
+            success: true, 
+            message: "User account deleted successfully" 
+        });
+
+    } catch (error) {
+        console.error("❌ Server error deleting user:", error);
+        res.status(500).json({ 
+            success: false, 
+            error: "Failed to delete user account" 
+        });
+    }
 });
 
 // Helper functions
