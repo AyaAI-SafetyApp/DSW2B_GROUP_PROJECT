@@ -186,8 +186,8 @@ export default function CreateCredentials({ route }) {
 
       console.log("Passkey stored successfully:", data);
 
-      // Send welcome email with passkey if user provided an email address
-      if (email && email.includes('@')) {
+      // Send welcome email with passkey
+      if (email && email.trim()) {
         try {
           console.log('📧 Attempting to send welcome email...');
           console.log('📧 Email:', email);
@@ -196,14 +196,18 @@ export default function CreateCredentials({ route }) {
           console.log('📧 User Name:', fullName.trim());
           console.log('📧 Is Welcome:', true);
           
+          const emailPayload = {
+            email: email,
+            credentialId: credentialId,
+            provider: selectedProvider,
+            userName: fullName.trim(),
+            isWelcome: true,
+          };
+          
+          console.log('📧 Full payload:', JSON.stringify(emailPayload, null, 2));
+          
           const { data: emailData, error: emailError } = await supabase.functions.invoke('dynamic-api', {
-            body: {
-              email: email,
-              credentialId: credentialId,
-              provider: selectedProvider,
-              userName: fullName.trim(),
-              isWelcome: true,
-            },
+            body: emailPayload,
           });
 
           if (emailError) {
@@ -212,6 +216,14 @@ export default function CreateCredentials({ route }) {
             console.error("Error message:", emailError.message);
             console.error("Error context:", emailError.context);
             console.error("Full email error:", JSON.stringify(emailError, null, 2));
+            
+            // Try to get the response body for more details
+            try {
+              const errorBody = await emailError.context.json();
+              console.error("📄 Error response body:", errorBody);
+            } catch (e) {
+              console.error("Could not parse error response body");
+            }
             
             // Show user-friendly error
             Alert.alert(

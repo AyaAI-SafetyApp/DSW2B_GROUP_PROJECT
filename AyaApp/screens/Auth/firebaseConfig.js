@@ -23,6 +23,7 @@ export const supabaseAuth = {
         password,
         options: {
           data: metadata,
+          emailRedirectTo: undefined, // Disable email confirmation
         },
       });
       if (error) throw error;

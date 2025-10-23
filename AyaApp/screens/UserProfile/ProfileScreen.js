@@ -9,11 +9,13 @@ import {
   Alert,
   Image,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
+import { supabase } from '../../lib/supabaseClient';
 
 const ProfileScreen = () => {
   const navigation = useNavigation();
@@ -235,6 +237,131 @@ const ProfileScreen = () => {
     );
   };
 
+  const handleDeactivateAccount = () => {
+    Alert.alert(
+      'Deactivate Account',
+      'Your account will be temporarily disabled. You can reactivate it anytime by logging in again.\n\nAre you sure you want to continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Deactivate',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setLoading(true);
+              
+              // Update user_profiles to mark as deactivated
+              const { error } = await supabase
+                .from('user_profiles')
+                .update({ 
+                  is_active: false,
+                  deactivated_at: new Date().toISOString()
+                })
+                .eq('email', userData.email);
+
+              if (error) {
+                console.error('Deactivation error:', error);
+                Alert.alert('Error', 'Failed to deactivate account. Please try again.');
+                return;
+              }
+
+              Alert.alert(
+                'Account Deactivated',
+                'Your account has been deactivated successfully. You can reactivate it by logging in again.',
+                [
+                  {
+                    text: 'OK',
+                    onPress: async () => {
+                      await AsyncStorage.removeItem('@user_session');
+                      await AsyncStorage.removeItem('@safety_last');
+                      navigation.reset({
+                        index: 0,
+                        routes: [{ name: 'OnboardingScreen' }],
+                      });
+                    },
+                  },
+                ]
+              );
+            } catch (error) {
+              console.error('Deactivation error:', error);
+              Alert.alert('Error', 'An error occurred. Please try again.');
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.prompt(
+      'Delete Account Permanently',
+      'This action cannot be undone! All your data will be permanently deleted.\n\nType "DELETE" to confirm:',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Forever',
+          style: 'destructive',
+          onPress: async (inputText) => {
+            if (inputText?.toUpperCase() !== 'DELETE') {
+              Alert.alert('Cancelled', 'Account deletion cancelled.');
+              return;
+            }
+
+            try {
+              setLoading(true);
+
+              // Delete from passkeys table
+              await supabase
+                .from('passkeys')
+                .delete()
+                .eq('user_id', userData.email);
+
+              // Delete from user_profiles table
+              const { error: profileError } = await supabase
+                .from('user_profiles')
+                .delete()
+                .eq('email', userData.email);
+
+              if (profileError) {
+                console.error('Delete profile error:', profileError);
+                Alert.alert('Error', 'Failed to delete profile. Please try again.');
+                return;
+              }
+
+              // Sign out the user from Supabase Auth (this will invalidate their session)
+              await supabase.auth.signOut();
+
+              Alert.alert(
+                'Account Deleted',
+                'Your account and all data have been permanently deleted.',
+                [
+                  {
+                    text: 'OK',
+                    onPress: async () => {
+                      await AsyncStorage.clear();
+                      navigation.reset({
+                        index: 0,
+                        routes: [{ name: 'OnboardingScreen' }],
+                      });
+                    },
+                  },
+                ]
+              );
+            } catch (error) {
+              console.error('Delete error:', error);
+              Alert.alert('Error', 'An error occurred. Please try again.');
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
+      ],
+      'plain-text'
+    );
+  };
+
   const profileOptions = [
     { id: 1, title: 'Account Details', icon: 'person-circle-outline', subtitle: 'View and edit your information', 
       data: { phone: userData.phone, location: userData.location, age: userData.age, gender: userData.gender, email: userData.email } },
@@ -320,6 +447,34 @@ const ProfileScreen = () => {
                   <Ionicons name="chevron-forward" size={20} color="#FF1493" />
                 </TouchableOpacity>
               ))}
+            </View>
+
+            <View style={styles.dangerZone}>
+              <Text style={styles.dangerZoneTitle}>Danger Zone</Text>
+              
+              <TouchableOpacity 
+                style={styles.deactivateButton} 
+                onPress={handleDeactivateAccount}
+              >
+                <Ionicons name="pause-circle-outline" size={20} color="#FF8C00" />
+                <View style={styles.dangerButtonText}>
+                  <Text style={styles.deactivateText}>Deactivate Account</Text>
+                  <Text style={styles.dangerSubtext}>Temporarily disable your account</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#FF8C00" />
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.deleteButton} 
+                onPress={handleDeleteAccount}
+              >
+                <Ionicons name="trash-outline" size={20} color="#FF0000" />
+                <View style={styles.dangerButtonText}>
+                  <Text style={styles.deleteText}>Delete Account</Text>
+                  <Text style={styles.dangerSubtext}>Permanently remove all your data</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#FF0000" />
+              </TouchableOpacity>
             </View>
 
             <TouchableOpacity 
@@ -510,6 +665,58 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: 'gray',
     marginTop: 2,
+  },
+  dangerZone: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 20,
+    marginTop: 24,
+    borderRadius: 12,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: '#FFE4EC',
+  },
+  dangerZoneTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#999',
+    paddingHorizontal: 20,
+    paddingBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  deactivateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#FFE4EC',
+  },
+  deleteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  dangerButtonText: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  deactivateText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FF8C00',
+    marginBottom: 2,
+  },
+  deleteText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FF0000',
+    marginBottom: 2,
+  },
+  dangerSubtext: {
+    fontSize: 13,
+    color: '#999',
   },
   logoutButton: {
     flexDirection: 'row',
