@@ -1,3 +1,4 @@
+// ...existing code...
 import React, {
   useState,
   useEffect,
@@ -30,9 +31,16 @@ import * as Speech from "expo-speech";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import LottieView from "lottie-react-native";
 
+// new imports for notifications & device and fetch helper
+import * as Notifications from "expo-notifications";
+import * as Device from "expo-device";
+// Optional helper (if you have an api/timeTips module)
+// import { fetchTimeBasedTips } from "../api/timeTips";
+
 const { width } = Dimensions.get("window");
 export const PRIMARY = "#D81B60";
-export const API_BASE_URL = "https://dsw2b-backend.onrender.com";
+// updated to your PC LAN IP and backend port so physical device can reach it
+export const API_BASE_URL = "http://192.168.137.1:8888";
 
 const NEWS_DATA = [
   {
@@ -127,7 +135,7 @@ const Header = ({
 );
 
 // Notification modal
-const NotificationModal = ({ visible, notifications, onClose }) => (
+const NotificationModal = ({ visible, notifications, onClose, loading }) => (
   <Modal
     visible={visible}
     transparent
@@ -151,7 +159,13 @@ const NotificationModal = ({ visible, notifications, onClose }) => (
             <Ionicons name="close" size={22} color="#111" />
           </TouchableOpacity>
         </View>
-        {notifications.length === 0 ? (
+
+        {loading ? (
+          <View style={{ paddingVertical: 24, alignItems: "center" }}>
+            <ActivityIndicator size="small" />
+            <Text style={{ marginTop: 12 }}>Loading notifications...</Text>
+          </View>
+        ) : notifications.length === 0 ? (
           <View style={{ paddingVertical: 24 }}>
             <Text>No notifications</Text>
           </View>
@@ -166,6 +180,7 @@ const NotificationModal = ({ visible, notifications, onClose }) => (
             </Text>
           ))
         )}
+
         <TouchableOpacity
           style={styles.modalCloseButton}
           onPress={() => {
@@ -310,7 +325,7 @@ const NewsFeed = ({ data, onOpenNews }) => (
   </FadeView>
 );
 
-// Home screen
+// ----------------------------------- Home screen -----------------------------------
 export default function HomeScreen() {
   const navigation = useNavigation();
   const [currentLocation, setCurrentLocation] = useState("Loading...");
@@ -324,6 +339,118 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [loadingSafety, setLoadingSafety] = useState(true);
   const [showLottie, setShowLottie] = useState(true);
+
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
+
+  const LAST_TIP_KEY = "@last_time_tip_id";
+
+  // setup expo notifications handler
+  useEffect(() => {
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: false,
+        shouldSetBadge: false,
+      }),
+    });
+  }, []);
+
+  // request notifications permission on mount (existing behavior)
+  useEffect(() => {
+    (async () => {
+      try {
+        if (Device.isDevice) {
+          const { status: existingStatus } =
+            await Notifications.getPermissionsAsync();
+          let finalStatus = existingStatus;
+          if (existingStatus !== "granted") {
+            const { status } = await Notifications.requestPermissionsAsync();
+            finalStatus = status;
+          }
+          // no alert if not granted; app still works
+          if (finalStatus !== "granted") {
+            console.log("Notifications permission not granted");
+          }
+        } else {
+          console.log("Must use physical device for notifications");
+        }
+      } catch (err) {
+        console.warn("Notification permission error", err);
+      }
+    })();
+  }, []);
+
+  // Register Expo push token and upload to notifications-backend
+  useEffect(() => {
+    let mounted = true;
+    let responseListener = null;
+    let receivedListener = null;
+
+    async function registerAndUploadToken() {
+      try {
+        if (!Device.isDevice) {
+          console.log("Push notifications require a physical device.");
+          return;
+        }
+
+        // avoid re-upload if token already stored locally
+        const stored = await AsyncStorage.getItem("@expo_push_token");
+        if (stored) return;
+
+        // check permission status (do not re-request here)
+        const { status } = await Notifications.getPermissionsAsync();
+        if (status !== "granted") {
+          console.log("Push permission not granted; skipping token registration.");
+          return;
+        }
+
+        const tokenObj = await Notifications.getExpoPushTokenAsync();
+        const pushToken = tokenObj?.data;
+        if (!pushToken) return;
+
+        await AsyncStorage.setItem("@expo_push_token", pushToken);
+
+        // upload to backend
+        try {
+          await fetch(`${API_BASE_URL}/api/token`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token: pushToken, platform: Platform.OS }),
+          });
+          console.log("Uploaded push token to backend");
+        } catch (e) {
+          console.warn("Failed to upload push token", e);
+        }
+      } catch (e) {
+        console.warn("registerAndUploadToken error", e);
+      }
+    }
+
+    registerAndUploadToken();
+
+    // listeners: handle notification received while foreground and responses
+    receivedListener = Notifications.addNotificationReceivedListener((notification) => {
+      const body = notification.request.content.body ?? "";
+      setNotifications((prev) => [body, ...prev]);
+    });
+
+    responseListener = Notifications.addNotificationResponseReceivedListener((response) => {
+      // user tapped the notification — open modal and load latest notifications
+      // handleOpenNotifications is defined later; it's safe because effect runs after render
+      try {
+        handleOpenNotifications();
+      } catch {
+        setModalVisible(true);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      if (receivedListener) receivedListener.remove();
+      if (responseListener) responseListener.remove();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -391,44 +518,56 @@ export default function HomeScreen() {
     // Directly set the exact percentage from backend without animation rounding
     const target = safetyData?.Danger_Percentage ?? 65;
     setCrimeProbability(target);
-    
+
     if (Platform.OS !== "web") {
       Speech.speak(`${Math.round(target)} percent. ${riskLabel}.`, { rate: 1 });
     }
+
+    // whenever safetyData updates, try to load time-based tip and notify if needed
+    if (safetyData) {
+      loadAndNotifyTimeTip().catch((e) =>
+        console.warn("Time tip load/notify error", e)
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [safetyData, riskLabel]);
 
-  const fetchSafetyData = useCallback(async (area = "Johannesburg", lat = null, lon = null) => {
-    setLoadingSafety(true);
-    setShowLottie(true);
-    try {
-      // Use GPS coordinates if available (finds nearest station)
-      const endpoint = lat && lon 
-        ? `${API_BASE_URL}/api/safety-status/location/${lat}/${lon}`
-        : `${API_BASE_URL}/api/safety-status/${encodeURIComponent(area)}`;
-      
-      const res = await fetch(endpoint);
-      const data = res.ok
-        ? await res.json()
-        : {
-            Danger_Percentage: 50,
-            safetyTips: ["Data unavailable. Stay alert."],
-          };
-      setSafetyData(data);
-      await AsyncStorage.setItem("@safety_last", JSON.stringify(data));
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } catch {
-      setSafetyData(
-        (prev) =>
-          prev || {
-            Danger_Percentage: 65,
-            safetyTips: ["Data unavailable. Stay alert."],
-          }
-      );
-    } finally {
-      setLoadingSafety(false);
-      setTimeout(() => setShowLottie(false), 2000);
-    }
-  }, []);
+  // fetch safetyData implementation
+  const fetchSafetyData = useCallback(
+    async (area = "Johannesburg", lat = null, lon = null) => {
+      setLoadingSafety(true);
+      setShowLottie(true);
+      try {
+        // Use GPS coordinates if available (finds nearest station)
+        const endpoint = lat && lon
+          ? `${API_BASE_URL}/api/safety-status/location/${lat}/${lon}`
+          : `${API_BASE_URL}/api/safety-status/${encodeURIComponent(area)}`;
+
+        const res = await fetch(endpoint);
+        const data = res.ok
+          ? await res.json()
+          : {
+              Danger_Percentage: 50,
+              safetyTips: ["Data unavailable. Stay alert."],
+            };
+        setSafetyData(data);
+        await AsyncStorage.setItem("@safety_last", JSON.stringify(data));
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      } catch {
+        setSafetyData(
+          (prev) =>
+            prev || {
+              Danger_Percentage: 65,
+              safetyTips: ["Data unavailable. Stay alert."],
+            }
+        );
+      } finally {
+        setLoadingSafety(false);
+        setTimeout(() => setShowLottie(false), 2000);
+      }
+    },
+    []
+  );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -441,8 +580,152 @@ export default function HomeScreen() {
       await fetchSafetyData(currentLocation || "Johannesburg");
     }
     setRefreshing(false);
-  }, [currentLocation]);
+  }, [currentLocation, fetchSafetyData]);
 
+  // -------------------- time-tip helpers & notification --------------------
+  const pickTipForHour = (tips, hour) => {
+    if (!Array.isArray(tips) || tips.length === 0) return null;
+    // find exact range match (hour_start <= hour < hour_end)
+    const exact = tips.find(
+      (t) => Number(t.hour_start) <= hour && hour < Number(t.hour_end)
+    );
+    if (exact) return exact;
+    // fallback: pick first
+    return tips[0] || null;
+  };
+
+  const scheduleLocalNotification = async (title, body) => {
+    try {
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title,
+          body,
+        },
+        trigger: null, // immediate
+      });
+    } catch (e) {
+      console.warn("Schedule notification failed", e);
+    }
+  };
+
+  const loadAndNotifyTimeTip = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/time-based-safety-tips`);
+      const tips = res.ok ? await res.json() : [];
+      if (!tips || tips.length === 0) return;
+
+      const now = new Date();
+      const hour = now.getHours();
+      const selected = pickTipForHour(tips, hour);
+      if (!selected) return;
+
+      // check last shown id to avoid duplicate notifications
+      const last = await AsyncStorage.getItem(LAST_TIP_KEY);
+      const selectedId = String(selected.id ?? selected.time_range ?? selected.hour_start);
+      if (last === selectedId) return;
+
+      const message = `${selected.awareness}: ${selected.tip}`;
+      setNotifications((prev) => [message, ...prev]);
+
+      await scheduleLocalNotification("Safety tip", message);
+
+      await AsyncStorage.setItem(LAST_TIP_KEY, selectedId);
+    } catch (e) {
+      console.warn("loadAndNotifyTimeTip error", e);
+    }
+  };
+
+  // -------------------- new: fetch notifications when opening modal --------------------
+  const handleOpenNotifications = useCallback(async () => {
+    try {
+      setLoadingNotifications(true);
+
+      // Try multiple endpoints in order until we get items
+      const endpoints = [
+        `${API_BASE_URL}/api/notifications`,
+        `${API_BASE_URL}/api/time-based-safety-tips`,
+        `${API_BASE_URL}/api/notifications-log`,
+        `${API_BASE_URL}/api/notifications_all`,
+      ];
+
+      let items = [];
+      for (const url of endpoints) {
+        try {
+          const r = await fetch(url);
+          if (!r.ok) {
+            // continue to next endpoint
+            continue;
+          }
+          const json = await r.json();
+          if (Array.isArray(json) && json.length > 0) {
+            items = json;
+            break;
+          }
+        } catch (err) {
+          // ignore and try next
+          continue;
+        }
+      }
+
+      // Format received items into readable strings
+      const formatted = [];
+      if (Array.isArray(items) && items.length) {
+        for (const it of items) {
+          if (!it) continue;
+          if (typeof it === "string") {
+            formatted.push(it);
+            continue;
+          }
+          // try common fields in order
+          const body =
+            it.message ??
+            it.body ??
+            it.tip ??
+            it.notification ??
+            it.text ??
+            it.payload ??
+            "";
+
+          const title =
+            it.title ??
+            it.awareness ??
+            it.type ??
+            it.time_range ??
+            it.category ??
+            "";
+
+          const maybeId = it.id ?? it._id ?? it.time_range ?? null;
+
+          const display = title && body ? `${title}: ${body}` : body || title || JSON.stringify(it);
+          formatted.push(display);
+        }
+      }
+
+      if (formatted.length > 0) {
+        setNotifications((prev) => {
+          const merged = [...formatted, ...prev];
+          return Array.from(new Set(merged));
+        });
+      } else {
+        // no formatted items - keep existing notifications but open modal so user sees current messages
+        console.log("handleOpenNotifications: no notifications fetched");
+      }
+
+      setModalVisible(true);
+    } catch (e) {
+      console.warn("handleOpenNotifications error", e);
+      setModalVisible(true);
+    } finally {
+      setLoadingNotifications(false);
+    }
+  }, []);
+
+  // Expose manual refresh for tips (if needed)
+  const refreshTimeTipsNow = async () => {
+    await loadAndNotifyTimeTip();
+  };
+
+  // -------------------- render --------------------
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar
@@ -452,13 +735,14 @@ export default function HomeScreen() {
       />
       <Header
         notificationsCount={notifications.length}
-        onOpenNotifications={() => setModalVisible(true)}
+        onOpenNotifications={handleOpenNotifications}
         onProfilePress={() => navigation.navigate("ProfileScreen")}
         riskColor={riskColor}
       />
       <NotificationModal
         visible={modalVisible}
         notifications={notifications}
+        loading={loadingNotifications}
         onClose={() => setModalVisible(false)}
       />
       <ScrollView
@@ -735,3 +1019,4 @@ const styles = StyleSheet.create({
   newsSource: { fontSize: 13, color: "#8E8E93", fontWeight: "500" },
   newsTime: { fontSize: 13, color: "#8E8E93", marginLeft: 8 },
 });
+// ...existing code...
