@@ -1,8 +1,3 @@
-/**
- * Wakeword Detection Component using Picovoice Porcupine
- * Detects "Hello Aya" wakeword and triggers callback
- */
-
 import React, { useEffect, useState, useRef } from 'react';
 import {
   Alert,
@@ -22,11 +17,9 @@ const WakewordDetection = ({
   const [hasPermission, setHasPermission] = useState(false);
   const porcupineRef = useRef(null);
 
-  // Request microphone permission
   const requestMicrophonePermission = async () => {
     if (Platform.OS === 'android') {
       try {
-        // Check if permission is already granted
         const hasPermission = await PermissionsAndroid.check(
           PermissionsAndroid.PERMISSIONS.RECORD_AUDIO
         );
@@ -36,7 +29,6 @@ const WakewordDetection = ({
           return true;
         }
 
-        // Request permission if not already granted
         const granted = await PermissionsAndroid.request(
           PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
           {
@@ -56,14 +48,11 @@ const WakewordDetection = ({
         return false;
       }
     }
-    // iOS permissions handled by info.plist
     return true;
   };
 
-  // Initialize Porcupine
   const initPorcupine = async () => {
     try {
-      // Check if PorcupineManager is available (native module compiled)
       if (!PorcupineManager || !PorcupineManager.fromKeywordPaths) {
         console.warn('[WakewordDetection] ⚠️  Porcupine native module not available yet.');
         console.warn('[WakewordDetection] 📱 You need to rebuild your development client with EAS:');
@@ -106,7 +95,6 @@ const WakewordDetection = ({
       porcupineRef.current = manager;
       console.log('[WakewordDetection] ✅ Porcupine initialized successfully');
       
-      // Auto-start if enabled
       if (enabled) {
         await manager.start();
         setIsListening(true);
@@ -115,7 +103,6 @@ const WakewordDetection = ({
     } catch (error) {
       console.error('[WakewordDetection] Error initializing Porcupine:', error);
       
-      // Check if it's a native module error
       if (error.message && error.message.includes('null')) {
         console.error('[WakewordDetection] ❌ Native module not compiled in current build');
         console.error('[WakewordDetection] 📱 Rebuild with: eas build --profile development --platform android');
@@ -128,7 +115,6 @@ const WakewordDetection = ({
     }
   };
 
-  // Start listening
   const startListening = async () => {
     if (porcupineManager && !isListening) {
       try {
@@ -141,7 +127,6 @@ const WakewordDetection = ({
     }
   };
 
-  // Stop listening
   const stopListening = async () => {
     if (porcupineManager && isListening) {
       try {
@@ -154,7 +139,6 @@ const WakewordDetection = ({
     }
   };
 
-  // Cleanup
   const cleanup = async () => {
     if (porcupineRef.current) {
       try {
@@ -169,7 +153,6 @@ const WakewordDetection = ({
     }
   };
 
-  // Initialize on mount
   useEffect(() => {
     initPorcupine();
     return () => {
@@ -177,7 +160,6 @@ const WakewordDetection = ({
     };
   }, []);
 
-  // Handle enabled prop changes
   useEffect(() => {
     if (!porcupineManager || !hasPermission) return;
 
@@ -188,7 +170,6 @@ const WakewordDetection = ({
     }
   }, [enabled, porcupineManager, hasPermission]);
 
-  // This component doesn't render anything
   return null;
 };
 

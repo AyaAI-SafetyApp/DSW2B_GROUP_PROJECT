@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -8,132 +8,45 @@ import {
   TouchableOpacity,
   StyleSheet,
   TextInput,
-  SafeAreaView,
-  RefreshControl,
   StatusBar,
+  Platform,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 import { fetchNews } from "./newsService";
 import { Ionicons } from '@expo/vector-icons';
 
 export default function NewsFeed({ navigation }) {
   const [articles, setArticles] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [search, setSearch] = useState("");
-  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     loadNews();
   }, []);
 
-  const loadNews = useCallback(async (query = "") => {
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await fetchNews(query);
-      setArticles(data || []);
-    } catch (err) {
-      setError("Failed to load news. Please try again.");
-      console.error("Error loading news:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const handleRefresh = useCallback(async () => {
-    setRefreshing(true);
-    try {
-      await loadNews(search);
-    } finally {
-      setRefreshing(false);
-    }
-  }, [search, loadNews]);
-
-  const handleSearch = useCallback(() => {
-    if (search.trim()) {
-      loadNews(search.trim());
-    }
-  }, [search, loadNews]);
-
-  const renderEmptyState = useCallback(() => {
-    if (error) {
-      return (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity
-            style={styles.retryBtn}
-            onPress={() => loadNews(search)}
-          >
-            <Text style={styles.retryBtnText}>Retry</Text>
-          </TouchableOpacity>
-        </View>
-      );
-    }
-
-    return (
-      <View style={styles.emptyContainer}>
-        <Text style={styles.emptyText}>
-          {search
-            ? `No GBV-related articles found for "${search}"`
-            : "No articles available"}
-        </Text>
-      </View>
-    );
-  }, [error, search, loadNews]);
-
-  const renderArticle = useCallback(
-    ({ item }) => (
-      <TouchableOpacity
-        style={styles.card}
-        onPress={() => navigation.navigate("ArticleScreen", { url: item.url })}
-        activeOpacity={0.7}
-      >
-        {item.urlToImage ? (
-          <Image
-            source={{ uri: item.urlToImage }}
-            style={styles.image}
-            resizeMode="cover"
-          />
-        ) : (
-          <View style={[styles.image, styles.placeholderImage]}>
-            <Text style={styles.placeholderText}>No Image</Text>
-          </View>
-        )}
-        <View style={styles.textContainer}>
-          <Text style={styles.title} numberOfLines={2}>
-            {item.title}
-          </Text>
-          {item.description && (
-            <Text numberOfLines={3} style={styles.desc}>
-              {item.description}
-            </Text>
-          )}
-          {item.source?.name && (
-            <Text style={styles.source}>{item.source.name}</Text>
-          )}
-        </View>
-      </TouchableOpacity>
-    ),
-    [navigation]
-  );
-
-  const keyExtractor = useCallback((item, index) => {
-    return item.url || `article-${index}`;
-  }, []);
+  async function loadNews(query = "") {
+    setLoading(true);
+    const data = await fetchNews(query);
+    setArticles(data);
+    setLoading(false);
+  }
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#f9f9f9" />
-
-      {/* Header */}
+      <StatusBar barStyle="dark-content" />
+      
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#D81B60" />
+        <TouchableOpacity 
+          onPress={() => navigation.goBack()} 
+          style={styles.backButton}
+        >
+          <Ionicons name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>GBV News</Text>
+        <Text style={styles.headerTitle}>GBV News Feed</Text>
+        <View style={{ width: 40 }} />
       </View>
 
-      {/* Search Bar */}
       <View style={styles.searchContainer}>
         <TextInput
           style={styles.searchInput}
@@ -141,45 +54,55 @@ export default function NewsFeed({ navigation }) {
           placeholderTextColor="#999"
           value={search}
           onChangeText={setSearch}
-          onSubmitEditing={handleSearch}
+          onSubmitEditing={() => loadNews(search)}
           returnKeyType="search"
         />
         <TouchableOpacity
           style={styles.searchBtn}
-          onPress={handleSearch}
-          activeOpacity={0.8}
+          onPress={() => loadNews(search)}
         >
-          <Text style={styles.searchBtnText}>Search</Text>
+          <Ionicons name="search" size={20} color="#fff" />
         </TouchableOpacity>
       </View>
 
-      {/* News List */}
-      {loading && !refreshing ? (
-        <View style={styles.loadingContainer}>
+      {loading ? (
+        <View style={styles.center}>
           <ActivityIndicator size="large" color="#D81B60" />
           <Text style={styles.loadingText}>Loading GBV News...</Text>
+        </View>
+      ) : articles.length === 0 ? (
+        <View style={styles.center}>
+          <Ionicons name="newspaper-outline" size={64} color="#ccc" />
+          <Text style={styles.emptyText}>
+            No articles found {search ? `for "${search}"` : ""}
+          </Text>
         </View>
       ) : (
         <FlatList
           data={articles}
-          keyExtractor={keyExtractor}
-          renderItem={renderArticle}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              tintColor="#D81B60"
-              colors={["#D81B60"]}
-            />
-          }
-          ListEmptyComponent={renderEmptyState}
-          contentContainerStyle={
-            articles.length === 0 && styles.emptyListContent
-          }
+          keyExtractor={(item, index) => index.toString()}
+          contentContainerStyle={styles.listContent}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={styles.card}
+              onPress={() => navigation.navigate("ArticleScreen", { url: item.url })}
+              activeOpacity={0.7}
+            >
+              {item.urlToImage && (
+                <Image source={{ uri: item.urlToImage }} style={styles.image} />
+              )}
+              <View style={styles.textContainer}>
+                <Text style={styles.title} numberOfLines={2}>{item.title}</Text>
+                <Text numberOfLines={3} style={styles.desc}>
+                  {item.description}
+                </Text>
+                {item.source && (
+                  <Text style={styles.source}>{item.source}</Text>
+                )}
+              </View>
+            </TouchableOpacity>
+          )}
           showsVerticalScrollIndicator={false}
-          initialNumToRender={10}
-          maxToRenderPerBatch={10}
-          windowSize={10}
         />
       )}
     </SafeAreaView>
@@ -189,137 +112,105 @@ export default function NewsFeed({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f9f9f9",
+    backgroundColor: "#f5f5f5",
   },
   header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 12,
-    flexDirection: 'row',
-    gap: 10,
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#e0e0e0",
+  },
+  backButton: {
+    padding: 8,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 18,
     fontWeight: "bold",
-    color: "#D81B60",
+    color: "#000",
   },
   searchContainer: {
     flexDirection: "row",
-    alignItems: "center",
-    margin: 12,
+    padding: 12,
     backgroundColor: "#fff",
-    borderRadius: 24,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e0e0e0",
   },
   searchInput: {
     flex: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    fontSize: 15,
-    color: "#333",
+    backgroundColor: "#f5f5f5",
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    marginRight: 8,
+    fontSize: 14,
   },
   searchBtn: {
     backgroundColor: "#D81B60",
-    borderRadius: 18,
-    paddingVertical: 10,
     paddingHorizontal: 16,
-    justifyContent: "center",
-  },
-  searchBtnText: {
-    color: "#fff",
-    fontWeight: "600",
-    fontSize: 14,
-  },
-  loadingContainer: {
-    flex: 1,
+    borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
+    minWidth: 50,
   },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 15,
-    color: "#666",
-  },
-  emptyListContent: {
-    flexGrow: 1,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: "center",
+  center: { 
+    flex: 1, 
+    justifyContent: "center", 
     alignItems: "center",
     paddingHorizontal: 20,
   },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: "#666",
+  },
   emptyText: {
+    marginTop: 16,
     fontSize: 16,
     color: "#666",
     textAlign: "center",
   },
-  errorText: {
-    fontSize: 16,
-    color: "#D32F2F",
-    textAlign: "center",
-    marginBottom: 16,
-  },
-  retryBtn: {
-    backgroundColor: "#D81B60",
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  retryBtnText: {
-    color: "#fff",
-    fontWeight: "600",
-    fontSize: 15,
+  listContent: {
+    paddingVertical: 8,
   },
   card: {
     marginHorizontal: 12,
-    marginVertical: 6,
-    borderRadius: 12,
+    marginVertical: 8,
+    borderRadius: 16,
     backgroundColor: "#fff",
     overflow: "hidden",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  image: {
-    width: "100%",
-    height: 180,
+  image: { 
+    width: "100%", 
+    height: 200,
+    backgroundColor: "#f0f0f0",
   },
-  placeholderImage: {
-    backgroundColor: "#e0e0e0",
-    justifyContent: "center",
-    alignItems: "center",
+  textContainer: { 
+    padding: 16,
   },
-  placeholderText: {
-    color: "#999",
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  textContainer: {
-    padding: 12,
-  },
-  title: {
-    fontSize: 16,
+  title: { 
+    fontSize: 16, 
     fontWeight: "bold",
-    color: "#222",
+    color: "#000",
     lineHeight: 22,
   },
-  desc: {
-    fontSize: 14,
-    color: "#555",
-    marginTop: 6,
+  desc: { 
+    fontSize: 14, 
+    color: "#666", 
+    marginTop: 8,
     lineHeight: 20,
   },
   source: {
     fontSize: 12,
-    color: "#999",
+    color: "#D81B60",
     marginTop: 8,
     fontWeight: "500",
   },

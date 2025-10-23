@@ -24,38 +24,18 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import * as Location from "expo-location";
 import { Ionicons } from "@expo/vector-icons";
 import Svg, { Circle } from "react-native-svg";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, CommonActions } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
 import * as Speech from "expo-speech";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import LottieView from "lottie-react-native";
+import { supabaseAuth } from "../lib/supabaseClient";
+import { fetchNews } from "./GBVNews/newsService";
 
 const { width } = Dimensions.get("window");
 export const PRIMARY = "#D81B60";
 export const API_BASE_URL = "https://dsw2b-backend.onrender.com";
 
-const NEWS_DATA = [
-  {
-    id: "2",
-    title: "New AI safety tools launched",
-    source: "News 24",
-    time: "4h",
-    priority: "medium",
-    logoUri:
-      "https://journalism.co.za/wp-content/uploads/2019/01/news24-300x300.png",
-  },
-  {
-    id: "1",
-    title: "Woman just got saved by AyaAI app",
-    source: "Daily Sun",
-    time: "30m",
-    priority: "high",
-    logoUri:
-      "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR3fhRGgdLERXOyD2nTXHErfs0RZgC86YMRsg&s",
-  },
-];
-
-// Fade-in animation helper
 const FadeView = ({ children, delay = 0, style }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -73,13 +53,13 @@ const FadeView = ({ children, delay = 0, style }) => {
   );
 };
 
-// Header component
 const Header = ({
   notificationsCount,
   onOpenNotifications,
   onProfilePress,
   onLogout,
   riskColor,
+  onLogout,
 }) => (
   <FadeView style={styles.header} delay={100}>
     <View style={styles.headerLeft}>
@@ -127,7 +107,6 @@ const Header = ({
   </FadeView>
 );
 
-// Notification modal
 const NotificationModal = ({ visible, notifications, onClose }) => (
   <Modal
     visible={visible}
@@ -182,7 +161,6 @@ const NotificationModal = ({ visible, notifications, onClose }) => (
   </Modal>
 );
 
-// Risk card
 const RiskCard = ({ crimeProbability, riskColor, riskLabel, safetyTip }) => (
   <FadeView style={styles.riskCard} delay={200}>
     <View style={styles.riskHeader}>
@@ -220,7 +198,6 @@ const RiskCard = ({ crimeProbability, riskColor, riskLabel, safetyTip }) => (
   </FadeView>
 );
 
-// Quick actions
 const QuickActions = ({ navigation }) => {
   const actions = [
     {
@@ -264,8 +241,7 @@ const QuickActions = ({ navigation }) => {
   );
 };
 
-// News feed
-const NewsFeed = ({ data, onOpenNews }) => (
+const NewsFeed = ({ data, onOpenNews, navigation }) => (
   <FadeView style={styles.newsSection} delay={400}>
     <View style={styles.newsSectionHeader}>
       <View style={{ flexDirection: "row", alignItems: "center" }}>
@@ -284,6 +260,7 @@ const NewsFeed = ({ data, onOpenNews }) => (
         key={item.id}
         style={styles.newsItem}
         accessibilityRole="button"
+        onPress={() => navigation.navigate("ArticleScreen", { url: item.url })}
       >
         <View
           style={[
@@ -311,7 +288,6 @@ const NewsFeed = ({ data, onOpenNews }) => (
   </FadeView>
 );
 
-// Home screen
 export default function HomeScreen() {
   const navigation = useNavigation();
   const [currentLocation, setCurrentLocation] = useState("Loading...");
@@ -325,6 +301,8 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [loadingSafety, setLoadingSafety] = useState(true);
   const [showLottie, setShowLottie] = useState(true);
+  const [newsArticles, setNewsArticles] = useState([]);
+  const [loadingNews, setLoadingNews] = useState(true);
 
   // Logout handler
   const handleLogout = useCallback(async () => {
@@ -348,6 +326,54 @@ export default function HomeScreen() {
       } catch {}
     })();
   }, []);
+
+  useEffect(() => {
+    loadNewsArticles();
+  }, []);
+
+  const loadNewsArticles = async () => {
+    try {
+      setLoadingNews(true);
+      const articles = await fetchNews("");
+      
+      const formattedNews = articles.slice(0, 2).map((article, index) => {
+        const timeAgo = getTimeAgo(article.published_at);
+        const sourceName = article.source || "News Source";
+        
+        return {
+          id: index.toString(),
+          title: article.title || "Untitled",
+          source: sourceName,
+          time: timeAgo,
+          priority: index < 2 ? "high" : "medium",
+          logoUri: article.image || "https://via.placeholder.com/50",
+          url: article.url,
+        };
+      });
+      
+      setNewsArticles(formattedNews);
+    } catch (error) {
+      console.error("Error loading news:", error);
+      setNewsArticles([]);
+    } finally {
+      setLoadingNews(false);
+    }
+  };
+
+  const getTimeAgo = (dateString) => {
+    if (!dateString) return "Recently";
+    
+    const now = new Date();
+    const published = new Date(dateString);
+    const diffMs = now - published;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    
+    if (diffMins < 60) return `${diffMins}m`;
+    if (diffHours < 24) return `${diffHours}h`;
+    return `${diffDays}d`;
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -403,7 +429,6 @@ export default function HomeScreen() {
   );
 
   useEffect(() => {
-    // Directly set the exact percentage from backend without animation rounding
     const target = safetyData?.Danger_Percentage ?? 65;
     setCrimeProbability(target);
     
@@ -416,7 +441,6 @@ export default function HomeScreen() {
     setLoadingSafety(true);
     setShowLottie(true);
     try {
-      // Use GPS coordinates if available (finds nearest station)
       const endpoint = lat && lon 
         ? `${API_BASE_URL}/api/safety-status/location/${lat}/${lon}`
         : `${API_BASE_URL}/api/safety-status/${encodeURIComponent(area)}`;
@@ -458,6 +482,30 @@ export default function HomeScreen() {
     setRefreshing(false);
   }, [currentLocation]);
 
+  const handleLogout = useCallback(async () => {
+    try {
+      console.log("🚪 HomeScreen: Starting logout...");
+      
+      await supabaseAuth.signOut();
+      console.log("✅ Supabase signout complete");
+      
+      await AsyncStorage.removeItem("userSession");
+      await AsyncStorage.removeItem("userID");
+      console.log("✅ AsyncStorage cleared");
+      
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: "OnboardingScreen" }],
+        })
+      );
+      console.log("✅ Navigation reset to OnboardingScreen");
+    } catch (error) {
+      console.error("❌ Logout error:", error);
+      alert("Logout failed. Please try again.");
+    }
+  }, [navigation]);
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar
@@ -471,6 +519,7 @@ export default function HomeScreen() {
         onProfilePress={() => navigation.navigate("ProfileScreen")}
         onLogout={handleLogout}
         riskColor={riskColor}
+        onLogout={handleLogout}
       />
       <NotificationModal
         visible={modalVisible}
@@ -527,10 +576,14 @@ export default function HomeScreen() {
         )}
 
         <QuickActions navigation={navigation} />
-        <NewsFeed
-          data={NEWS_DATA}
-          onOpenNews={() => navigation.navigate("NewsFeed")}
-        />
+        
+        {!loadingNews && newsArticles.length > 0 && (
+          <NewsFeed
+            data={newsArticles}
+            onOpenNews={() => navigation.navigate("NewsFeed")}
+            navigation={navigation}
+          />
+        )}
 
         <FadeView
           style={{ alignItems: "center", marginTop: 0, marginBottom: 80 }}

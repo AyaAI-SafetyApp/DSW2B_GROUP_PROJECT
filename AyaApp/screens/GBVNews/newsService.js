@@ -1,8 +1,8 @@
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const NEWS_API_KEY = "39edacbed9f54464b95d41f24f2ba82a";
-const BASE_URL = "https://newsapi.org/v2/everything";
+const MEDIASTACK_API_KEY = "f78b2b82908863f103894ab589f2127f"; 
+const BASE_URL = "http://api.mediastack.com/v1/news";
 
 const GBV_KEYWORDS = [
   "gender-based violence",
@@ -16,46 +16,37 @@ const GBV_KEYWORDS = [
 
 export async function fetchNews(userQuery = "") {
   try {
-    
     const isGBVQuery = GBV_KEYWORDS.some((kw) =>
       userQuery.toLowerCase().includes(kw.toLowerCase())
     );
 
-    
     if (userQuery && !isGBVQuery) {
       return [];
     }
 
     let allArticles = [];
 
-    if (userQuery) {
+    async function fetchFromMediastack(keyword) {
       const response = await axios.get(BASE_URL, {
         params: {
-          q: userQuery,
-          language: "en",
-          sortBy: "publishedAt",
-          apiKey: NEWS_API_KEY,
+          access_key: MEDIASTACK_API_KEY,
+          countries: "za",
+          languages: "en",
+          keywords: keyword,
+          sort: "published_desc",
+          limit: 20,
         },
       });
 
-      if (response.data.articles) {
-        allArticles = response.data.articles;
-      }
-    } else {
-      
-      for (const keyword of GBV_KEYWORDS) {
-        const response = await axios.get(BASE_URL, {
-          params: {
-            q: keyword,
-            language: "en",
-            sortBy: "publishedAt",
-            apiKey: NEWS_API_KEY,
-          },
-        });
+      return response.data?.data || [];
+    }
 
-        if (response.data.articles) {
-          allArticles = [...allArticles, ...response.data.articles];
-        }
+    if (userQuery) {
+      allArticles = await fetchFromMediastack(userQuery);
+    } else {
+      for (const keyword of GBV_KEYWORDS) {
+        const articles = await fetchFromMediastack(keyword);
+        allArticles = [...allArticles, ...articles];
       }
     }
 
@@ -67,7 +58,7 @@ export async function fetchNews(userQuery = "") {
 
     return uniqueArticles;
   } catch (error) {
-    console.log("API failed, loading cache...");
+    console.log("Mediastack API failed, loading cache...", error.message);
     const cached = await AsyncStorage.getItem("cachedNews");
     return cached ? JSON.parse(cached) : [];
   }
