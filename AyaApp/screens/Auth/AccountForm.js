@@ -1,3 +1,4 @@
+import 'react-native-get-random-values';
 import React, { useState, useRef, useEffect } from "react";
 import {
   View,
@@ -19,6 +20,7 @@ import { Ionicons, MaterialIcons, FontAwesome5 } from "@expo/vector-icons";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "../../lib/supabase";
+import { encryptData } from "../../lib/encryption";
 
 const GOOGLE_API_KEY = "YOUR_GOOGLE_PLACES_API_KEY";
 const TOTAL_STEPS = 3;
@@ -53,7 +55,6 @@ export default function PremiumMultiStepForm() {
   ).current;
   const genders = ["Male", "Female", "Non-binary", "Prefer not to say"];
 
-  // ---------------- Aya logo bounce ----------------
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
@@ -71,7 +72,6 @@ export default function PremiumMultiStepForm() {
     ).start();
   }, []);
 
-  // Clear errors when gender is selected
   useEffect(() => {
     if (gender && step === 2) {
       setErrors((prevErrors) => {
@@ -82,7 +82,6 @@ export default function PremiumMultiStepForm() {
     }
   }, [gender, step]);
 
-  // ---------------- Image Upload ----------------
   const pickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) return;
@@ -109,7 +108,6 @@ export default function PremiumMultiStepForm() {
     loadCachedImage();
   }, []);
 
-  // ---------------- Google Places Autocomplete ----------------
   const fetchLocationSuggestions = async (input) => {
     if (!input) return setLocationSuggestions([]);
     try {
@@ -134,7 +132,6 @@ export default function PremiumMultiStepForm() {
     setLocationSuggestions([]);
   };
 
-  // ---------------- Validation ----------------
   const validateStep = () => {
     const newErrors = {};
 
@@ -154,7 +151,6 @@ export default function PremiumMultiStepForm() {
     return Object.keys(newErrors).length === 0;
   };
 
-  // ---------------- Step animations ----------------
   const animateTransition = (direction = 1) => {
     Animated.sequence([
       Animated.timing(fadeAnim, {
@@ -214,21 +210,20 @@ export default function PremiumMultiStepForm() {
     }).start();
   };
 
-  // ---------------- Supabase submit ----------------
+  // ---------------- Supabase submit with encryption ----------------
   const handleSubmit = async () => {
     if (!validateStep()) return;
 
     setLoading(true);
     try {
       const accountData = {
-        //id: userID, // Supabase Auth user id
-        full_name: fullName,
-        username,
-        phone,
-        location,
-        age: parseInt(age),
-        gender,
-        profile_picture: profilePic,
+        full_name: encryptData(fullName),
+        username: encryptData(username),
+        phone: encryptData(phone),
+        location: encryptData(location),
+        age: encryptData(age),
+        gender: encryptData(gender),
+        profile_picture: profilePic ? encryptData(profilePic) : null,
       };
 
       const { data, error } = await supabase
@@ -240,7 +235,7 @@ export default function PremiumMultiStepForm() {
         console.error("Supabase insert error:", error);
         setErrors({ submit: error.message });
       } else {
-        console.log("Profile inserted:", data);
+        console.log("Profile inserted (encrypted):", data);
         animateStepCompletion(step);
         navigation.navigate("subscription", { userID });
       }
@@ -269,7 +264,6 @@ export default function PremiumMultiStepForm() {
     return false;
   };
 
-  // ---------------- Step icons + progress ----------------
   const renderStepIcons = () => {
     const icons = [
       <Ionicons name="person" size={20} color="#fff" />,
@@ -336,7 +330,7 @@ export default function PremiumMultiStepForm() {
     </View>
   );
 
-  // ---------------- Step content ----------------
+  // ---------------- Step content and UI (unchanged) ----------------
   const renderStepContent = () => {
     switch (step) {
       case 0:
@@ -533,20 +527,33 @@ export default function PremiumMultiStepForm() {
           >
             {renderStepContent()}
           </Animated.View>
-          <Pressable
-            style={{
-              ...styles.nextButton,
-              backgroundColor: isStepValid() ? PRIMARY_COLOR : GREY_COLOR,
-            }}
-            onPress={step === TOTAL_STEPS - 1 ? handleSubmit : handleNext}
-            disabled={!isStepValid() || loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Ionicons name="arrow-forward" size={28} color="#fff" />
+          <View style={styles.buttonContainer}>
+            {step > 0 && (
+              <Pressable
+                style={{
+                  ...styles.backButton,
+                  backgroundColor: GREY_COLOR,
+                }}
+                onPress={handleBack}
+              >
+                <Ionicons name="arrow-back" size={28} color="#fff" />
+              </Pressable>
             )}
-          </Pressable>
+            <Pressable
+              style={{
+                ...styles.nextButton,
+                backgroundColor: isStepValid() ? PRIMARY_COLOR : GREY_COLOR,
+              }}
+              onPress={step === TOTAL_STEPS - 1 ? handleSubmit : handleNext}
+              disabled={!isStepValid() || loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Ionicons name="arrow-forward" size={28} color="#fff" />
+              )}
+            </Pressable>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
@@ -610,10 +617,20 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     justifyContent: "center",
     alignItems: "center",
-    alignSelf: "flex-end",
     marginTop: 20,
   },
+  backButton: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 20,
+    marginRight: 20,
+  },
+  buttonContainer: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    alignItems: "center",
+  },
 });
-
-
-
