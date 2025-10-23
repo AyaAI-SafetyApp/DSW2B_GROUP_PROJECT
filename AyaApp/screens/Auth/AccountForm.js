@@ -18,7 +18,7 @@ import * as ImagePicker from "expo-image-picker";
 import { Ionicons, MaterialIcons, FontAwesome5 } from "@expo/vector-icons";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import axios from "axios";
+import { supabase } from "../../lib/supabase";
 
 const GOOGLE_API_KEY = "YOUR_GOOGLE_PLACES_API_KEY";
 const TOTAL_STEPS = 3;
@@ -137,7 +137,6 @@ export default function PremiumMultiStepForm() {
   // ---------------- Validation ----------------
   const validateStep = () => {
     const newErrors = {};
-    console.log("Validating step:", step, "gender:", gender);
 
     if (step === 0) {
       if (!fullName.trim()) newErrors.fullName = "Full name required";
@@ -148,15 +147,9 @@ export default function PremiumMultiStepForm() {
       if (!location.trim()) newErrors.location = "Location required";
       if (!age || isNaN(age) || age < 13) newErrors.age = "Valid age (13+)";
     } else if (step === 2) {
-      if (!gender) {
-        newErrors.gender = "Please select gender";
-        console.log("Gender validation failed - no gender selected");
-      } else {
-        console.log("Gender validation passed - gender:", gender);
-      }
+      if (!gender) newErrors.gender = "Please select gender";
     }
 
-    console.log("Validation errors:", newErrors);
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -221,40 +214,38 @@ export default function PremiumMultiStepForm() {
     }).start();
   };
 
+  // ---------------- Supabase submit ----------------
   const handleSubmit = async () => {
-    console.log("Submit clicked, step:", step, "gender:", gender);
-
-    if (!validateStep()) {
-      console.log("Validation failed, errors:", errors);
-      return;
-    }
+    if (!validateStep()) return;
 
     setLoading(true);
-    console.log("Starting submission...");
-
     try {
       const accountData = {
-        fullName,
+        //id: userID, // Supabase Auth user id
+        full_name: fullName,
         username,
-        age,
-        gender,
         phone,
         location,
-        profilePic,
+        age: parseInt(age),
+        gender,
+        profile_picture: profilePic,
       };
 
-      console.log("Sending account data:", accountData);
+      const { data, error } = await supabase
+        .from("profiles")
+        .insert([accountData])
+        .select();
 
-      await axios.post(`https://dsw2b-backend.onrender.com/account`, {
-        userID,
-        account: accountData,
-      });
-
-      console.log("Account created successfully");
-      animateStepCompletion(step);
-      navigation.navigate("subscription", { userID });
+      if (error) {
+        console.error("Supabase insert error:", error);
+        setErrors({ submit: error.message });
+      } else {
+        console.log("Profile inserted:", data);
+        animateStepCompletion(step);
+        navigation.navigate("subscription", { userID });
+      }
     } catch (err) {
-      console.error("Submit error:", err);
+      console.error("Unexpected error:", err);
       setErrors({ submit: "Something went wrong. Try again." });
     } finally {
       setLoading(false);
@@ -262,12 +253,10 @@ export default function PremiumMultiStepForm() {
   };
 
   const isStepValid = () => {
-    // Clear errors when checking validity
     const hasNoErrors = Object.keys(errors).length === 0;
-
-    if (step === 0) {
+    if (step === 0)
       return hasNoErrors && fullName.trim() && username.trim();
-    } else if (step === 1) {
+    else if (step === 1)
       return (
         hasNoErrors &&
         phone.trim() &&
@@ -276,14 +265,11 @@ export default function PremiumMultiStepForm() {
         !isNaN(age) &&
         age >= 13
       );
-    } else if (step === 2) {
-      return hasNoErrors && gender && gender.length > 0;
-    }
-
+    else if (step === 2) return hasNoErrors && gender;
     return false;
   };
 
-  // ---------------- Step icons + progress bar ----------------
+  // ---------------- Step icons + progress ----------------
   const renderStepIcons = () => {
     const icons = [
       <Ionicons name="person" size={20} color="#fff" />,
@@ -588,13 +574,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   input: { flex: 1, height: 50 },
-  inputError: { borderColor: "#FF3B30" },
+  inputError: {
+    borderWidth: 1,
+    borderColor: "#FF3B30",
+    borderRadius: 8,
+    backgroundColor: "#FDF2F2",
+  },
   errorText: { color: "#FF3B30", fontSize: 13, marginBottom: 4 },
   genderGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 12,
     marginVertical: 12,
+    gap: 12,
   },
   genderOption: {
     flex: 1,
@@ -604,6 +595,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
+    marginBottom: 8,
   },
   genderOptionText: { fontSize: 15, color: "#1C1C1E" },
   sectionTitle: { fontSize: 16, fontWeight: "600", marginBottom: 8 },
@@ -622,3 +614,6 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
 });
+
+
+
