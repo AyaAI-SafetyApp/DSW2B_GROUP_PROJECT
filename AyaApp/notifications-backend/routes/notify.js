@@ -94,4 +94,67 @@ router.post("/time-tip", async (req, res) => {
   }
 });
 
+/**
+ * POST /api/notify/test
+ * Manually trigger a time-tip notification for testing
+ */
+router.post("/test", async (req, res) => {
+  try {
+    const { data: tips, error: tipsErr } = await supabase
+      .from("time_based_safety_tips")
+      .select("*")
+      .order("hour_start", { ascending: true });
+
+    if (tipsErr) {
+      console.warn("Failed fetching tips:", tipsErr);
+      return res.status(500).json({ error: "Failed to fetch tips" });
+    }
+    if (!tips || tips.length === 0) {
+      return res.status(400).json({ error: "No time-based tips available" });
+    }
+
+    const hour = new Date().getHours();
+    const selected = pickTipForHour(tips, hour);
+    if (!selected) return res.status(404).json({ error: "No tip for current hour" });
+
+    const messageBody = `${selected.awareness}: ${selected.tip}`;
+
+    const { data: tokenRows, error: tokenErr } = await supabase
+      .from("user_push_tokens")
+      .select("token,user_id")
+      .neq("token", null);
+
+    if (tokenErr) {
+      console.warn("Failed fetching tokens:", tokenErr);
+      return res.status(500).json({ error: "Failed to fetch tokens" });
+    }
+
+    const tokens = Array.isArray(tokenRows) ? tokenRows : [];
+
+    if (tokens.length === 0) {
+      return res.status(200).json({ ok: true, message: "No tokens to notify" });
+    }
+
+    const messages = tokens.map((r) => ({
+      to: r.token,
+      title: "Safety Tip (Test)",
+      body: messageBody,
+      data: { tip: selected, test: true },
+    }));
+
+    const sendResult = await sendExpoPushNotifications(messages);
+
+    return res.json({ 
+      ok: true, 
+      sentTo: messages.length, 
+      result: sendResult,
+      tip: selected,
+      currentHour: hour
+    });
+  } catch (err) {
+    console.error("Test notify error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
 export default router;

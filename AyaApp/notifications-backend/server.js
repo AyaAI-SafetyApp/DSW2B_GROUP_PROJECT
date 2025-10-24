@@ -6,6 +6,7 @@ import cors from "cors";
 import timeTipsRouter from "./routes/timeTips.js";
 import notifyRouter from "./routes/notify.js";
 import tokensRouter from "./routes/tokens.js";
+import { initializeScheduler } from "./lib/scheduler.js";
 
 dotenv.config();
 
@@ -24,4 +25,7 @@ app.use((req, res) => res.status(404).json({ error: "Not found" }));
 const port = process.env.PORT || 8888;
 app.listen(port, () => {
   console.log(`Notifications backend listening on port ${port}`);
+  
+  // Initialize scheduler for automated time-based notifications
+  initializeScheduler();
 });

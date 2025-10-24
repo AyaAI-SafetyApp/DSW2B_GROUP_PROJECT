@@ -5,13 +5,13 @@ const path = require('path');
 const axios = require('axios');
 const bodyParser = require('body-parser');
 const { createClient } = require('@supabase/supabase-js');
-const { doc, setDoc, getDoc, updateDoc, arrayUnion } = require("firebase/firestore");
-const { db } = require("./firebaseConfig");
 const dotenv = require('dotenv');
+const passkeyService = require('./passkeyService');
 const twilio = require("twilio");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
-const sqlite3 = require("sqlite3").verbose();
 const multer = require("multer");
+const { initializeScheduler, sendTimeTipNotification, setSupabase, pickTipForHour } = require("./lib/scheduler");
+const { sendExpoPushNotifications } = require("./lib/expoPush");
 
 // Load environment variables
 dotenv.config();
@@ -31,27 +31,6 @@ const client = twilio(accountSid, authToken);
 // Initialize Google Generative AI for therapist chat
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 const therapistModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
-// SQLite database for therapist conversations
-const therapistDb = new sqlite3.Database("conversations.db", (err) => {
-  if (err) {
-    console.error("Therapist DB connection failed:", err.message);
-  } else {
-    console.log("Therapist SQLite connected");
-  }
-});
-
-// Create therapist conversations table
-therapistDb.serialize(() => {
-  therapistDb.run(`
-    CREATE TABLE IF NOT EXISTS conversations (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_message TEXT,
-      ai_response TEXT,
-      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-});
 
 // Emergency alert system
 const alerts = [];
@@ -223,6 +202,24 @@ const SUPABASE_URL = "https://mcjjabajtfodvmixklfj.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1jamphYmFqdGZvZHZtaXhrbGZqIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NjQ3NTg0MywiZXhwIjoyMDcyMDUxODQzfQ.NbVNBTcC3Cr9ili0EFa9o4IiMhdZRREKlthVJjMW0Xg";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
+// Notification Supabase client setup (separate project with notification tables)
+const NOTIFICATION_SUPABASE_URL = "https://qbmtujlatijhknacbxyt.supabase.co";
+const NOTIFICATION_SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFibXR1amxhdGlqaGtuYWNieHl0Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1ODM5Njk0MiwiZXhwIjoyMDczOTcyOTQyfQ.Z6yN39S0gNqWGEHWDnwGNonQAgk2rUNhM9E5CDypGZs";
+const notificationSupabase = createClient(NOTIFICATION_SUPABASE_URL, NOTIFICATION_SUPABASE_KEY);
+
+// Initialize scheduler with notification supabase client
+setSupabase(notificationSupabase);
+
+// Supabase Auth client setup (for user management)
+const AUTH_SUPABASE_URL = "https://gfrnxqhivmgfgdersflu.supabase.co";
+const AUTH_SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdmcm54cWhpdm1nZmdkZXJzZmx1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MTA0NjY2NiwiZXhwIjoyMDc2NjIyNjY2fQ.4rYkTs5G3OLbqBbCxSzZ7pqTHe-AxsPvMqzIUw_rTm0";
+const authSupabase = createClient(AUTH_SUPABASE_URL, AUTH_SUPABASE_SERVICE_KEY, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false
+  }
+});
+
 // Generate PayPal access token
 async function generateAccessToken() {
     const response = await axios({
@@ -235,25 +232,7 @@ async function generateAccessToken() {
     return response.data.access_token;
 }
 
-// Passkey service function
-const storePasskey = async (userId, credentialId, publicKey) => {
-    const userRef = doc(db, "users", userId);
-    const userSnap = await getDoc(userRef);
-
-    const passkeyData = {
-        credentialId,
-        publicKey,
-        createdAt: new Date().toISOString(),
-    };
-
-    if (!userSnap.exists()) {
-        await setDoc(userRef, { passkeys: [passkeyData] });
-    } else {
-        await updateDoc(userRef, {
-            passkeys: arrayUnion(passkeyData),
-        });
-    }
-};
+// Passkey service functions are now imported from passkeyService.js
 
 // Routes
 
@@ -472,6 +451,196 @@ app.get("/ping", (req, res) => {
     res.send("pong 🏓");
 });
 
+// Debug: Test Supabase connection
+app.get("/api/debug/supabase", async (req, res) => {
+    try {
+        console.log('🔍 Testing Notification Supabase connection...');
+        console.log('Notification Supabase URL:', NOTIFICATION_SUPABASE_URL);
+        console.log('Notification Supabase Key (first 20 chars):', NOTIFICATION_SUPABASE_KEY.substring(0, 20) + '...');
+        
+        // Try to list tables or get a simple response
+        const { data, error } = await notificationSupabase
+            .from("time_based_safety_tips")
+            .select("id, time_range, awareness")
+            .limit(5);
+        
+        if (error) {
+            console.error('❌ Notification Supabase connection failed:', error);
+            return res.status(500).json({ 
+                success: false, 
+                error: error.message,
+                details: error.details,
+                hint: error.hint,
+                code: error.code,
+                supabaseUrl: NOTIFICATION_SUPABASE_URL
+            });
+        }
+        
+        console.log('✅ Notification Supabase connection successful');
+        res.json({ 
+            success: true, 
+            message: 'Notification Supabase connection OK',
+            rowsFound: data?.length || 0,
+            sampleData: data,
+            supabaseUrl: NOTIFICATION_SUPABASE_URL
+        });
+    } catch (err) {
+        console.error('❌ Exception testing Notification Supabase:', err);
+        res.status(500).json({ 
+            success: false, 
+            error: err.message,
+            stack: err.stack
+        });
+    }
+});
+
+// === NOTIFICATION ENDPOINTS ===
+
+// GET /api/time-based-safety-tips - Get all time-based safety tips
+app.get('/api/time-based-safety-tips', async (req, res) => {
+    try {
+        console.log('📡 Fetching time-based safety tips from Notification Supabase...');
+        console.log('Notification Supabase URL:', NOTIFICATION_SUPABASE_URL);
+        console.log('Table: time_based_safety_tips');
+        
+        const { data, error } = await notificationSupabase
+            .from("time_based_safety_tips")
+            .select("*")
+            .order("hour_start", { ascending: true });
+
+        if (error) {
+            console.error("❌ Notification Supabase error:", error);
+            console.error("Error details:", {
+                message: error.message,
+                details: error.details,
+                hint: error.hint,
+                code: error.code
+            });
+            return res.status(500).json({ 
+                error: error.message || "Supabase error",
+                details: error.details,
+                hint: error.hint
+            });
+        }
+        
+        console.log(`✓ Successfully fetched ${data?.length || 0} tips`);
+        return res.json(Array.isArray(data) ? data : []);
+    } catch (err) {
+        console.error("❌ Server error:", err);
+        return res.status(500).json({ error: "Server error", details: err.message });
+    }
+});
+
+// POST /api/token - Register push notification token
+app.post('/api/token', async (req, res) => {
+    try {
+        const { token, user_id = null, platform = null } = req.body || {};
+        if (!token || typeof token !== "string") {
+            return res.status(400).json({ error: "token required" });
+        }
+
+        const payload = {
+            token,
+            user_id,
+            platform,
+            created_at: new Date().toISOString(),
+        };
+
+        const { data, error } = await notificationSupabase
+            .from("user_push_tokens")
+            .upsert(payload, { onConflict: "token" })
+            .select();
+
+        if (error) {
+            console.error("Upsert token error:", error);
+            return res.status(500).json({ error: "Failed to save token" });
+        }
+
+        return res.json({ ok: true, saved: data?.length ? data[0] : payload });
+    } catch (err) {
+        console.error("Token route error:", err);
+        return res.status(500).json({ error: "Server error" });
+    }
+});
+
+// POST /api/notify/time-tip - Send time-based safety tip notification
+app.post('/api/notify/time-tip', async (req, res) => {
+    try {
+        const { data: tips, error: tipsErr } = await notificationSupabase
+            .from("time_based_safety_tips")
+            .select("*")
+            .order("hour_start", { ascending: true });
+
+        if (tipsErr) {
+            console.warn("Failed fetching tips:", tipsErr);
+            return res.status(500).json({ error: "Failed to fetch tips" });
+        }
+        if (!tips || tips.length === 0) {
+            return res.status(400).json({ error: "No time-based tips available" });
+        }
+
+        const hour = new Date().getHours();
+        const selected = pickTipForHour(tips, hour);
+        if (!selected) return res.status(404).json({ error: "No tip for current hour" });
+
+        const messageBody = `${selected.awareness}: ${selected.tip}`;
+
+        const singleToken = req.body?.token;
+        let tokens = [];
+
+        if (singleToken) {
+            tokens = [{ token: singleToken }];
+        } else {
+            const { data: tokenRows, error: tokenErr } = await notificationSupabase
+                .from("user_push_tokens")
+                .select("token,user_id")
+                .neq("token", null);
+
+            if (tokenErr) {
+                console.warn("Failed fetching tokens:", tokenErr);
+            } else {
+                tokens = Array.isArray(tokenRows) ? tokenRows : [];
+            }
+        }
+
+        if (tokens.length === 0) {
+            return res.status(200).json({ ok: true, message: "No tokens to notify" });
+        }
+
+        const messages = tokens.map((r) => ({
+            to: r.token || r,
+            title: "Safety tip",
+            body: messageBody,
+            data: { tip: selected },
+        }));
+
+        const sendResult = await sendExpoPushNotifications(messages);
+
+        if (!req.body?.suppressSendLog) {
+            try {
+                const { error: logErr } = await notificationSupabase.from("notifications_log").insert([
+                    {
+                        tip_id: selected.id ?? null,
+                        time_range: selected.time_range ?? null,
+                        sent_at: new Date().toISOString(),
+                        recipients: messages.length,
+                    },
+                ]);
+                if (logErr) {
+                    console.warn("Log insert failed:", logErr);
+                }
+            } catch (e) {
+                console.warn("Log insert exception:", e);
+            }
+        }
+
+        return res.json({ ok: true, sentTo: messages.length, result: sendResult });
+    } catch (err) {
+        console.error("Notify error:", err);
+        return res.status(500).json({ error: "Server error" });
+    }
+});
+
 // === EMERGENCY CHAT ENDPOINTS ===
 
 // Emergency chat endpoint
@@ -674,17 +843,6 @@ app.post("/therapist/chat", async (req, res) => {
 
         const aiReply = aiResult.response.text();
         
-        // Store conversation in database
-        therapistDb.run(
-            "INSERT INTO conversations (user_message, ai_response) VALUES (?, ?)",
-            [message, aiReply],
-            (err) => {
-                if (err) {
-                    console.error("Failed to store therapist conversation:", err);
-                }
-            }
-        );
-        
         res.json({ reply: aiReply });
     } catch (err) {
         console.error("Therapist AI chat error:", err.message);
@@ -736,17 +894,6 @@ app.post("/therapist/chat-audio", upload.single("audio"), async (req, res) => {
 
         const aiReply = replyResult.response.text();
 
-        // Store conversation
-        therapistDb.run(
-            "INSERT INTO conversations (user_message, ai_response) VALUES (?, ?)",
-            [transcription, aiReply],
-            (err) => {
-                if (err) {
-                    console.error("Failed to store audio therapist conversation:", err);
-                }
-            }
-        );
-
         // Clean up audio file
         fs.unlink(audioPath, (err) => {
             if (err) console.error("Failed to delete audio file:", err);
@@ -759,92 +906,14 @@ app.post("/therapist/chat-audio", upload.single("audio"), async (req, res) => {
     }
 });
 
-// Therapist conversation summary endpoint
+// Therapist conversation summary endpoint (disabled - no conversation storage)
 app.get("/therapist/summary", async (req, res) => {
-    therapistDb.all(
-        "SELECT user_message, ai_response FROM conversations ORDER BY timestamp DESC LIMIT 20",
-        async (err, rows) => {
-            if (err) {
-                return res.status(500).json({ error: "Database error" });
-            }
-            
-            if (!rows.length) {
-                return res.json({ summary: "No recent conversations" });
-            }
-
-            const convoText = rows
-                .map((r) => `User: ${r.user_message}\nAI: ${r.ai_response}`)
-                .join("\n");
-
-            try {
-                const summary = await therapistModel.generateContent({
-                    contents: [
-                        {
-                            role: "model",
-                            parts: [{ text: THERAPIST_SYSTEM_PROMPT + "\nSummarize concisely:" }],
-                        },
-                        { role: "user", parts: [{ text: convoText }] },
-                    ],
-                    generationConfig: {
-                        temperature: 0.6,
-                        topP: 0.9,
-                        maxOutputTokens: 150,
-                    },
-                });
-
-                res.json({ summary: summary.response.text() });
-            } catch (err) {
-                console.error("Failed to generate therapist summary:", err);
-                res.status(500).json({ error: "Failed to generate summary" });
-            }
-        }
-    );
+    res.json({ summary: "Conversation history not available - conversations are not stored" });
 });
 
-// Therapist feedback endpoint
+// Therapist feedback endpoint (disabled - no conversation storage)
 app.get("/therapist/feedback", async (req, res) => {
-    therapistDb.all(
-        "SELECT user_message, ai_response FROM conversations ORDER BY timestamp DESC LIMIT 20",
-        async (err, rows) => {
-            if (err) {
-                return res.status(500).json({ error: "Database error" });
-            }
-            
-            if (!rows.length) {
-                return res.json({ feedback: "No recent conversations" });
-            }
-
-            const convoText = rows
-                .map((r) => `User: ${r.user_message}\nAI: ${r.ai_response}`)
-                .join("\n");
-
-            try {
-                const feedback = await therapistModel.generateContent({
-                    contents: [
-                        {
-                            role: "model",
-                            parts: [
-                                {
-                                    text: THERAPIST_SYSTEM_PROMPT + "\nProvide concise, empathetic feedback:",
-                                },
-                            ],
-                        },
-                        { role: "user", parts: [{ text: convoText }] },
-                    ],
-                    generationConfig: {
-                        temperature: 0.6,
-                        topP: 0.9,
-                        maxOutputTokens: 150,
-                    },
-                });
-
-                res.json({ feedback: feedback.response.text() });
-            } catch (err) {
-                console.error("Failed to generate therapist feedback:", err);
-                res.status(500).json({ error: "Failed to generate feedback" });
-            }
-        }
-    );
+    res.json({ feedback: "Conversation history not available - conversations are not stored" });
 });
 
 // === PAYPAL SUBSCRIPTION ENDPOINTS ===
@@ -1124,6 +1193,39 @@ app.delete("/posts/:id", async (req, res) => {
     res.json({ message: "Post deleted successfully" });
 });
 
+// Delete user account
+app.delete("/api/user/:userId", async (req, res) => {
+    try {
+        const { userId } = req.params;
+        
+        console.log(`🗑️ Attempting to delete user: ${userId}`);
+
+        // Delete user from Supabase Auth
+        const { data, error } = await authSupabase.auth.admin.deleteUser(userId);
+
+        if (error) {
+            console.error("❌ Error deleting user:", error);
+            return res.status(400).json({ 
+                success: false, 
+                error: error.message 
+            });
+        }
+
+        console.log("✅ User deleted successfully from Supabase");
+        res.json({ 
+            success: true, 
+            message: "User account deleted successfully" 
+        });
+
+    } catch (error) {
+        console.error("❌ Server error deleting user:", error);
+        res.status(500).json({ 
+            success: false, 
+            error: "Failed to delete user account" 
+        });
+    }
+});
+
 // Helper functions
 function getRiskLevel(dangerPercentage) {
     if (dangerPercentage >= 90) return 'EXTREME';
@@ -1135,80 +1237,43 @@ function getRiskLevel(dangerPercentage) {
 
 // Generate safety tips
 function generateSafetyTips(areaData) {
+    // Get current hour for time-based tips
+    const hour = new Date().getHours();
+    
+    // Time-based safety tip (first tip)
+    let timeBasedTip = "";
+    
+    if (hour >= 0 && hour < 6) {
+        // 00:00–06:00
+        timeBasedTip = "Be aware: Break-ins, night theft.\nTip: Lock everything and avoid late-night movement.";
+    } else if (hour >= 6 && hour < 12) {
+        // 06:00–12:00
+        timeBasedTip = "Be aware: Phone snatching, muggings.\nTip: Stay alert on commute; keep valuables hidden.";
+    } else if (hour >= 12 && hour < 18) {
+        // 12:00–18:00
+        timeBasedTip = "Be aware: Burglaries, car theft.\nTip: Lock your home and car; don't leave items visible.";
+    } else {
+        // 18:00–24:00
+        timeBasedTip = "Be aware: Hijackings, robberies.\nTip: Stay alert when driving; avoid dark, quiet areas.";
+    }
+    
     const baseTips = [
         "Stay aware of your surroundings at all times",
         "Keep valuables out of sight and secure",
-        "Use well-lit routes, especially at night",
+        "Trust your instincts - if something feels wrong, it probably is",
+        "Use well-lit routes and busy areas when possible",
         "Share your location with trusted contacts",
+        "Keep emergency contacts readily accessible",
         "Avoid displaying expensive items publicly"
     ];
-    
-    const dangerSpecificTips = [];
-    
-    if (areaData.Danger_Percentage >= 90) {
-        dangerSpecificTips.push(
-            "Exercise extreme caution - consider avoiding this area if possible",
-            "Travel in groups whenever possible",
-            "Avoid the area after dark",
-            "Keep emergency contacts readily available"
-        );
-    } else if (areaData.Danger_Percentage >= 70) {
-        dangerSpecificTips.push(
-            "Be extra vigilant in this high-risk area",
-            "Avoid isolated areas and stick to main roads",
-            "Consider using alternative routes during peak crime hours"
-        );
-    } else if (areaData.Danger_Percentage >= 50) {
-        dangerSpecificTips.push(
-            "Maintain heightened awareness",
-            "Avoid walking alone late at night"
-        );
-    } else if (areaData.Danger_Percentage >= 30) {
-        dangerSpecificTips.push(
-            "Standard safety precautions recommended",
-            "Be cautious during evening hours"
-        );
-    } else {
-        dangerSpecificTips.push(
-            "This area has relatively low crime rates",
-            "Continue following basic safety practices"
-        );
-    }
-    
-    if (areaData.Total_Crimes > 5000) {
-        dangerSpecificTips.push("High crime volume area - extra precautions advised");
-    }
-    
-    return [...dangerSpecificTips, ...baseTips].slice(0, 8);
+
+    // Return time-based tip first, then general base tips
+    return [timeBasedTip, ...baseTips].slice(0, 6);
 }
 
-// Passkey API endpoint
-app.post('/api/passkey/store', async (req, res) => {
-    try {
-        const { userId, credentialId, publicKey } = req.body;
-        
-        if (!userId || !credentialId || !publicKey) {
-            return res.status(400).json({ 
-                error: 'Missing required fields: userId, credentialId, publicKey' 
-            });
-        }
-        
-        await storePasskey(userId, credentialId, publicKey);
-        
-        res.status(200).json({ 
-            message: 'Passkey stored successfully',
-            userId: userId
-        });
-    } catch (error) {
-        console.error('Error storing passkey:', error);
-        res.status(500).json({ 
-            error: 'Failed to store passkey',
-            details: error.message 
-        });
-    }
-});
+// Passkey API endpoints
 
-// Register endpoint for passkey creation (used by CreateCredential.js)
+// Register endpoint - Generate and store passkey
 app.post('/register', async (req, res) => {
     try {
         const { userID, credential, provider } = req.body;
@@ -1218,32 +1283,92 @@ app.post('/register', async (req, res) => {
                 error: 'Missing required field: userID' 
             });
         }
+
+        // Generate a unique passkey
+        const generatedPasskey = passkeyService.generatePasskey(userID);
         
-        console.log(`Registering passkey for user: ${userID}`);
-        console.log(`Provider: ${provider}`);
-        console.log(`Credential:`, credential);
-        
-        // Try to store the passkey in Firebase, but don't fail if offline
-        if (credential && credential.id) {
-            try {
-                await storePasskey(userID, credential.id, credential.publicKey || 'mock-public-key');
-                console.log(`✅ Passkey stored successfully in Firebase for user: ${userID}`);
-            } catch (firebaseError) {
-                console.warn(`⚠️  Firebase offline - passkey registration will continue without cloud storage:`, firebaseError.message);
-                // Continue with registration even if Firebase fails
-            }
-        }
+        // Store the passkey in Supabase
+        const storedPasskey = await passkeyService.storePasskey(
+            userID,
+            generatedPasskey.credentialId,
+            generatedPasskey.rawId,
+            provider || 'biometric'
+        );
         
         res.status(200).json({ 
-            message: 'User registered successfully with passkey',
-            userID: userID,
-            provider: provider,
-            note: 'Passkey created locally (Firebase may be offline)'
+            message: 'Passkey registered successfully',
+            userId: userID,
+            credentialId: generatedPasskey.credentialId,
+            passkey: storedPasskey
         });
     } catch (error) {
-        console.error('Error registering user:', error);
+        console.error('Registration error:', error);
         res.status(500).json({ 
-            error: 'Failed to register user',
+            error: 'Failed to register passkey',
+            details: error.message 
+        });
+    }
+});
+
+// Login verification endpoint
+app.post('/login/verify', async (req, res) => {
+    try {
+        const { userID, assertion } = req.body;
+        
+        if (!userID || !assertion) {
+            return res.status(400).json({ 
+                error: 'Missing required fields: userID, assertion' 
+            });
+        }
+
+        // Get user's passkeys
+        const userPasskeys = await passkeyService.getUserPasskeys(userID);
+        
+        if (!userPasskeys || userPasskeys.length === 0) {
+            return res.status(404).json({ 
+                error: 'No passkeys found for this user' 
+            });
+        }
+
+        // Verify the credential exists
+        const credentialId = assertion.id;
+        const isValid = await passkeyService.verifyPasskey(userID, credentialId);
+        
+        if (!isValid) {
+            return res.status(401).json({ 
+                error: 'Invalid passkey credential' 
+            });
+        }
+
+        res.status(200).json({ 
+            message: 'Login verified successfully',
+            userId: userID,
+            authenticated: true
+        });
+    } catch (error) {
+        console.error('Login verification error:', error);
+        res.status(500).json({ 
+            error: 'Failed to verify login',
+            details: error.message 
+        });
+    }
+});
+
+// Get user passkeys endpoint
+app.get('/api/passkey/:userId', async (req, res) => {
+    try {
+        const { userId } = req.params;
+        
+        const passkeys = await passkeyService.getUserPasskeys(userId);
+        
+        res.status(200).json({ 
+            passkeys: passkeys,
+            count: passkeys.length
+        });
+    } catch (error) {
+        console.error('Get passkeys error:', error);
+        res.status(500).json({ 
+            error: 'Failed to retrieve passkeys',
             details: error.message 
         });
     }
@@ -1386,6 +1511,10 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log(`API available at: http://localhost:${PORT}`);
     console.log(`Health check: http://localhost:${PORT}/api/health`);
     console.log(`Emergency alerts: WhatsApp + Retell AI enabled`);
+    console.log(`Notification system: Initializing automated safety tips...`);
+    
+    // Initialize notification scheduler
+    initializeScheduler();
 });
 
 module.exports = app;

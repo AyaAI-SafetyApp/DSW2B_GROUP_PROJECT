@@ -39,8 +39,8 @@ import * as Device from "expo-device";
 
 const { width } = Dimensions.get("window");
 export const PRIMARY = "#D81B60";
-// updated to your PC LAN IP and backend port so physical device can reach it
-export const API_BASE_URL = "http://192.168.137.1:8888";
+// Updated to point to the merged backend server on port 3001
+export const API_BASE_URL = "https://dsw2b-backend.onrender.com";
 
 const NEWS_DATA = [
   {

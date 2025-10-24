@@ -24,6 +24,8 @@
     "firebase": "^12.3.0",
     "firebase-admin": "^13.5.0",
     "multer": "^2.0.2",
+    "node-cron": "^4.2.1",
+    "node-fetch": "^2.7.0",
     "react-native-svg": "^15.12.1",
     "sqlite3": "^5.1.7",
     "twilio": "^5.8.0",
