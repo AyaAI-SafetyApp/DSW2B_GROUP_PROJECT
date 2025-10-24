@@ -31,6 +31,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import LottieView from "lottie-react-native";
 import { supabaseAuth } from "../lib/supabaseClient";
 import { fetchNews } from "./GBVNews/newsService";
+import * as Notifications from "expo-notifications";
+import * as Device from "expo-device";
 
 const { width } = Dimensions.get("window");
 export const PRIMARY = "#D81B60";
@@ -298,11 +300,14 @@ export default function HomeScreen() {
     "New AI safety tools launched.",
   ]);
   const [modalVisible, setModalVisible] = useState(false);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingSafety, setLoadingSafety] = useState(true);
   const [showLottie, setShowLottie] = useState(true);
   const [newsArticles, setNewsArticles] = useState([]);
   const [loadingNews, setLoadingNews] = useState(true);
+
+  const LAST_TIP_KEY = "@last_tip_shown";
 
   useEffect(() => {
     (async () => {
@@ -492,6 +497,135 @@ export default function HomeScreen() {
     }
   }, [navigation]);
 
+  // Helper to pick tip for current hour
+  const pickTipForHour = (tips, hour) => {
+    if (!Array.isArray(tips) || tips.length === 0) return null;
+    const exact = tips.find(
+      (t) => Number(t.hour_start) <= hour && hour < Number(t.hour_end)
+    );
+    return exact || tips[0] || null;
+  };
+
+  // Schedule local notification
+  const scheduleLocalNotification = async (title, body) => {
+    try {
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title,
+          body,
+        },
+        trigger: null, // immediate
+      });
+    } catch (e) {
+      console.warn("Schedule notification failed", e);
+    }
+  };
+
+  // Load and notify time-based tip
+  const loadAndNotifyTimeTip = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/time-based-safety-tips`);
+      const tips = res.ok ? await res.json() : [];
+      if (!tips || tips.length === 0) return;
+
+      const now = new Date();
+      const hour = now.getHours();
+      const selected = pickTipForHour(tips, hour);
+      if (!selected) return;
+
+      // check last shown id to avoid duplicate notifications
+      const last = await AsyncStorage.getItem(LAST_TIP_KEY);
+      const selectedId = String(selected.id ?? selected.time_range ?? selected.hour_start);
+      if (last === selectedId) return;
+
+      const message = `${selected.awareness}: ${selected.tip}`;
+      setNotifications((prev) => [message, ...prev]);
+
+      await scheduleLocalNotification("Safety tip", message);
+
+      await AsyncStorage.setItem(LAST_TIP_KEY, selectedId);
+    } catch (e) {
+      console.warn("loadAndNotifyTimeTip error", e);
+    }
+  };
+
+  // Fetch notifications when opening modal
+  const handleOpenNotifications = useCallback(async () => {
+    try {
+      setLoadingNotifications(true);
+
+      // Try multiple endpoints in order until we get items
+      const endpoints = [
+        `${API_BASE_URL}/api/notifications`,
+        `${API_BASE_URL}/api/time-based-safety-tips`,
+        `${API_BASE_URL}/api/notifications-log`,
+        `${API_BASE_URL}/api/notifications_all`,
+      ];
+
+      let items = [];
+      for (const url of endpoints) {
+        try {
+          const r = await fetch(url);
+          if (!r.ok) {
+            continue;
+          }
+          const json = await r.json();
+          if (Array.isArray(json) && json.length > 0) {
+            items = json;
+            break;
+          }
+        } catch (err) {
+          continue;
+        }
+      }
+
+      // Format received items into readable strings
+      const formatted = [];
+      if (Array.isArray(items) && items.length) {
+        for (const it of items) {
+          if (!it) continue;
+          if (typeof it === "string") {
+            formatted.push(it);
+            continue;
+          }
+          const body =
+            it.message ??
+            it.body ??
+            it.tip ??
+            it.notification ??
+            it.text ??
+            it.payload ??
+            "";
+
+          const title =
+            it.title ??
+            it.awareness ??
+            it.type ??
+            it.time_range ??
+            it.category ??
+            "";
+
+          const display = title && body ? `${title}: ${body}` : body || title || JSON.stringify(it);
+          formatted.push(display);
+        }
+      }
+
+      if (formatted.length > 0) {
+        setNotifications((prev) => {
+          const merged = [...formatted, ...prev];
+          return Array.from(new Set(merged));
+        });
+      }
+
+      setModalVisible(true);
+    } catch (e) {
+      console.warn("handleOpenNotifications error", e);
+      setModalVisible(true);
+    } finally {
+      setLoadingNotifications(false);
+    }
+  }, []);
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar
@@ -501,7 +635,7 @@ export default function HomeScreen() {
       />
       <Header
         notificationsCount={notifications.length}
-        onOpenNotifications={() => setModalVisible(true)}
+        onOpenNotifications={handleOpenNotifications}
         onProfilePress={() => navigation.navigate("ProfileScreen")}
         onLogout={handleLogout}
         riskColor={riskColor}
@@ -509,6 +643,7 @@ export default function HomeScreen() {
       <NotificationModal
         visible={modalVisible}
         notifications={notifications}
+        loading={loadingNotifications}
         onClose={() => setModalVisible(false)}
       />
       <ScrollView
