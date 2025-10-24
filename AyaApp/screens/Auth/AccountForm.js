@@ -1,3 +1,4 @@
+import 'react-native-get-random-values';
 import React, { useState, useRef, useEffect } from "react";
 import {
   View,
@@ -21,6 +22,7 @@ import { Ionicons, MaterialIcons, FontAwesome5 } from "@expo/vector-icons";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
+import { encryptData } from "../../utils/encryption"; // <-- added import
 
 const TOTAL_STEPS = 3;
 const PRIMARY_COLOR = "#DE0973";
@@ -383,30 +385,44 @@ export default function PremiumMultiStepForm() {
     
     setLoading(true);
     try {
+      // Plain object for local/session usage
       const accountData = { fullName, username, age, gender, phone, location, profilePic };
-      
-      // Save to backend API
+
+      // Encrypt selected sensitive fields before sending to backend and Supabase
+      const encryptedAccount = {
+        // keep username, age, gender unencrypted for app logic / uniqueness constraints
+        username,
+        age: parseInt(age),
+        gender,
+        // encrypt user-entered sensitive fields
+        fullName: encryptData(fullName),
+        phone: encryptData(phone),
+        location: encryptData(location),
+        profilePic: profilePic ? encryptData(profilePic) : null,
+      };
+
+      // Send encrypted payload to your backend API
       await axios.post(`https://dsw2b-backend.onrender.com/account`, {
         userID,
-        account: accountData,
+        account: encryptedAccount,
       });
-      
-      // Save to Supabase
+
+      // Save to Supabase (encrypt fields as well) — profileService will store values you pass
       const { saveUserProfile } = require('../../lib/profileService');
       const savedProfile = await saveUserProfile({
         userId: userID,
         email: userID,
-        fullName,
-        username,
-        phone,
-        location,
-        age: parseInt(age),
-        gender,
-        profilePicUri: profilePic,
+        fullName: encryptedAccount.fullName, // encrypted
+        username: username, // kept plaintext for lookup/display (change if you want encrypted)
+        phone: encryptedAccount.phone, // encrypted
+        location: encryptedAccount.location, // encrypted
+        age: encryptedAccount.age,
+        gender: encryptedAccount.gender,
+        profilePicUri: encryptedAccount.profilePic,
         provider: 'email'
       });
-      
-      // Create and save user session
+
+      // Create and save user session (store readable values locally)
       const userData = {
         email: userID,
         userId: userID,

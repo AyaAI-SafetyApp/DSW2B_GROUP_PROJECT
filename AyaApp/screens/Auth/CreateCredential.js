@@ -19,6 +19,8 @@ import * as LocalAuthentication from "expo-local-authentication";
 import { useNavigation } from "@react-navigation/native";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { supabase } from "../../lib/supabaseClient";
+import "react-native-get-random-values"; // Import polyfill for crypto.getRandomValues
+import { getRandomValues } from "react-native-get-random-values";
 
 const CONFETTI_COUNT = 10;
 
@@ -159,9 +161,11 @@ export default function CreateCredentials({ route }) {
         throw new Error("Biometric authentication failed");
       }
 
-      // Generate unique passkey credentials
+      // Generate unique passkey credentials using cryptographically secure random bytes
       const timestamp = Date.now();
-      const randomString = Math.random().toString(36).substring(2, 15);
+      const randomBytes = new Uint8Array(16);
+      getRandomValues(randomBytes);
+      const randomString = Array.from(randomBytes, byte => byte.toString(16).padStart(2, '0')).join('');
       const credentialId = `cred_${userID}_${timestamp}_${randomString}`;
       const publicKey = `key_${userID}_${timestamp}_${randomString}`;
 
