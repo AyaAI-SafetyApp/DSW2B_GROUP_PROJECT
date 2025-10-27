@@ -44,7 +44,8 @@ import {
 import { pickMedia } from "../../NewsfeedCRUD/api/media";
 
 import { enqueuePost, startAutoSync } from "../../NewsfeedCRUD/api/offlineQueue";
-import { uploadFileToBucket } from "../../NewsfeedCRUD/api/storage";
+// changed: import entire storage module namespace and resolve uploader at runtime
+import * as StorageAPI from "../../NewsfeedCRUD/api/storage";
 
 const { width, height } = Dimensions.get("window");
 
@@ -104,6 +105,17 @@ const DUMMY_STORIES = [
   },
 ];
 
+// small helper to detect video urls / file names
+const isVideoUrl = (uri) => {
+  if (!uri) return false;
+  try {
+    const u = String(uri);
+    return /\.(mp4|mov|webm|mkv|3gp)(?:\?.*)?$/i.test(u) || u.includes("/video/") || u.includes("content-type=video");
+  } catch {
+    return false;
+  }
+};
+
 // ============ small helpers for offline CRUD queue ============
 async function getOpsQueue() {
   try {
@@ -143,6 +155,95 @@ async function removeQueuedCreateByLocalId(localId) {
   } catch (e) {
     console.error("removeQueuedCreateByLocalId", e);
   }
+}
+
+// helper to resolve upload function from storage module (tolerant)
+function getStorageUploader() {
+  const s = StorageAPI || {};
+  const candidates = [
+    s.uploadFileToBucket,
+    s.uploadFile,
+    s.upload,
+    s.default && s.default.uploadFileToBucket,
+    s.default && s.default.uploadFile,
+    s.default && s.default.upload,
+  ];
+  const fn = candidates.find((c) => typeof c === "function");
+  if (!fn) {
+    console.error("Storage uploader not found. exports in ../../NewsfeedCRUD/api/storage:", Object.keys(s));
+    return null;
+  }
+  return fn;
+}
+
+// ============ new helper: upload URIs to 'posts' bucket ============
+// Ensures any local file:// or asset URI is uploaded to the 'posts' bucket
+// and returns an array of public URLs. If an item is already an http(s) URL,
+// it will be kept as-is.
+async function uploadMediaUrisToPostsBucket(uris = []) {
+  const uploadedUrls = [];
+  const uploader = getStorageUploader();
+  for (const uri of uris || []) {
+    if (!uri) continue;
+    // keep already uploaded public URLs
+    if (typeof uri === "string" && (uri.startsWith("http://") || uri.startsWith("https://"))) {
+      uploadedUrls.push(uri);
+      continue;
+    }
+    if (!uploader) {
+      console.error("uploadMediaUrisToPostsBucket: no uploader available, skipping upload for", uri);
+      continue;
+    }
+    try {
+      // call resolved uploader
+      const res = await uploader(uri, "posts");
+      // tolerant resolution of response: accept string or object with publicURL/url/publicUrl
+      let url = null;
+      if (!res) {
+        url = null;
+      } else if (typeof res === "string") {
+        url = res;
+      } else if (res.publicURL) {
+        url = res.publicURL;
+      } else if (res.publicUrl) {
+        url = res.publicUrl;
+      } else if (res.url) {
+        url = res.url;
+      } else if (res.Key) {
+        // best-effort: if storage return a Key/path, attempt to construct a URL (may need adjusting to your storage provider)
+        url = res.Key;
+      } else if (res.path) {
+        url = res.path;
+      } else {
+        // fallback to stringified
+        url = String(res);
+      }
+
+      if (url) {
+        // if returned path looks like storage path (no http), attempt to construct public url for Supabase public buckets
+        if (typeof url === "string" && !/^https?:\/\//i.test(url) && url.includes("/")) {
+          // leave as-is; PostCard will attempt to resolve if needed. However try to construct supabase public URL if supabase base exists
+          try {
+            const base = StorageAPI?.supabaseUrl || StorageAPI?.supabase?.url || null;
+            if (base && !/^https?:\/\//i.test(url)) {
+              const baseClean = String(base).replace(/\/+$/, "");
+              const manual = `${baseClean}/storage/v1/object/public/posts/${encodeURIComponent(url.replace(/^\/+/, ''))}`;
+              uploadedUrls.push(manual);
+              continue;
+            }
+          } catch (e) {
+            // ignore and push raw path
+          }
+        }
+        uploadedUrls.push(url);
+      } else {
+        console.warn("uploadMediaUrisToPostsBucket: unexpected upload result", res);
+      }
+    } catch (e) {
+      console.error("uploadMediaUrisToPostsBucket upload failed for", uri, e);
+    }
+  }
+  return uploadedUrls;
 }
 
 // ============ AVATAR COMPONENT ============
@@ -322,15 +423,32 @@ const PostCard = React.memo(
               horizontal
               pagingEnabled
               keyExtractor={(_, i) => `${post.id}_m_${i}`}
-              renderItem={({ item }) => (
-                <Image
-                  source={{ uri: item }}
-                  style={styles.postImage}
-                  onLoadStart={() => setImageLoading(true)}
-                  onLoadEnd={() => setImageLoading(false)}
-                  onError={() => setImageLoading(false)}
-                />
-              )}
+              renderItem={({ item }) => {
+                const itemIsVideo = post.media_type === "video" || isVideoUrl(item);
+                if (itemIsVideo) {
+                  return (
+                    <Video
+                      source={{ uri: item }}
+                      style={styles.postImage}
+                      useNativeControls
+                      resizeMode="contain"
+                      isLooping
+                      onLoadStart={() => setImageLoading(true)}
+                      onLoad={() => setImageLoading(false)}
+                      onError={() => setImageLoading(false)}
+                    />
+                  );
+                }
+                return (
+                  <Image
+                    source={{ uri: item }}
+                    style={styles.postImage}
+                    onLoadStart={() => setImageLoading(true)}
+                    onLoadEnd={() => setImageLoading(false)}
+                    onError={() => setImageLoading(false)}
+                  />
+                );
+              }}
               showsHorizontalScrollIndicator={false}
             />
           </TouchableOpacity>
@@ -805,9 +923,11 @@ const Newsfeed = () => {
 
   // start offline auto-sync (uploads + create handled by offlineQueue)
   useEffect(() => {
+    const uploader = getStorageUploader();
     const unsubscribe = startAutoSync({
       createPostFn: createPost,
-      uploadFn: uploadFileToBucket,
+      uploadFn: uploader, // pass resolved uploader (may be null)
+      // startAutoSync should know the bucket to use (uploader is called with bucket='posts' inside uploadMediaUrisToPostsBucket)
     });
     return () => {
       if (typeof unsubscribe === "function") unsubscribe();
@@ -1103,6 +1223,7 @@ const Newsfeed = () => {
   }, []);
 
   // Submit post. If offline, create local placeholder and enqueue create payload (with localId).
+  // IMPORTANT: ensure any local media URIs are uploaded to the 'posts' bucket before creating/updating server posts.
   const handleSubmitPost = useCallback(async () => {
     if (!postContent.trim() && mediaUris.length === 0) {
       Alert.alert("Validation", "Please enter text or select media.");
@@ -1142,10 +1263,19 @@ const Newsfeed = () => {
               )
             );
           } else {
+            // ONLINE EDIT: upload any local URIs to posts bucket and replace them with public URLs
+            let finalMediaUrls = mediaUris;
+            try {
+              finalMediaUrls = await uploadMediaUrisToPostsBucket(mediaUris);
+            } catch (uploadErr) {
+              console.error("Failed to upload media while editing:", uploadErr);
+              // continue with whatever URLs we have (may be empty)
+            }
+
             await updatePost(editingPostId, {
               content: postContent,
-              media_type: mediaUris.length ? postType : "none",
-              media_urls: mediaUris,
+              media_type: finalMediaUrls.length ? postType : "none",
+              media_urls: finalMediaUrls,
             });
           }
         }
@@ -1162,11 +1292,12 @@ const Newsfeed = () => {
             username: currentUsername,
             avatar: currentUser?.user_metadata?.avatar_url || null,
             content: postContent,
-            mediaUris, // local URIs so offlineQueue can upload later
+            mediaUris, // local URIs so offlineQueue can upload later (startAutoSync must handle upload to 'posts' bucket)
             media_type: postType,
             likes: [],
             comments: [],
             created_at: createdAtIso,
+            bucket: "posts", // hint to offlineQueue/startAutoSync that this should go to the 'posts' bucket
           });
 
           // optimistic UI: add local placeholder post
@@ -1194,13 +1325,18 @@ const Newsfeed = () => {
           return;
         }
 
-        // online: create immediately
+        // ONLINE: upload media to 'posts' bucket first (if any), then create post using public URLs
+        let uploadedUrls = [];
+        if (mediaUris.length > 0) {
+          uploadedUrls = await uploadMediaUrisToPostsBucket(mediaUris);
+        }
+
         await createPost({
           username: currentUsername,
           avatar: currentUser?.user_metadata?.avatar_url || null,
           content: postContent,
-          media_type: mediaUris.length ? postType : "none",
-          media_urls: mediaUris,
+          media_type: uploadedUrls.length ? postType : "none",
+          media_urls: uploadedUrls,
           likes: [],
           comments: [],
           created_at: new Date().toISOString(),
@@ -1233,6 +1369,7 @@ const Newsfeed = () => {
             likes: [],
             comments: [],
             created_at: new Date().toISOString(),
+            bucket: "posts",
           });
 
           setPosts((prev) => [
@@ -1598,10 +1735,20 @@ const Newsfeed = () => {
                   style={styles.mediaPreviewList}
                   renderItem={({ item, index }) => (
                     <View style={styles.mediaPreviewItem}>
-                      <Image
-                        source={{ uri: item }}
-                        style={styles.previewImage}
-                      />
+                      {isVideoUrl(item) ? (
+                        <Video
+                          source={{ uri: item }}
+                          style={styles.previewImage}
+                          useNativeControls
+                          resizeMode="contain"
+                          isLooping
+                        />
+                      ) : (
+                        <Image
+                          source={{ uri: item }}
+                          style={styles.previewImage}
+                        />
+                      )}
                       <TouchableOpacity
                         style={styles.removeMediaBtn}
                         onPress={() => handleRemoveMediaAt(index)}

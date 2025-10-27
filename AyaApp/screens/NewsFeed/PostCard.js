@@ -1,4 +1,5 @@
-import React, { useMemo } from "react";
+// ...existing code...
+import React, { useMemo, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -6,6 +7,9 @@ import {
   Image,
   TouchableOpacity,
   Dimensions,
+  FlatList,
+  ActivityIndicator,
+  Platform,
 } from "react-native";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
 import { Video } from "expo-av"; // Use expo-av for video playback
@@ -21,8 +25,42 @@ const COLORS = {
   muted: "#F5F5F5",
 };
 
-const PostCard = ({ post, onAddReaction, onEdit, onDelete }) => {
+const isVideoUrl = (uri) => {
+  if (!uri) return false;
+  try {
+    const u = String(uri);
+    return /\.(mp4|mov|webm|mkv|3gp)(?:\?.*)?$/i.test(u) || u.includes("/video/") || u.includes("content-type=video");
+  } catch {
+    return false;
+  }
+};
+
+const PostCard = ({
+  post,
+  onAddReaction,
+  onLike,
+  onEdit,
+  onDelete,
+  onComment,
+  onViewComments,
+  currentUsername,
+}) => {
   const createdAt = useMemo(() => timeAgo(post.created_at), [post.created_at]);
+  const media = Array.isArray(post.media_urls)
+    ? post.media_urls
+    : post.media_url
+    ? [post.media_url]
+    : [];
+
+  const [loadingMap, setLoadingMap] = useState({}); // keyed by index
+
+  const onLoadStart = useCallback((index) => {
+    setLoadingMap((m) => ({ ...m, [index]: true }));
+  }, []);
+
+  const onLoadEnd = useCallback((index) => {
+    setLoadingMap((m) => ({ ...m, [index]: false }));
+  }, []);
 
   return (
     <View style={styles.card}>
@@ -51,22 +89,47 @@ const PostCard = ({ post, onAddReaction, onEdit, onDelete }) => {
 
       {post.content ? <Text style={styles.content}>{post.content}</Text> : null}
 
-      {post.media_type === "image" && post.media_url ? (
-        <Image
-          source={{ uri: post.media_url }}
-          style={styles.mediaImage}
-          resizeMode="cover"
-        />
-      ) : null}
-
-      {post.media_type === "video" && post.media_url ? (
-        <View style={styles.mediaVideo}>
-          <Video
-            source={{ uri: post.media_url }}
-            style={styles.videoPlayer}
-            useNativeControls
-            resizeMode="cover"
-            isLooping
+      {media && media.length > 0 ? (
+        <View style={styles.mediaContainer}>
+          <FlatList
+            data={media}
+            horizontal
+            pagingEnabled
+            keyExtractor={(_, i) => `${post.id}_media_${i}`}
+            showsHorizontalScrollIndicator={false}
+            renderItem={({ item, index }) => {
+              const video = isVideoUrl(item);
+              return (
+                <View style={styles.mediaItem}>
+                  {loadingMap[index] && (
+                    <View style={styles.loadingOverlay}>
+                      <ActivityIndicator size="small" color={COLORS.accent} />
+                    </View>
+                  )}
+                  {video ? (
+                    <Video
+                      source={{ uri: item }}
+                      style={styles.mediaFull}
+                      useNativeControls
+                      resizeMode="cover"
+                      isLooping
+                      onLoadStart={() => onLoadStart(index)}
+                      onLoad={() => onLoadEnd(index)}
+                      onError={() => onLoadEnd(index)}
+                    />
+                  ) : (
+                    <Image
+                      source={{ uri: item }}
+                      style={styles.mediaFull}
+                      resizeMode="cover"
+                      onLoadStart={() => onLoadStart(index)}
+                      onLoadEnd={() => onLoadEnd(index)}
+                      onError={() => onLoadEnd(index)}
+                    />
+                  )}
+                </View>
+              );
+            }}
           />
         </View>
       ) : null}
@@ -74,15 +137,22 @@ const PostCard = ({ post, onAddReaction, onEdit, onDelete }) => {
       <View style={styles.footer}>
         <TouchableOpacity
           style={styles.iconBtn}
-          onPress={() => onAddReaction?.("like", post.id)}
+          onPress={() => {
+            if (typeof onLike === "function") return onLike(post.id);
+            return onAddReaction?.("like", post.id);
+          }}
         >
           <MaterialCommunityIcons
-            name="heart-outline"
+            name={
+              Array.isArray(post.likes) && currentUsername && post.likes.includes(currentUsername)
+                ? "heart"
+                : "heart-outline"
+            }
             size={22}
             color={COLORS.text}
           />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.iconBtn}>
+        <TouchableOpacity style={styles.iconBtn} onPress={() => onComment?.(post.id)}>
           <MaterialCommunityIcons
             name="comment-outline"
             size={22}
@@ -105,14 +175,21 @@ const PostCard = ({ post, onAddReaction, onEdit, onDelete }) => {
         </TouchableOpacity>
       </View>
 
+      {post.comments && post.comments.length > 0 ? (
+        <TouchableOpacity onPress={() => onViewComments?.(post)}>
+          <Text style={styles.viewComments}>View all {post.comments.length} comments</Text>
+        </TouchableOpacity>
+      ) : null}
+
       {createdAt ? <Text style={styles.timestamp}>{createdAt}</Text> : null}
     </View>
   );
 };
 
-function timeAgo(dateString) {
-  if (!dateString) return "";
-  const date = new Date(dateString);
+function timeAgo(dateInput) {
+  if (!dateInput) return "";
+  const date = typeof dateInput === "number" ? new Date(dateInput) : new Date(dateInput);
+  if (isNaN(date.getTime())) return "";
   const now = new Date();
   const diff = Math.floor((now - date) / 1000);
   if (diff < 60) return `${diff} seconds ago`;
@@ -163,28 +240,33 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     lineHeight: 21,
   },
-  mediaImage: {
+  mediaContainer: {
+    height: 220,
+    marginBottom: 8,
+  },
+  mediaItem: {
     width: SCREEN_WIDTH - 48,
     height: 220,
     borderRadius: 10,
-    marginBottom: 8,
+    marginRight: Platform.OS === "android" ? 0 : 0,
+    overflow: "hidden",
     backgroundColor: COLORS.muted,
-    alignSelf: "center",
   },
-  mediaVideo: {
+  mediaFull: {
+    width: "100%",
+    height: "100%",
+    backgroundColor: COLORS.muted,
+  },
+  loadingOverlay: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 10,
     alignItems: "center",
     justifyContent: "center",
-    height: 220,
-    backgroundColor: COLORS.muted,
-    borderRadius: 10,
-    marginBottom: 8,
-  },
-  videoPlayer: {
-    width: SCREEN_WIDTH - 48,
-    height: 220,
-    borderRadius: 10,
-    backgroundColor: "#000",
-    alignSelf: "center",
+    backgroundColor: "rgba(255,255,255,0.3)",
   },
   footer: {
     flexDirection: "row",
@@ -197,6 +279,11 @@ const styles = StyleSheet.create({
   iconAction: {
     marginRight: 12,
   },
+  viewComments: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+    marginTop: 6,
+  },
   timestamp: {
     color: COLORS.textSecondary,
     fontSize: 12,
@@ -205,3 +292,4 @@ const styles = StyleSheet.create({
 });
 
 export default PostCard;
+// ...existing code...
