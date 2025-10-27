@@ -1,3 +1,4 @@
+// ...existing code...
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 
@@ -7,6 +8,12 @@ import { supabase } from '../supabaseClient';
 /**
  * Offline post queue implementation and helpers
  * Safe uploadFileToBucket implementation that works on Hermes (no resp.blob use)
+ * Ensures uploaded videos return a usable HTTP URL (public OR signed) and sets content-type when possible.
+ *
+ * NOTE:
+ * - This module exports uploadFileToBucket / uploadFile / upload (aliases) and also exports
+ *   supabaseUrl so callers (UI code) can try to build manual public URLs if needed.
+ * - processQueue will use the passed uploadFn if provided, otherwise falls back to uploadFileToBucket.
  */
 
 const STORAGE_KEY = 'OFFLINE_POST_QUEUE';
@@ -85,8 +92,12 @@ function extractPublicUrl(uploadResult) {
   if (uploadResult.publicURL) return uploadResult.publicURL;
   if (uploadResult.public_url) return uploadResult.public_url;
   if (uploadResult.url) return uploadResult.url;
+  if (uploadResult.signedUrl) return uploadResult.signedUrl;
+  if (uploadResult.signedURL) return uploadResult.signedURL;
   if (uploadResult.data && uploadResult.data.publicUrl) return uploadResult.data.publicUrl;
   if (uploadResult.data && uploadResult.data.publicURL) return uploadResult.data.publicURL;
+  if (uploadResult.data && uploadResult.data.signedUrl) return uploadResult.data.signedUrl;
+  if (uploadResult.data && uploadResult.data.signedURL) return uploadResult.data.signedURL;
   if (uploadResult.path) return uploadResult.path;
   if (uploadResult.data && uploadResult.data.path) return uploadResult.data.path;
   return null;
@@ -94,12 +105,15 @@ function extractPublicUrl(uploadResult) {
 
 /**
  * Upload a local file URI to the specified bucket using Supabase storage.
- * Uses response.arrayBuffer -> Uint8Array (Hermes-safe). Returns public URL string if available or an object fallback.
+ * - Works with RN/Expo file:// URIs (uses arrayBuffer -> Uint8Array)
+ * - Returns a string URL when possible (public or signed URL), otherwise returns object { path, data }
+ *
+ * Signature: uploadFileToBucket(localUri, bucket = 'posts', filename = null)
  */
 export async function uploadFileToBucket(localUri, bucket = 'posts', filename = null) {
   if (!localUri) throw new Error('uploadFileToBucket: no localUri provided');
 
-  // Already remote URL -> return as-is
+  // If already remote URL, return as-is
   if (typeof localUri === 'string' && (localUri.startsWith('http://') || localUri.startsWith('https://'))) {
     return localUri;
   }
@@ -114,17 +128,33 @@ export async function uploadFileToBucket(localUri, bucket = 'posts', filename = 
       throw new Error(`Failed to fetch file: ${resp.status}`);
     }
 
-    // Try to read content-type (may be null)
-    const contentType = resp.headers && typeof resp.headers.get === 'function' ? resp.headers.get('Content-Type') : null;
+    // Try to read content-type (may be null). If missing, infer from extension.
+    let contentType = resp.headers && typeof resp.headers.get === 'function' ? resp.headers.get('Content-Type') : null;
+    const extMatch = (localUri || '').match(/\.(\w+)(?:\?.*)?$/);
+    const ext = extMatch ? extMatch[1].toLowerCase() : null;
+
+    // Basic mapping for common video types
+    const extToMime = {
+      mp4: 'video/mp4',
+      mov: 'video/quicktime',
+      webm: 'video/webm',
+      mkv: 'video/x-matroska',
+      avi: 'video/x-msvideo',
+      '3gp': 'video/3gpp',
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      png: 'image/png',
+    };
+    if (!contentType && ext && extToMime[ext]) {
+      contentType = extToMime[ext];
+    }
 
     // Hermes/Expo: avoid resp.blob() — use arrayBuffer and Uint8Array
     const arrayBuffer = await resp.arrayBuffer();
     const fileForUpload = new Uint8Array(arrayBuffer);
 
-    // derive extension/name
-    const extMatch = (localUri || '').match(/\.(\w+)(?:\?.*)?$/);
-    const ext = extMatch ? extMatch[1] : (contentType && contentType.split('/')[1]) || 'jpg';
-    const name = filename || `${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+    // derive filename
+    const name = filename || `${Date.now()}_${Math.random().toString(36).slice(2)}${ext ? `.${ext}` : ''}`;
     const path = name;
 
     // Try upload (Supabase accepts Uint8Array / Buffer)
@@ -154,11 +184,44 @@ export async function uploadFileToBucket(localUri, bucket = 'posts', filename = 
     try {
       const publicResult = await supabase.storage.from(bucket).getPublicUrl(path);
       const publicUrl = extractPublicUrl(publicResult);
-      if (publicUrl) return publicUrl;
+      if (publicUrl) return String(publicUrl);
     } catch (e) {
       // ignore and fallback
     }
 
+    // If no public URL, attempt to create a signed URL (if available). Use 1 hour expiry.
+    try {
+      const fromBucket = supabase.storage.from(bucket);
+      if (typeof fromBucket.createSignedUrl === 'function') {
+        const ttl = 60 * 60; // 1 hour
+        const signed = await fromBucket.createSignedUrl(path, ttl);
+        const signedUrl = extractPublicUrl(signed);
+        if (signedUrl) return String(signedUrl);
+      }
+    } catch (e) {
+      // ignore and fallback
+    }
+
+    // Fallback: try to construct a public URL for public buckets (supabase storage URL pattern)
+    try {
+      const base =
+        supabase?.url ||
+        supabase?.supabaseUrl ||
+        supabase?.client?.supabaseUrl ||
+        supabase?.client?.url ||
+        (supabase?.auth && supabase.auth?.url) ||
+        null;
+
+      if (base) {
+        const baseClean = String(base).replace(/\/+$/, '');
+        const manual = `${baseClean}/storage/v1/object/public/${encodeURIComponent(bucket)}/${encodeURIComponent(path)}`;
+        return manual;
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    // Last fallback: return object so caller can inspect
     return { path: uploadData?.path || path, data: uploadData };
   } catch (err) {
     console.error('uploadFileToBucket failed', err);
@@ -166,13 +229,24 @@ export async function uploadFileToBucket(localUri, bucket = 'posts', filename = 
   }
 }
 
-// aliases
+// ensure a tolerant alias that matches different callers (upload(uri, bucket))
 export const uploadFile = uploadFileToBucket;
 export const upload = uploadFileToBucket;
 
+// expose supabaseUrl to help callers construct manual URLs when needed
+export const supabaseUrl = supabase?.url || supabase?.supabaseUrl || supabase?.client?.supabaseUrl || null;
+
+/**
+ * Process queue:
+ * - uploadFn may be provided by caller (e.g. resolved uploader from storage module)
+ * - if uploadFn is not provided, fallback to uploadFileToBucket exported above
+ */
 export async function processQueue(createPostFn, uploadFn) {
   if (processing) return;
   processing = true;
+
+  // fallback to local uploader
+  const uploader = typeof uploadFn === 'function' ? uploadFn : uploadFileToBucket;
 
   try {
     const queue = await getQueue();
@@ -191,9 +265,16 @@ export async function processQueue(createPostFn, uploadFn) {
           const uploaded = [];
           for (const uri of postPayload.mediaUris) {
             try {
-              const upRes = await uploadFn(uri, bucket);
+              // uploader may accept (uri, bucket) or (uri, bucket, filename) - our uploadFileToBucket supports (uri,bucket,filename)
+              const upRes = await uploader(uri, bucket);
               const publicUrl = extractPublicUrl(upRes) || (typeof upRes === 'string' ? upRes : null);
               if (!publicUrl) {
+                // if uploader returned an object with path and we have supabaseUrl, try construct
+                if (upRes && upRes.path && supabaseUrl) {
+                  const manual = `${supabaseUrl.replace(/\/+$/, '')}/storage/v1/object/public/${encodeURIComponent(bucket)}/${encodeURIComponent(upRes.path)}`;
+                  uploaded.push(manual);
+                  continue;
+                }
                 throw new Error('uploadFn did not return a public URL');
               }
               uploaded.push(publicUrl);
@@ -234,6 +315,7 @@ export async function processQueue(createPostFn, uploadFn) {
         await removeQueueItem(id);
       } catch (itemErr) {
         console.error('offlineQueue: failed processing queue item', item.id, itemErr);
+        // stop processing further items so they can be retried later
         break;
       }
     }
@@ -284,4 +366,5 @@ export default {
   uploadFileToBucket,
   uploadFile,
   upload,
+  supabaseUrl,
 };

@@ -105,6 +105,17 @@ const DUMMY_STORIES = [
   },
 ];
 
+// small helper to detect video urls / file names
+const isVideoUrl = (uri) => {
+  if (!uri) return false;
+  try {
+    const u = String(uri);
+    return /\.(mp4|mov|webm|mkv|3gp)(?:\?.*)?$/i.test(u) || u.includes("/video/") || u.includes("content-type=video");
+  } catch {
+    return false;
+  }
+};
+
 // ============ small helpers for offline CRUD queue ============
 async function getOpsQueue() {
   try {
@@ -201,12 +212,29 @@ async function uploadMediaUrisToPostsBucket(uris = []) {
       } else if (res.Key) {
         // best-effort: if storage return a Key/path, attempt to construct a URL (may need adjusting to your storage provider)
         url = res.Key;
+      } else if (res.path) {
+        url = res.path;
       } else {
         // fallback to stringified
         url = String(res);
       }
 
       if (url) {
+        // if returned path looks like storage path (no http), attempt to construct public url for Supabase public buckets
+        if (typeof url === "string" && !/^https?:\/\//i.test(url) && url.includes("/")) {
+          // leave as-is; PostCard will attempt to resolve if needed. However try to construct supabase public URL if supabase base exists
+          try {
+            const base = StorageAPI?.supabaseUrl || StorageAPI?.supabase?.url || null;
+            if (base && !/^https?:\/\//i.test(url)) {
+              const baseClean = String(base).replace(/\/+$/, "");
+              const manual = `${baseClean}/storage/v1/object/public/posts/${encodeURIComponent(url.replace(/^\/+/, ''))}`;
+              uploadedUrls.push(manual);
+              continue;
+            }
+          } catch (e) {
+            // ignore and push raw path
+          }
+        }
         uploadedUrls.push(url);
       } else {
         console.warn("uploadMediaUrisToPostsBucket: unexpected upload result", res);
@@ -395,15 +423,32 @@ const PostCard = React.memo(
               horizontal
               pagingEnabled
               keyExtractor={(_, i) => `${post.id}_m_${i}`}
-              renderItem={({ item }) => (
-                <Image
-                  source={{ uri: item }}
-                  style={styles.postImage}
-                  onLoadStart={() => setImageLoading(true)}
-                  onLoadEnd={() => setImageLoading(false)}
-                  onError={() => setImageLoading(false)}
-                />
-              )}
+              renderItem={({ item }) => {
+                const itemIsVideo = post.media_type === "video" || isVideoUrl(item);
+                if (itemIsVideo) {
+                  return (
+                    <Video
+                      source={{ uri: item }}
+                      style={styles.postImage}
+                      useNativeControls
+                      resizeMode="contain"
+                      isLooping
+                      onLoadStart={() => setImageLoading(true)}
+                      onLoad={() => setImageLoading(false)}
+                      onError={() => setImageLoading(false)}
+                    />
+                  );
+                }
+                return (
+                  <Image
+                    source={{ uri: item }}
+                    style={styles.postImage}
+                    onLoadStart={() => setImageLoading(true)}
+                    onLoadEnd={() => setImageLoading(false)}
+                    onError={() => setImageLoading(false)}
+                  />
+                );
+              }}
               showsHorizontalScrollIndicator={false}
             />
           </TouchableOpacity>
@@ -1690,10 +1735,20 @@ const Newsfeed = () => {
                   style={styles.mediaPreviewList}
                   renderItem={({ item, index }) => (
                     <View style={styles.mediaPreviewItem}>
-                      <Image
-                        source={{ uri: item }}
-                        style={styles.previewImage}
-                      />
+                      {isVideoUrl(item) ? (
+                        <Video
+                          source={{ uri: item }}
+                          style={styles.previewImage}
+                          useNativeControls
+                          resizeMode="contain"
+                          isLooping
+                        />
+                      ) : (
+                        <Image
+                          source={{ uri: item }}
+                          style={styles.previewImage}
+                        />
+                      )}
                       <TouchableOpacity
                         style={styles.removeMediaBtn}
                         onPress={() => handleRemoveMediaAt(index)}
