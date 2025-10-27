@@ -3,40 +3,14 @@
     "name": "Welcome to Aya",
     "slug": "AyaAI",
     "version": "1.0.0",
-    "orientation": "portrait",
-    "icon": "./assets/Logos/Aya_Logo.png",
-    "userInterfaceStyle": "light",
     "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/Logos/Aya_Logo.png"
-    },
-    "ios": {
-      "supportsTablet": true,
-      "infoPlist": {
-        "NSMicrophoneUsageDescription": "This app uses the microphone to record your voice input."
+    "extra": {
+      "eas": {
+        "projectId": "a5911d48-f244-451b-91b3-546d087698bf"
       }
-    },
-    "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/Logos/Aya_Logo.png"
-      },
-      "edgeToEdgeEnabled": true,
-      "permissions": [
-        "RECORD_AUDIO",
-        "android.permission.RECORD_AUDIO",
-        "android.permission.MODIFY_AUDIO_SETTINGS",
-        "RECORD_AUDIO",
-        "android.permission.RECORD_AUDIO",
-        "android.permission.MODIFY_AUDIO_SETTINGS"
-      ],
-      "package": "com.anonymous.AyaAI"
     },
     "web": {
       "favicon": "./assets/Logos/Aya_Logo.png"
-    },
-    "plugins": [
-      "expo-av",
-      "expo-web-browser"
-    ]
+    }
   }
 }
