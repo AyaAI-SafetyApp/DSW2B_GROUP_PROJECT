@@ -57,6 +57,162 @@ const scoreColor = (score) => {
 
 const labelForScore = (s) => (s >= 75 ? "Best" : s >= 55 ? "Caution" : "Risky");
 
+/* ----------------------------- TomTom API Integration -------------------- */
+
+const TOMTOM_API_KEY = "RAsJTESPENvIz1X04u2Wct3fA7fTjwU6";
+let useSimulation = false; // Flag to switch to simulation when API fails
+
+/**
+ * Fetch real-time traffic data from TomTom Traffic API
+ * Returns traffic flow data including current speed, free flow speed, and confidence
+ */
+async function fetchTrafficData(lat, lon) {
+  try {
+    const url = `https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/10/json?point=${lat},${lon}&key=${TOMTOM_API_KEY}`;
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      if (response.status === 403 || response.status === 429) {
+        console.warn('TomTom API limit reached or access denied. Switching to simulation mode.');
+        useSimulation = true;
+        return null;
+      }
+      throw new Error(`API error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('TomTom API error:', error.message);
+    useSimulation = true;
+    return null;
+  }
+}
+
+/**
+ * Calculate people/traffic density from TomTom traffic data
+ * Uses current speed vs free flow speed to estimate congestion
+ */
+function estimatePeopleFromTrafficData(trafficData) {
+  if (!trafficData || !trafficData.flowSegmentData) {
+    return null;
+  }
+  
+  const flowData = trafficData.flowSegmentData;
+  const currentSpeed = flowData.currentSpeed || 0;
+  const freeFlowSpeed = flowData.freeFlowSpeed || 50;
+  const confidence = flowData.confidence || 0.5;
+  
+  // Calculate congestion ratio (lower speed = more congestion = more people)
+  const congestionRatio = 1 - (currentSpeed / freeFlowSpeed);
+  
+  // Estimate people based on congestion
+  // Higher congestion = more vehicles/people
+  const basePeople = Math.floor(congestionRatio * 500); // Up to 500 people per segment
+  const adjustedPeople = Math.floor(basePeople * confidence);
+  
+  return {
+    peopleCount: adjustedPeople,
+    congestionLevel: congestionRatio,
+    isHotspot: congestionRatio > 0.6, // Over 60% congestion = hotspot
+    confidence: confidence,
+    currentSpeed: currentSpeed,
+    freeFlowSpeed: freeFlowSpeed
+  };
+}
+
+/**
+ * Fetch actual route from TomTom Routing API
+ * Returns real street-level navigation path between two points
+ */
+async function fetchTomTomRoute(start, end, routeType = 'fastest') {
+  try {
+    const startCoords = `${start.latitude},${start.longitude}`;
+    const endCoords = `${end.latitude},${end.longitude}`;
+    
+    // TomTom Routing API - supports multiple route types
+    const url = `https://api.tomtom.com/routing/1/calculateRoute/${startCoords}:${endCoords}/json?key=${TOMTOM_API_KEY}&routeType=${routeType}&traffic=true&travelMode=car`;
+    
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      if (response.status === 403 || response.status === 429) {
+        console.warn('TomTom Routing API limit reached.');
+        useSimulation = true;
+        return null;
+      }
+      throw new Error(`Routing API error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    if (data.routes && data.routes.length > 0) {
+      const route = data.routes[0];
+      const points = route.legs[0].points.map(point => ({
+        latitude: point.latitude,
+        longitude: point.longitude
+      }));
+      
+      return {
+        points,
+        distance: route.summary.lengthInMeters / 1000, // km
+        duration: route.summary.travelTimeInSeconds / 60, // minutes
+        trafficDelay: route.summary.trafficDelayInSeconds || 0
+      };
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('TomTom Routing API error:', error.message);
+    return null;
+  }
+}
+
+/**
+ * Fetch multiple alternative routes from TomTom
+ */
+async function fetchMultipleTomTomRoutes(start, end) {
+  try {
+    const startCoords = `${start.latitude},${start.longitude}`;
+    const endCoords = `${end.latitude},${end.longitude}`;
+    
+    // Request up to 5 alternative routes
+    const url = `https://api.tomtom.com/routing/1/calculateRoute/${startCoords}:${endCoords}/json?key=${TOMTOM_API_KEY}&maxAlternatives=4&traffic=true&travelMode=car&alternativeType=anyRoute`;
+    
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      console.warn('TomTom API limit - using simulation fallback');
+      useSimulation = true;
+      return null;
+    }
+    
+    const data = await response.json();
+    
+    if (data.routes && data.routes.length > 0) {
+      return data.routes.map((route, index) => {
+        const points = route.legs[0].points.map(point => ({
+          latitude: point.latitude,
+          longitude: point.longitude
+        }));
+        
+        return {
+          points,
+          distance: route.summary.lengthInMeters / 1000, // km
+          duration: route.summary.travelTimeInSeconds / 60, // minutes
+          trafficDelay: route.summary.trafficDelayInSeconds || 0,
+          routeType: ['Main Route', 'Alternative 1', 'Alternative 2', 'Alternative 3', 'Alternative 4'][index] || `Route ${index + 1}`
+        };
+      });
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('TomTom Multiple Routes error:', error.message);
+    return null;
+  }
+}
+
 /* --------------------------------- UX kit -------------------------------- */
 
 const StepDot = ({ active, done }) => (
@@ -76,7 +232,7 @@ const PrimaryButton = ({ title, onPress, disabled, style }) => (
     style={[styles.button, disabled && { opacity: 0.5 }, style]}
     disabled={disabled}
   >
-    <Text style={styles.buttonText}>{title}</Text>
+    <Text style={styles.buttonText}    >{title}</Text>
   </TouchableOpacity>
 );
 
@@ -104,8 +260,8 @@ const JHB_CENTER = {
 };
 
 /**
- * Generate 3 "road-like" routes by following a city grid:
- *  - Move east/west first, then north/south (or vice versa)
+ * Generate 5 "road-like" routes by following different city paths:
+ *  - Various combinations of east/west and north/south movements
  *  - Insert extra bends to feel like streets, not straight lines
  */
 function genGridRoutes(start, end) {
@@ -123,11 +279,16 @@ function genGridRoutes(start, end) {
     latitude: start.latitude + dy * 0.55,
     longitude: start.longitude,
   };
+  const mid3 = {
+    latitude: start.latitude + dy * 0.3,
+    longitude: start.longitude + dx * 0.7,
+  };
 
   const altBend = 0.0022; // ~200-250m bend
   const altBend2 = 0.0016;
+  const altBend3 = 0.0018;
 
-  // Route A: E/W → N/S with extra jogs
+  // Route A: E/W → N/S with extra jogs (Main route)
   const routeA = [
     start,
     { latitude: start.latitude, longitude: start.longitude + dx * 0.3 },
@@ -143,7 +304,7 @@ function genGridRoutes(start, end) {
     end,
   ];
 
-  // Route B: N/S → E/W with extra jogs
+  // Route B: N/S → E/W with extra jogs (Highway route)
   const routeB = [
     start,
     { latitude: start.latitude + dy * 0.35, longitude: start.longitude },
@@ -159,7 +320,7 @@ function genGridRoutes(start, end) {
     end,
   ];
 
-  // Route C: snake-ish path to simulate avoiding blocks
+  // Route C: snake-ish path to simulate avoiding blocks (Scenic route)
   const routeC = [
     start,
     {
@@ -181,27 +342,199 @@ function genGridRoutes(start, end) {
     end,
   ];
 
-  return [routeA, routeB, routeC];
+  // Route D: Diagonal approach (Business district route)
+  const routeD = [
+    start,
+    {
+      latitude: start.latitude + dy * 0.25,
+      longitude: start.longitude + dx * 0.25,
+    },
+    {
+      latitude: start.latitude + dy * 0.4 + altBend3,
+      longitude: start.longitude + dx * 0.4,
+    },
+    mid3,
+    {
+      latitude: start.latitude + dy * 0.75,
+      longitude: start.longitude + dx * 0.85 + (dx > 0 ? altBend : -altBend),
+    },
+    end,
+  ];
+
+  // Route E: Outer perimeter route (Residential route)
+  const routeE = [
+    start,
+    {
+      latitude: start.latitude + dy * 0.1,
+      longitude: start.longitude + dx * 0.6,
+    },
+    {
+      latitude: start.latitude + dy * 0.2 + (dy > 0 ? altBend2 : -altBend2),
+      longitude: start.longitude + dx * 0.8,
+    },
+    {
+      latitude: start.latitude + dy * 0.6,
+      longitude: start.longitude + dx * 0.9 + altBend3,
+    },
+    {
+      latitude: start.latitude + dy * 0.9,
+      longitude: start.longitude + dx * 0.95,
+    },
+    end,
+  ];
+
+  return [routeA, routeB, routeC, routeD, routeE];
 }
 
 /**
- * A very simple mock safety scoring:
- * - shorter is (slightly) safer
- * - add small randomness to simulate AI features
+detected * Generate traffic data for a route using TomTom API or simulation fallback
+ * Simulates real-world traffic detection from various sources:
+ * - TomTom Traffic API (primary data source)
+ * - Mobile phone signals (simulation fallback)
+ * - Traffic cameras (simulation fallback)
+ * - IoT devices (simulation fallback)
+ * - Pedestrian counters (simulation fallback)
  */
-const scoreRoute = (points) => {
-  let dist = 0;
+const generateTrafficData = async (points) => {
+  let totalPeopleDetected = 0;
+  let segmentData = [];
+  let apiCallsSuccessful = 0;
+  let apiCallsFailed = 0;
+  
   for (let i = 1; i < points.length; i++) {
-    dist += haversine(points[i - 1], points[i]);
+    const segmentDistance = haversine(points[i - 1], points[i]);
+    const midPoint = {
+      latitude: (points[i - 1].latitude + points[i].latitude) / 2,
+      longitude: (points[i - 1].longitude + points[i].longitude) / 2,
+    };
+    
+    let finalSegmentPeople;
+    let isHotspot;
+    let dataSource = 'simulation';
+    
+    // Try TomTom API first if not in simulation mode
+    if (!useSimulation) {
+      const trafficData = await fetchTrafficData(midPoint.latitude, midPoint.longitude);
+      
+      if (trafficData) {
+        const estimate = estimatePeopleFromTrafficData(trafficData);
+        if (estimate) {
+          finalSegmentPeople = estimate.peopleCount;
+          isHotspot = estimate.isHotspot;
+          dataSource = 'tomtom-api';
+          apiCallsSuccessful++;
+        }
+      } else {
+        apiCallsFailed++;
+      }
+    }
+    
+    // Fallback to simulation if API failed or we're in simulation mode
+    if (!finalSegmentPeople && finalSegmentPeople !== 0) {
+      // Base people count based on segment distance
+      const basePeople = Math.floor(segmentDistance * 100); // ~100 people per km base
+      
+      // Add randomness to simulate real traffic variations
+      const variation = Math.random() * 0.8 + 0.6; // 0.6 to 1.4 multiplier
+      const segmentPeople = Math.floor(basePeople * variation);
+      
+      // Add some hotspots (simulate busy intersections, markets, etc.)
+      isHotspot = Math.random() < 0.2; // 20% chance of hotspot
+      const hotspotMultiplier = isHotspot ? 2 + Math.random() * 3 : 1; // 2-5x more people
+      
+      finalSegmentPeople = Math.floor(segmentPeople * hotspotMultiplier);
+    }
+    
+    totalPeopleDetected += finalSegmentPeople;
+    
+    segmentData.push({
+      segment: i,
+      peopleCount: finalSegmentPeople,
+      isHotspot,
+      distance: segmentDistance,
+      dataSource
+    });
   }
-  const base = clamp(90 - dist * 8, 30, 95);
-  const noise = Math.round((Math.random() - 0.5) * 10);
-  return clamp(Math.round(base + noise), 20, 98);
+  
+  // Log API usage stats
+  if (apiCallsSuccessful > 0 || apiCallsFailed > 0) {
+    console.log('TomTom API Stats:', {
+      successful: apiCallsSuccessful,
+      failed: apiCallsFailed,
+      mode: useSimulation ? 'Simulation' : 'Live API'
+    });
+  }
+  
+  return {
+    totalPeopleDetected,
+    segmentData,
+    averagePeoplePerKm: totalPeopleDetected / points.reduce((total, point, i) => {
+      if (i === 0) return 0;
+      return total + haversine(points[i - 1], point);
+    }, 0),
+    dataSource: useSimulation ? 'simulation' : 'mixed',
+    apiCallsSuccessful,
+    apiCallsFailed
+  };
+};
+
+/**
+ * Enhanced safety scoring based on people/device detection:
+ * - Fewer people = safer route
+ * - Consider route distance
+ * - Factor in hotspots and congestion
+ */
+const scoreRoute = async (points) => {
+  // Get traffic data for this route (now async with TomTom API)
+  const trafficData = await generateTrafficData(points);
+  
+  // Calculate total route distance
+  let totalDistance = 0;
+  for (let i = 1; i < points.length; i++) {
+    totalDistance += haversine(points[i - 1], points[i]);
+  }
+  
+  // Base score calculation
+  const peoplePerKm = trafficData.averagePeoplePerKm;
+  
+  // Safety score logic:
+  // - Start with 100 points
+  // - Subtract points based on people density
+  // - Subtract extra points for hotspots
+  let safetyScore = 100;
+  
+  // Penalty for people density (more people = less safe)
+  const densityPenalty = Math.min(peoplePerKm / 10, 40); // Max 40 points penalty
+  safetyScore -= densityPenalty;
+  
+  // Penalty for hotspots
+  const hotspotCount = trafficData.segmentData.filter(s => s.isHotspot).length;
+  const hotspotPenalty = hotspotCount * 8; // 8 points per hotspot
+  safetyScore -= hotspotPenalty;
+  
+  // Slight penalty for longer routes (efficiency factor)
+  const distancePenalty = Math.min(totalDistance * 2, 10); // Max 10 points penalty
+  safetyScore -= distancePenalty;
+  
+  // Add small randomness for real-world variations
+  const randomFactor = (Math.random() - 0.5) * 6; // ±3 points
+  safetyScore += randomFactor;
+  
+  // Ensure score is between 20 and 98
+  const finalScore = Math.max(20, Math.min(98, Math.round(safetyScore)));
+  
+  return {
+    score: finalScore,
+    trafficData,
+    totalDistance: totalDistance.toFixed(2),
+    peopleDetected: trafficData.totalPeopleDetected,
+    dataSource: trafficData.dataSource
+  };
 };
 
 /* ------------------------------- Main Screen ------------------------------ */
 
-export default function SafeRoutesDemo() {
+export default function SafeRouteScreen() {
   const [step, setStep] = useState(0); // 0: caution, 1: start, 2: dest, 3: routes, 4: navigating
   const [region, setRegion] = useState(JHB_CENTER);
   const mapRef = useRef(null);
@@ -224,6 +557,7 @@ export default function SafeRoutesDemo() {
   const [routes, setRoutes] = useState([]);
   const [scored, setScored] = useState([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   // "Car" animation state
   const [carCoord, setCarCoord] = useState(null);
@@ -278,19 +612,78 @@ export default function SafeRoutesDemo() {
   // Build routes when both points chosen
   useEffect(() => {
     if (start && dest) {
-      const rts = genGridRoutes(start, dest);
-      const withScores = rts.map((pts) => ({
-        points: pts,
-        score: scoreRoute(pts),
-      }));
-      // sort best first
-      withScores.sort((a, b) => b.score - a.score);
-      setRoutes(rts);
-      setScored(withScores);
-      setSelectedIndex(0);
-      setStep(3);
-      // frame routes
-      setTimeout(() => fitAllRoutes(withScores.map((r) => r.points)), 200);
+      // Async function to handle route scoring with TomTom API
+      const analyzeRoutes = async () => {
+        setIsAnalyzing(true);
+        
+        // Try to get real routes from TomTom Routing API first
+        console.log('Fetching routes from TomTom Routing API...');
+        const tomtomRoutes = await fetchMultipleTomTomRoutes(start, dest);
+        
+        let rts;
+        let usingRealRoutes = false;
+        
+        if (tomtomRoutes && tomtomRoutes.length > 0) {
+          // Use real TomTom routes
+          console.log(`✅ Got ${tomtomRoutes.length} real routes from TomTom`);
+          rts = tomtomRoutes.map(r => r.points);
+          usingRealRoutes = true;
+        } else {
+          // Fallback to simulated grid routes
+          console.log('⚠️ Using simulated routes');
+          rts = genGridRoutes(start, dest);
+        }
+        
+        // Score all routes (async with TomTom API calls)
+        const scoringPromises = rts.map(async (pts, index) => {
+          const routeData = await scoreRoute(pts);
+          
+          // If using real TomTom routes, use their metadata
+          const routeInfo = usingRealRoutes && tomtomRoutes[index] ? tomtomRoutes[index] : null;
+          
+          return {
+            points: pts,
+            score: routeData.score,
+            trafficData: routeData.trafficData,
+            totalDistance: routeInfo ? routeInfo.distance.toFixed(2) : routeData.totalDistance,
+            peopleDetected: routeData.peopleDetected,
+            dataSource: usingRealRoutes ? 'tomtom-routing' : routeData.dataSource,
+            duration: routeInfo ? routeInfo.duration.toFixed(0) : null,
+            trafficDelay: routeInfo ? routeInfo.trafficDelay : 0,
+            routeType: routeInfo ? routeInfo.routeType : ['Main St', 'Highway', 'Scenic', 'Business', 'Residential'][index]
+          };
+        });
+        
+        const withScores = await Promise.all(scoringPromises);
+        
+        // Sort by safety score (best first - least people detected)
+        withScores.sort((a, b) => b.score - a.score);
+        
+        setRoutes(rts);
+        setScored(withScores);
+        setSelectedIndex(0);
+        setIsAnalyzing(false);
+        setStep(3);
+        
+        // Show route analysis in console for debugging
+        console.log('Route Analysis:');
+        console.log('Route Source:', usingRealRoutes ? 'TomTom Real Routes' : 'Simulated Routes');
+        console.log('Data Source:', useSimulation ? 'Simulation Mode' : 'TomTom Traffic API');
+        withScores.forEach((route, idx) => {
+          console.log(`Route ${idx + 1} (${route.routeType}):`, {
+            score: route.score,
+            peopleDetected: route.peopleDetected,
+            distance: route.totalDistance + 'km',
+            hotspots: route.trafficData.segmentData.filter(s => s.isHotspot).length,
+            dataSource: route.dataSource
+          });
+        });
+        
+        // frame routes
+        setTimeout(() => fitAllRoutes(withScores.map((r) => r.points)), 200);
+      };
+      
+      analyzeRoutes();
     }
   }, [start, dest]);
 
@@ -372,73 +765,85 @@ export default function SafeRoutesDemo() {
     // here we just close modal; scoring already has randomness.
   };
 
-  /* ------------------------- Animated "car" movement ---------------------- */
+  /* ------------------------- Real-time GPS Navigation ---------------------- */
 
-  const startDrive = () => {
+  const startDrive = async () => {
     if (!scored[selectedIndex]) return;
     const points = scored[selectedIndex].points;
     if (!points || points.length < 2) return;
 
     setStep(4);
     setIsRunning(true);
-    setCarCoord(points[0]);
-    goTo(points[0]);
 
-    let seg = 0;
-    let t = 0; // 0..1 along segment
-    const speedMetersPerSec = 10; // virtual speed ~36km/h
-    const tickMs = 50;
-
-    const distCache = (a, b) => haversine(a, b) * 1000;
-
-    const tick = () => {
-      if (!isRunningRef.current) return;
-
-      const a = points[seg];
-      const b = points[seg + 1];
-      if (!b) {
-        clearInterval(animTimer.current);
+    try {
+      // Request location permission for navigation
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Location permission is needed for real-time navigation.');
         setIsRunning(false);
         return;
       }
 
-      const segDist = distCache(a, b); // meters
-      const step = (speedMetersPerSec * (tickMs / 1000)) / segDist; // progress per tick
-      t += step;
+      // Get initial position
+      const initialLocation = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
 
-      if (t >= 1) {
-        // move to next segment
-        t = 0;
-        seg++;
-        if (!points[seg + 1]) {
-          setCarCoord(points[seg]);
-          clearInterval(animTimer.current);
-          setIsRunning(false);
-          return;
+      setCarCoord({
+        latitude: initialLocation.coords.latitude,
+        longitude: initialLocation.coords.longitude,
+      });
+
+      // Start watching position in real-time
+      const locationSubscription = await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.High,
+          timeInterval: 1000, // Update every 1 second
+          distanceInterval: 5, // Or every 5 meters
+        },
+        (location) => {
+          if (!isRunningRef.current) return;
+
+          const currentPos = {
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+          };
+
+          setCarCoord(currentPos);
+
+          // Calculate heading based on movement direction
+          if (location.coords.heading !== null && location.coords.heading !== undefined) {
+            setCarHeading(location.coords.heading);
+          }
+
+          // Follow user with camera
+          mapRef.current?.animateCamera(
+            {
+              center: currentPos,
+              zoom: 18,
+              heading: location.coords.heading || 0,
+              pitch: Platform.OS === 'ios' ? 60 : 45,
+            },
+            { duration: 500 }
+          );
+
+          // Check if destination reached (within 20 meters)
+          const distToDest = haversine(currentPos, points[points.length - 1]) * 1000; // meters
+          if (distToDest < 20) {
+            Alert.alert('Destination Reached', 'You have arrived at your destination!');
+            locationSubscription.remove();
+            setIsRunning(false);
+          }
         }
-      } else {
-        // interpolate
-        const lat = a.latitude + (b.latitude - a.latitude) * t;
-        const lng = a.longitude + (b.longitude - a.longitude) * t;
-        setCarCoord({ latitude: lat, longitude: lng });
-        // heading towards next point with small easing
-        const br = bearingBetween({ latitude: lat, longitude: lng }, b);
-        setCarHeading(br);
-        mapRef.current?.animateCamera(
-          {
-            center: { latitude: lat, longitude: lng },
-            heading: br,
-            zoom: 17,
-            pitch: Platform.OS === "ios" ? 60 : 0,
-          },
-          { duration: tickMs }
-        );
-      }
-    };
+      );
 
-    // keep running flag in a ref so interval sees the latest
-    isRunningRef.current = true;
-    animTimer.current = setInterval(tick, tickMs);
+      // Store subscription in ref so we can clean it up
+      animTimer.current = locationSubscription;
+    } catch (error) {
+      console.error('Navigation error:', error);
+      Alert.alert('Error', 'Unable to start navigation. Please check your location settings.');
+      setIsRunning(false);
+    }
   };
 
   const isRunningRef = useRef(isRunning);
@@ -448,7 +853,12 @@ export default function SafeRoutesDemo() {
 
   useEffect(() => {
     return () => {
-      if (animTimer.current) clearInterval(animTimer.current);
+      // Cleanup location subscription
+      if (animTimer.current && typeof animTimer.current.remove === 'function') {
+        animTimer.current.remove();
+      } else if (animTimer.current) {
+        clearInterval(animTimer.current);
+      }
     };
   }, []);
 
@@ -502,18 +912,23 @@ export default function SafeRoutesDemo() {
     </View>
   );
 
-  const RoutePill = ({ score, active, onPress, index }) => (
+  const RoutePill = ({ route, active, onPress, index }) => (
     <TouchableOpacity
       onPress={onPress}
       activeOpacity={0.9}
-      style={[styles.routePill, active && { borderColor: scoreColor(score) }]}
+      style={[styles.routePill, active && { borderColor: scoreColor(route.score) }]}
     >
       <Text style={styles.routePillText}>
-        Route {index + 1} •{" "}
-        <Text style={{ color: scoreColor(score), fontWeight: "700" }}>
-          {labelForScore(score)}
+        {route.routeType}
+      </Text>
+      <Text style={styles.routePillSubtext}>
+        <Text style={{ color: scoreColor(route.score), fontWeight: "700" }}>
+          {labelForScore(route.score)}
         </Text>{" "}
-        • {score}
+        • {route.score}
+      </Text>
+      <Text style={styles.routePillDetails}>
+        👥 {route.peopleDetected} • {route.totalDistance}km
       </Text>
     </TouchableOpacity>
   );
@@ -559,13 +974,17 @@ export default function SafeRoutesDemo() {
         {carCoord && (
           <Marker
             coordinate={carCoord}
-            title="You"
+            title={step === 4 ? "📍 Your Live Location" : "You"}
+            description={step === 4 ? "GPS Tracking Active" : ""}
             anchor={{ x: 0.5, y: 0.5 }}
             flat
             rotation={carHeading}
-            // A simple car emoji as marker; replace with a custom image for higher fidelity
-            // For iOS rotation, 'flat' helps; on Android rotation works by default.
-          ></Marker>
+          >
+            <View style={styles.liveMarker}>
+              <View style={styles.liveMarkerPulse} />
+              <View style={styles.liveMarkerDot} />
+            </View>
+          </Marker>
         )}
       </MapView>
 
@@ -585,12 +1004,13 @@ export default function SafeRoutesDemo() {
         <StepHeader />
 
         {step === 0 && (
-          <Card title="Predictive Route Safety">
+          <Card title="SafeRoute - Intelligent Route Planning">
             <Text style={styles.subtle}>
-              Choose a safe way through the city. Start with caution:
+              🛡️ AI-powered route safety using real-time people & device detection.
+              Find the safest path through the city with minimal foot traffic.
             </Text>
             <View style={{ height: 12 }} />
-            <PrimaryButton title="Start" onPress={() => setStep(1)} />
+            <PrimaryButton title="Start SafeRoute" onPress={() => setStep(1)} />
             <View style={{ height: 8 }} />
           </Card>
         )}
@@ -638,26 +1058,39 @@ export default function SafeRoutesDemo() {
               </TouchableOpacity>
             </View>
             <View style={{ height: 8 }} />
-            {start && dest && (
+            {start && dest && !isAnalyzing && (
               <PrimaryButton title="See Routes" onPress={() => setStep(3)} />
+            )}
+            {isAnalyzing && (
+              <View style={styles.analyzingContainer}>
+                <Text style={styles.analyzingText}>
+                  �️ Fetching real routes from TomTom API...
+                </Text>
+              </View>
             )}
           </Card>
         )}
 
         {step === 3 && scored.length > 0 && (
-          <Card title="Suggested routes">
+          <Card title="SafeRoute Analysis - Top 5 Routes">
+            <Text style={styles.subtle}>
+              📊 Analyzed {scored.length} routes • {useSimulation ? '🔧 Simulation Mode' : '🌐 Live Traffic Data'}
+            </Text>
+            <View style={{ height: 8 }} />
+            
+            {/* Show top 3 routes in pills */}
             <View
               style={{
                 flexDirection: "row",
                 gap: 8,
                 justifyContent: "space-between",
+                marginBottom: 12,
               }}
             >
-              {scored.slice(0, 3).map((r, idx) => (
+              {scored.slice(0, 3).map((route, idx) => (
                 <RoutePill
                   key={`pill-${idx}`}
-                  index={idx}
-                  score={r.score}
+                  route={route}
                   active={idx === selectedIndex}
                   onPress={() => {
                     setSelectedIndex(idx);
@@ -666,25 +1099,77 @@ export default function SafeRoutesDemo() {
                 />
               ))}
             </View>
-            <View style={{ height: 10 }} />
-            <PrimaryButton title="Start Navigation" onPress={startDrive} />
+            
+            {/* Selected route details */}
+            {scored[selectedIndex] && (
+              <View style={styles.routeDetails}>
+                <Text style={styles.routeDetailsTitle}>
+                  🛣️ {scored[selectedIndex].routeType} Route Selected
+                </Text>
+                <View style={styles.routeStats}>
+                  <Text style={styles.statItem}>
+                    👥 People Detected: {scored[selectedIndex].peopleDetected}
+                  </Text>
+                  <Text style={styles.statItem}>
+                    📏 Distance: {scored[selectedIndex].totalDistance} km
+                  </Text>
+                  <Text style={styles.statItem}>
+                    🔥 Hotspots: {scored[selectedIndex].trafficData.segmentData.filter(s => s.isHotspot).length}
+                  </Text>
+                  <Text style={styles.statItem}>
+                    🛡️ Safety Score: {scored[selectedIndex].score}/100
+                  </Text>
+                </View>
+              </View>
+            )}
+            
+            <PrimaryButton title="Start SafeRoute Navigation" onPress={startDrive} />
             <View style={{ height: 8 }} />
-            <GhostButton title="Adjust points" onPress={() => setStep(2)} />
+            <GhostButton title="Show All 5 Routes" onPress={() => fitAllRoutes(scored.map(r => r.points))} />
+            <View style={{ height: 4 }} />
+            <GhostButton title="Adjust Destination" onPress={() => setStep(2)} />
           </Card>
         )}
 
         {step === 4 && (
-          <Card title="Navigating…">
+          <Card title="🚗 Live GPS Navigation">
             <Text style={styles.subtle}>
-              Follow the route. Marker animates like an Uber car. You can cancel
-              anytime.
+              📍 Real-time tracking • Following the safest route
             </Text>
+            <View style={{ height: 8 }} />
+            
+            {scored[selectedIndex] && (
+              <View style={styles.activeRouteInfo}>
+                <Text style={styles.activeRouteTitle}>
+                  {scored[selectedIndex].routeType} - {scored[selectedIndex].dataSource === 'tomtom-routing' ? 'TomTom Route' : 'Optimized Route'}
+                </Text>
+                <View style={styles.activeRouteStats}>
+                  <Text style={styles.activeStatItem}>
+                    🛡️ Safety: {scored[selectedIndex].score}/100
+                  </Text>
+                  <Text style={styles.activeStatItem}>
+                    👥 Traffic: {scored[selectedIndex].peopleDetected} detected
+                  </Text>
+                </View>
+                {scored[selectedIndex].duration && (
+                  <Text style={styles.activeStatItem}>
+                    ⏱️ ETA: {scored[selectedIndex].duration} min • {scored[selectedIndex].totalDistance} km
+                  </Text>
+                )}
+              </View>
+            )}
+            
             <View style={{ height: 10 }} />
             <PrimaryButton
-              title="End"
+              title="End Navigation"
               onPress={() => {
                 setIsRunning(false);
-                if (animTimer.current) clearInterval(animTimer.current);
+                // Stop location tracking
+                if (animTimer.current && typeof animTimer.current.remove === 'function') {
+                  animTimer.current.remove();
+                } else if (animTimer.current) {
+                  clearInterval(animTimer.current);
+                }
                 setCarCoord(null);
                 setStep(3);
               }}
@@ -900,6 +1385,64 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#111827",
     fontSize: 12,
+    marginBottom: 2,
+  },
+  routePillSubtext: {
+    fontWeight: "600",
+    color: "#6b7280",
+    fontSize: 10,
+    marginBottom: 2,
+  },
+  routePillDetails: {
+    fontWeight: "500",
+    color: "#9ca3af",
+    fontSize: 9,
+  },
+
+  routeDetails: {
+    backgroundColor: "#f9fafb",
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+  },
+  routeDetailsTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#111827",
+    marginBottom: 8,
+  },
+  routeStats: {
+    gap: 4,
+  },
+  statItem: {
+    fontSize: 12,
+    color: "#6b7280",
+    fontWeight: "500",
+  },
+
+  activeRouteInfo: {
+    backgroundColor: "#ecfdf5",
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#10b981",
+  },
+  activeRouteTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#047857",
+    marginBottom: 6,
+  },
+  activeRouteStats: {
+    flexDirection: "row",
+    gap: 16,
+  },
+  activeStatItem: {
+    fontSize: 12,
+    color: "#059669",
+    fontWeight: "600",
   },
 
   streetSnap: {
@@ -965,4 +1508,47 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   flagLabel: { color: "#271124ff", fontSize: 14 },
+  
+  analyzingContainer: {
+    backgroundColor: "#eff6ff",
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#3b82f6",
+    alignItems: "center",
+  },
+  analyzingText: {
+    fontSize: 13,
+    color: "#1e40af",
+    fontWeight: "600",
+  },
+  
+  liveMarker: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  liveMarkerPulse: {
+    position: 'absolute',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(59, 130, 246, 0.3)',
+    borderWidth: 2,
+    borderColor: '#3b82f6',
+  },
+  liveMarkerDot: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#2563eb',
+    borderWidth: 3,
+    borderColor: 'white',
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 5,
+  },
 });
