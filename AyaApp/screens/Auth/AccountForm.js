@@ -1,3 +1,4 @@
+import 'react-native-get-random-values';
 import React, { useState, useRef, useEffect } from "react";
 import {
   View,
@@ -10,7 +11,6 @@ import {
   Pressable,
   Animated,
   StyleSheet,
-  FlatList,
   ActivityIndicator,
   Dimensions,
   Alert,
@@ -21,12 +21,14 @@ import { Ionicons, MaterialIcons, FontAwesome5 } from "@expo/vector-icons";
 import { useRoute, useNavigation } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
+import { encryptData } from "../../utils/encryption";
 
 const TOTAL_STEPS = 3;
 const PRIMARY_COLOR = "#DE0973";
 const GREY_COLOR = "#C4C4C4";
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const MINIMUM_AGE = 13; 
+const TOMTOM_API_KEY = '97VjAqYxN2dPpjTn2A2Fde2ZfYErlX1B';
 
 export default function PremiumMultiStepForm() {
   const route = useRoute();
@@ -46,6 +48,8 @@ export default function PremiumMultiStepForm() {
   const [loading, setLoading] = useState(false);
   const [loadingLocations, setLoadingLocations] = useState(false);
   const [gettingCurrentLocation, setGettingCurrentLocation] = useState(false);
+  const [currentCoordinates, setCurrentCoordinates] = useState(null);
+  const [isSearching, setIsSearching] = useState(false);
 
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const slideAnim = useRef(new Animated.Value(0)).current;
@@ -109,152 +113,266 @@ export default function PremiumMultiStepForm() {
     loadCachedImage();
   }, []);
 
-  // ---------- Comprehensive South Africa Location Search ----------
+  // ---------- Enhanced Real-time Location Detection ----------
+  const detectCurrentLocation = async () => {
+    try {
+      setGettingCurrentLocation(true);
+      setIsSearching(false);
+
+      // Request location permissions
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      
+      if (status !== 'granted') {
+        Alert.alert(
+          'Location Permission Required',
+          'This app needs location access to detect your current location. Please enable location permissions in your settings.',
+          [{ text: 'OK' }]
+        );
+        setGettingCurrentLocation(false);
+        return;
+      }
+
+      // Get current position with better configuration
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+        timeout: 15000,
+        distanceInterval: 10,
+      });
+
+      const { latitude, longitude } = location.coords;
+      
+      console.log('Detected coordinates:', latitude, longitude);
+
+      // Store coordinates
+      setCurrentCoordinates({ latitude, longitude });
+      
+      // Reverse geocode to get address using TomTom
+      await reverseGeocode(latitude, longitude);
+      
+    } catch (error) {
+      console.log('Geolocation error:', error);
+      
+      let errorMessage = 'Unable to fetch your current location. Please check your internet connection and try again.';
+      
+      if (error.code === 'CANCELLED') {
+        errorMessage = 'Location request was cancelled.';
+      } else if (error.code === 'UNAVAILABLE') {
+        errorMessage = 'Location services are not available. Please check your device settings.';
+      } else if (error.code === 'TIMEOUT') {
+        errorMessage = 'Location request timed out. Please try again.';
+      }
+      
+      Alert.alert('Location Error', errorMessage);
+    } finally {
+      setGettingCurrentLocation(false);
+    }
+  };
+
+  // ---------- Reverse Geocoding Function with TomTom ----------
+  const reverseGeocode = async (latitude, longitude) => {
+    try {
+      const response = await fetch(
+        `https://api.tomtom.com/search/2/reverseGeocode/${latitude},${longitude}.json?key=${TOMTOM_API_KEY}&radius=100`
+      );
+      
+      if (!response.ok) {
+        throw new Error(`Reverse geocoding failed: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('TomTom Reverse geocode response:', data);
+      
+      if (data && data.addresses && data.addresses.length > 0) {
+        const address = data.addresses[0].address;
+        
+        // Build exact street-level location name
+        let locationName = '';
+        
+        // Priority: Street + Number > Street > Suburb > Municipality
+        if (address.streetNumber && address.streetName) {
+          locationName = `${address.streetNumber} ${address.streetName}`;
+        } else if (address.streetName) {
+          locationName = address.streetName;
+        } else if (address.municipalitySubdivision) {
+          locationName = address.municipalitySubdivision; // Suburb
+        } else if (address.municipality) {
+          locationName = address.municipality; // Fallback to municipality
+        }
+        
+        // Add suburb for context if available and different
+        if (locationName && address.municipalitySubdivision && 
+            !locationName.includes(address.municipalitySubdivision)) {
+          locationName = `${locationName}, ${address.municipalitySubdivision}`;
+        }
+        
+        // Final fallback
+        if (!locationName) {
+          locationName = address.freeformAddress || `Current Location`;
+        }
+        
+        setLocation(locationName);
+        setLocationSuggestions([]);
+      } else {
+        setLocation(`Current Location`);
+      }
+    } catch (error) {
+      console.log('TomTom Reverse geocoding error:', error);
+      setLocation(`Current Location`);
+    }
+  };
+
+  // ---------- Enhanced Real-time Location Search with TomTom ----------
   const fetchLocationSuggestions = async (input) => {
-    if (!input || input.length < 2) {
+    if (!input || input.trim().length < 2) {
       setLocationSuggestions([]);
+      setIsSearching(false);
       return;
     }
 
     setLoadingLocations(true);
+    setIsSearching(true);
+    
     try {
+      console.log('Searching for:', input);
+      
+      // TomTom Search API for South Africa - simplified query
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(input)}&countrycodes=za&featureType=city,town,village,suburb&limit=15&addressdetails=1`
+        `https://api.tomtom.com/search/2/search/${encodeURIComponent(input)}.json?key=${TOMTOM_API_KEY}&countrySet=ZA&limit=10&typeahead=true`
       );
       
+      console.log('Response status:', response.status);
+      
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        throw new Error(`TomTom API error! status: ${response.status}`);
       }
       
       const data = await response.json();
+      console.log('TomTom search results:', data);
       
-      console.log('OpenStreetMap API Response:', data);
-      
-      if (data && data.length > 0) {
-        const suggestions = data.map((place, index) => {
-          const address = place.address;
-          let mainText = place.name || place.display_name?.split(',')[0] || 'Unknown Location';
-          let secondaryText = '';
-          
-          const locationParts = [];
-          if (address?.city) locationParts.push(address.city);
-          if (address?.town) locationParts.push(address.town);
-          if (address?.village) locationParts.push(address.village);
-          if (address?.suburb) locationParts.push(address.suburb);
-          if (address?.state) locationParts.push(address.state);
-          if (address?.country) locationParts.push(address.country);
-          
-          secondaryText = locationParts.join(', ');
-          
-          if (!secondaryText && place.display_name) {
-            const parts = place.display_name.split(',');
-            secondaryText = parts.slice(1, Math.min(3, parts.length)).join(',').trim();
-          }
-          
-          return {
-            id: place.place_id || `location-${index}-${Date.now()}`,
-            description: place.display_name,
-            mainText: mainText,
-            secondaryText: secondaryText,
-            type: place.type,
-            importance: place.importance
-          };
-        });
-      
-        suggestions.sort((a, b) => (b.importance || 0) - (a.importance || 0));
+      if (data && data.results && data.results.length > 0) {
+        const suggestions = processTomTomSuggestions(data.results);
+        console.log('Processed suggestions:', suggestions);
         setLocationSuggestions(suggestions);
       } else {
-        await fetchBroaderLocationSuggestions(input);
+        console.log('No results found');
+        setLocationSuggestions([]);
+        setIsSearching(false);
       }
     } catch (err) {
-      console.log("Location fetch error:", err);
-      await fetchBroaderLocationSuggestions(input);
+      console.log("TomTom location fetch error:", err);
+      Alert.alert("Search Error", "Unable to search locations. Please check your internet connection.");
+      setLocationSuggestions([]);
+      setIsSearching(false);
     } finally {
       setLoadingLocations(false);
     }
   };
 
-  const fetchBroaderLocationSuggestions = async (input) => {
-    try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(input)}+South+Africa&limit=10`
-      );
-      
-      if (response.ok) {
-        const data = await response.json();
-        if (data && data.length > 0) {
-          const suggestions = data.map((place, index) => ({
-            id: place.place_id || `location-${index}-${Date.now()}`,
-            description: place.display_name,
-            mainText: place.name || place.display_name?.split(',')[0] || 'Location',
-            secondaryText: place.display_name?.split(',').slice(1, 3).join(',').trim() || 'South Africa',
-            type: place.type
-          }));
-          setLocationSuggestions(suggestions);
+  // ---------- Process TomTom Location Suggestions ----------
+  const processTomTomSuggestions = (results) => {
+    return results
+      .map((place, index) => {
+        const address = place.address || {};
+        
+        console.log('Processing place:', place);
+        
+        // Extract street-level location details
+        let mainText = '';
+        let secondaryText = '';
+        
+        // Priority for main text: Street address > Suburb > Municipality > POI
+        if (address.streetNumber && address.streetName) {
+          mainText = `${address.streetNumber} ${address.streetName}`;
+        } else if (address.streetName) {
+          mainText = address.streetName;
+        } else if (address.municipalitySubdivision) {
+          mainText = address.municipalitySubdivision; // Suburb
+        } else if (address.municipality) {
+          mainText = address.municipality;
+        } else if (place.poi && place.poi.name) {
+          mainText = place.poi.name;
         } else {
-          setLocationSuggestions([]);
+          mainText = address.freeformAddress || 'Location';
         }
-      }
-    } catch (error) {
-      console.log("Broader location search error:", error);
-      setLocationSuggestions([]);
-    }
+        
+        // Build secondary text with suburb and municipality
+        const addressParts = [];
+        
+        // Add suburb if available and different from main text
+        if (address.municipalitySubdivision && mainText !== address.municipalitySubdivision) {
+          addressParts.push(address.municipalitySubdivision);
+        }
+        
+        // Add municipality if available and different from main text and suburb
+        if (address.municipality && 
+            mainText !== address.municipality && 
+            address.municipalitySubdivision !== address.municipality) {
+          addressParts.push(address.municipality);
+        }
+        
+        secondaryText = addressParts.join(', ');
+        
+        // Use freeformAddress as fallback for description
+        const description = address.freeformAddress || mainText + (secondaryText ? `, ${secondaryText}` : '');
+        
+        return {
+          id: place.id || `location-${index}-${Date.now()}`,
+          description: description,
+          mainText: mainText,
+          secondaryText: secondaryText,
+          type: place.type || 'Address',
+          lat: place.position?.lat,
+          lon: place.position?.lon
+        };
+      })
+      .slice(0, 10); // Limit to top 10 results
   };
 
+  // ---------- Enhanced Location Change Handler ----------
   const handleLocationChange = (text) => {
     setLocation(text);
-    if (locationTimeoutRef.current) clearTimeout(locationTimeoutRef.current);
-    locationTimeoutRef.current = setTimeout(() => fetchLocationSuggestions(text), 400);
+    
+    // Clear previous timeout
+    if (locationTimeoutRef.current) {
+      clearTimeout(locationTimeoutRef.current);
+    }
+    
+    // Set new timeout with debouncing
+    locationTimeoutRef.current = setTimeout(() => {
+      if (text.trim().length >= 2) {
+        console.log('Triggering search for:', text);
+        fetchLocationSuggestions(text.trim());
+      } else {
+        setLocationSuggestions([]);
+        setIsSearching(false);
+      }
+    }, 500);
   };
 
+  // ---------- Select Location ----------
   const selectLocation = (place) => {
+    console.log('Location selected:', place);
     setLocation(place.description);
     setLocationSuggestions([]);
-  };
-
-  useEffect(() => {
-    return () => {
-      if (locationTimeoutRef.current) clearTimeout(locationTimeoutRef.current);
-    };
-  }, []);
-
-  // ---------- Detect Current Location ----------
-  const detectCurrentLocation = async () => {
-    try {
-      setGettingCurrentLocation(true);
-
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        alert("Permission to access location was denied.");
-        setGettingCurrentLocation(false);
-        return;
-      }
-
-      const current = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced
+    setIsSearching(false);
+    
+    // Store coordinates if available
+    if (place.lat && place.lon) {
+      setCurrentCoordinates({
+        latitude: parseFloat(place.lat),
+        longitude: parseFloat(place.lon)
       });
-      const { latitude, longitude } = current.coords;
-
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=16&addressdetails=1`
-      );
-      
-      if (response.ok) {
-        const data = await response.json();
-        if (data && data.display_name) {
-          setLocation(data.display_name);
-          setLocationSuggestions([]);
-        } else {
-          setLocation(`Current Location (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`);
-        }
-      }
-    } catch (error) {
-      console.log("Geolocation error:", error);
-      alert("Unable to fetch your current location. Please check your internet connection.");
-    } finally {
-      setGettingCurrentLocation(false);
     }
   };
+
+  // ---------- Cleanup on Unmount ----------
+  useEffect(() => {
+    return () => {
+      if (locationTimeoutRef.current) {
+        clearTimeout(locationTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // ---------- Validation ----------
   const validateStep = () => {
@@ -332,9 +450,8 @@ export default function PremiumMultiStepForm() {
 
   const handleNext = () => {
     if (validateStep()) {
-      // Check age when moving from step 1 to step 2
       if (step === 1 && !verifyAgeAndProceed()) {
-        return; // Stop navigation if age verification fails
+        return; 
       }
       
       animateStepCompletion(step);
@@ -383,30 +500,37 @@ export default function PremiumMultiStepForm() {
     
     setLoading(true);
     try {
+      // Plain object for local/session usage
       const accountData = { fullName, username, age, gender, phone, location, profilePic };
-      
-      // Save to backend API
+      const encryptedAccount = {        username,
+        age: parseInt(age),
+        gender,
+        fullName: fullName,
+        phone: encryptData(phone),
+        location: encryptData(location),
+        profilePic: profilePic ? encryptData(profilePic) : null,
+      };
+
       await axios.post(`https://dsw2b-backend.onrender.com/account`, {
         userID,
-        account: accountData,
+        account: encryptedAccount,
       });
-      
-      // Save to Supabase
+
       const { saveUserProfile } = require('../../lib/profileService');
       const savedProfile = await saveUserProfile({
         userId: userID,
         email: userID,
-        fullName,
-        username,
-        phone,
-        location,
-        age: parseInt(age),
-        gender,
-        profilePicUri: profilePic,
+        fullName: encryptedAccount.fullName, 
+        username: username, 
+        phone: encryptedAccount.phone,
+        location: encryptedAccount.location, 
+        age: encryptedAccount.age,
+        gender: encryptedAccount.gender,
+        profilePicUri: encryptedAccount.profilePic,
         provider: 'email'
       });
-      
-      // Create and save user session
+
+
       const userData = {
         email: userID,
         userId: userID,
@@ -505,17 +629,19 @@ export default function PremiumMultiStepForm() {
       );
     }
 
-    if (locationSuggestions.length > 0) {
+    if (locationSuggestions.length > 0 && isSearching) {
       return (
         <View style={styles.suggestionsContainer}>
           <Text style={styles.suggestionsTitle}>
             Locations in South Africa ({locationSuggestions.length})
           </Text>
-          <FlatList
-            data={locationSuggestions}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
+          <ScrollView 
+            style={styles.suggestionsScrollView}
+            nestedScrollEnabled={true}
+          >
+            {locationSuggestions.map((item) => (
               <Pressable
+                key={item.id}
                 onPress={() => selectLocation(item)}
                 style={({ pressed }) => [
                   styles.suggestionItem,
@@ -537,12 +663,8 @@ export default function PremiumMultiStepForm() {
                   ) : null}
                 </View>
               </Pressable>
-            )}
-            scrollEnabled={true}
-            nestedScrollEnabled={true}
-            style={{ maxHeight: 250 }}
-            showsVerticalScrollIndicator={true}
-          />
+            ))}
+          </ScrollView>
         </View>
       );
     }
@@ -631,12 +753,17 @@ export default function PremiumMultiStepForm() {
                   style={{ marginRight: 8 }}
                 />
                 <TextInput
-                  placeholder="Search locations in South Africa..."
+                  placeholder="Search address"
                   value={location}
                   onChangeText={handleLocationChange}
                   style={[styles.input, errors.location && styles.inputError]}
                   autoCapitalize="words"
                   placeholderTextColor="#999"
+                  onFocus={() => {
+                    if (location.length >= 2) {
+                      setIsSearching(true);
+                    }
+                  }}
                 />
               </View>
 
@@ -953,7 +1080,9 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 3,
     maxHeight: 250,
-    overflow: 'hidden',
+  },
+  suggestionsScrollView: {
+    maxHeight: 200,
   },
   suggestionsTitle: {
     fontSize: 14,

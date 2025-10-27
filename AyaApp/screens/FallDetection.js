@@ -41,7 +41,7 @@ export default function FallDetector() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: 'user123', // You can make this dynamic
+          userId: 'user123',
           timestamp: Date.now(),
           coords: { latitude, longitude }
         })
