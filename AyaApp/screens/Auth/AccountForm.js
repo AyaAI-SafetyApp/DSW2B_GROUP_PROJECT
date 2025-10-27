@@ -395,7 +395,7 @@ export default function PremiumMultiStepForm() {
         age: parseInt(age),
         gender,
         // encrypt user-entered sensitive fields
-        fullName: encryptData(fullName),
+        fullName: fullName,
         phone: encryptData(phone),
         location: encryptData(location),
         profilePic: profilePic ? encryptData(profilePic) : null,
