@@ -508,7 +508,7 @@ export default function PremiumMultiStepForm() {
         fullName: fullName,
         phone: encryptData(phone),
         location: encryptData(location),
-        profilePic: profilePic ? encryptData(profilePic) : null,
+        profilePic: profilePic ? profilePic : null,
       };
 
       await axios.post(`https://dsw2b-backend.onrender.com/account`, {
