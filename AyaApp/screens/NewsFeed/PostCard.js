@@ -1,5 +1,5 @@
 // ...existing code...
-import React, { useMemo, useState, useCallback } from "react";
+import React, { useMemo, useState, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -44,6 +44,9 @@ const PostCard = ({
   onComment,
   onViewComments,
   currentUsername,
+  // added props
+  shouldPlay,
+  onViewMedia,
 }) => {
   const createdAt = useMemo(() => timeAgo(post.created_at), [post.created_at]);
   const media = Array.isArray(post.media_urls)
@@ -61,6 +64,49 @@ const PostCard = ({
   const onLoadEnd = useCallback((index) => {
     setLoadingMap((m) => ({ ...m, [index]: false }));
   }, []);
+
+  // track last tap for single vs double tap
+  const lastTapRef = useRef(null);
+
+  // track currently visible media index (so we only autoplay the visible video)
+  const currentMediaIndexRef = useRef(0);
+  const mediaViewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 50,
+    minimumViewTime: 50,
+  }).current;
+  const onViewableMediaChanged = useRef(({ viewableItems }) => {
+    if (viewableItems && viewableItems.length > 0) {
+      currentMediaIndexRef.current = viewableItems[0].index || 0;
+    }
+  }).current;
+
+  const handleSingleOrDoubleTap = useCallback(
+    (index) => {
+      const now = Date.now();
+      if (lastTapRef.current && now - lastTapRef.current < 300) {
+        // double tap -> like
+        lastTapRef.current = null;
+        if (typeof onLike === "function") onLike(post.id);
+        return;
+      }
+      lastTapRef.current = now;
+      setTimeout(() => {
+        if (!lastTapRef.current) return;
+        const diff = Date.now() - now;
+        if (diff >= 300) {
+          // single tap -> open media viewer for currently visible media (use index param)
+          const idx = typeof index === "number" ? index : currentMediaIndexRef.current || 0;
+          const uri = media[idx];
+          if (uri && typeof onViewMedia === "function") {
+            const isVideo = isVideoUrl(uri);
+            onViewMedia(uri, isVideo);
+          }
+          lastTapRef.current = null;
+        }
+      }, 300);
+    },
+    [onLike, post.id, media, onViewMedia]
+  );
 
   return (
     <View style={styles.card}>
@@ -97,6 +143,8 @@ const PostCard = ({
             pagingEnabled
             keyExtractor={(_, i) => `${post.id}_media_${i}`}
             showsHorizontalScrollIndicator={false}
+            viewabilityConfig={mediaViewabilityConfig}
+            onViewableItemsChanged={onViewableMediaChanged}
             renderItem={({ item, index }) => {
               const video = isVideoUrl(item);
               return (
@@ -106,27 +154,36 @@ const PostCard = ({
                       <ActivityIndicator size="small" color={COLORS.accent} />
                     </View>
                   )}
-                  {video ? (
-                    <Video
-                      source={{ uri: item }}
-                      style={styles.mediaFull}
-                      useNativeControls
-                      resizeMode="cover"
-                      isLooping
-                      onLoadStart={() => onLoadStart(index)}
-                      onLoad={() => onLoadEnd(index)}
-                      onError={() => onLoadEnd(index)}
-                    />
-                  ) : (
-                    <Image
-                      source={{ uri: item }}
-                      style={styles.mediaFull}
-                      resizeMode="cover"
-                      onLoadStart={() => onLoadStart(index)}
-                      onLoadEnd={() => onLoadEnd(index)}
-                      onError={() => onLoadEnd(index)}
-                    />
-                  )}
+                  <TouchableOpacity
+                    activeOpacity={1}
+                    onPress={() => handleSingleOrDoubleTap(index)}
+                    style={{ flex: 1 }}
+                  >
+                    {video ? (
+                      <Video
+                        source={{ uri: item }}
+                        style={styles.mediaFull}
+                        useNativeControls
+                        resizeMode="cover"
+                        isLooping
+                        onLoadStart={() => onLoadStart(index)}
+                        onLoad={() => onLoadEnd(index)}
+                        onError={() => onLoadEnd(index)}
+                        // autoplay only when this post is marked shouldPlay and this media index is the visible one
+                        shouldPlay={!!(shouldPlay && currentMediaIndexRef.current === index)}
+                        isMuted={!(shouldPlay && currentMediaIndexRef.current === index)}
+                      />
+                    ) : (
+                      <Image
+                        source={{ uri: item }}
+                        style={styles.mediaFull}
+                        resizeMode="cover"
+                        onLoadStart={() => onLoadStart(index)}
+                        onLoadEnd={() => onLoadEnd(index)}
+                        onError={() => onLoadEnd(index)}
+                      />
+                    )}
+                  </TouchableOpacity>
                 </View>
               );
             }}
