@@ -351,8 +351,9 @@ const StoryItem = React.memo(({ story, index, onPress }) => {
 });
 
 // ============ POST CARD COMPONENT ============
+// NOTE: added `shouldPlay` prop so parent (FlatList) can control autoplay on visibility
 const PostCard = React.memo(
-  ({ post, onLike, onEdit, onDelete, onComment, onViewComments, currentUsername }) => {
+  ({ post, onLike, onEdit, onDelete, onComment, onViewComments, currentUsername, shouldPlay }) => {
     const [imageLoading, setImageLoading] = useState(true);
     const isLiked = post.likes && post.likes.includes(currentUsername);
     const isOwnPost = post.username === currentUsername;
@@ -436,6 +437,9 @@ const PostCard = React.memo(
                       onLoadStart={() => setImageLoading(true)}
                       onLoad={() => setImageLoading(false)}
                       onError={() => setImageLoading(false)}
+                      // autoplay control: play when parent marks post visible
+                      shouldPlay={!!shouldPlay}
+                      isMuted={!shouldPlay ? true : false} // mute when not playing or optionally mute autoplay
                     />
                   );
                 }
@@ -663,6 +667,7 @@ const CommentsModal = ({
 };
 
 // ============ STORY VIEWER ============
+// ...existing code...
 const StoryViewer = ({
   visible,
   stories,
@@ -674,6 +679,7 @@ const StoryViewer = ({
   onLike,
   progress,
 }) => {
+  // ...existing code unchanged...
   const [paused, setPaused] = useState(false);
   const pan = useRef(new Animated.ValueXY()).current;
 
@@ -787,13 +793,12 @@ const StoryViewer = ({
 
 // ============ HELPER FUNCTIONS ============
 const getTimeAgo = (timestamp) => {
-  // tolerant: accept numeric ms, seconds, or ISO strings
+  // ...existing code...
   let ts = timestamp;
   if (typeof ts === "string") {
     const parsed = Date.parse(ts);
     ts = isNaN(parsed) ? undefined : parsed;
   } else if (typeof ts === "number") {
-    // ensure it's milliseconds; if it looks like seconds (10-digit), convert to ms
     if (String(ts).length === 10) ts = ts * 1000;
   } else {
     ts = undefined;
@@ -835,6 +840,9 @@ const Newsfeed = () => {
   const [currentUsername, setCurrentUsername] = useState("current_user");
   const storyTimerRef = useRef(null);
   const progressIntervalRef = useRef(null);
+
+  // New state: visible post ids (used to autoplay videos)
+  const [visiblePostIds, setVisiblePostIds] = useState([]);
 
   useEffect(() => {
     loadCurrentUser();
@@ -1570,6 +1578,23 @@ const Newsfeed = () => {
     advanceStory,
   ]);
 
+  // ============ AUTOPLAY: Viewability handling ============
+  // Viewability config - customize threshold as needed
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 60,
+    minimumViewTime: 200,
+  }).current;
+
+  // onViewableItemsChanged updates visiblePostIds; only posts currently visible will autoplay
+  const onViewableItemsChanged = useRef(({ viewableItems }) => {
+    try {
+      const ids = (viewableItems || []).map((v) => v.item?.id).filter(Boolean);
+      setVisiblePostIds(ids);
+    } catch (e) {
+      // ignore
+    }
+  }).current;
+
   // ============ RENDER METHODS ============
   const renderStoryItem = useCallback(
     ({ item: story, index }) => (
@@ -1579,17 +1604,21 @@ const Newsfeed = () => {
   );
 
   const renderPostItem = useCallback(
-    ({ item }) => (
-      <PostCard
-        post={item}
-        onLike={toggleLikePost}
-        onEdit={handleEditPost}
-        onDelete={handleDeletePost}
-        onComment={handleCommentPress}
-        onViewComments={handleViewComments}
-        currentUsername={currentUsername}
-      />
-    ),
+    ({ item }) => {
+      const shouldPlay = visiblePostIds.includes(item.id) && (item.media_urls || []).some(isVideoUrl);
+      return (
+        <PostCard
+          post={item}
+          onLike={toggleLikePost}
+          onEdit={handleEditPost}
+          onDelete={handleDeletePost}
+          onComment={handleCommentPress}
+          onViewComments={handleViewComments}
+          currentUsername={currentUsername}
+          shouldPlay={shouldPlay}
+        />
+      );
+    },
     [
       toggleLikePost,
       handleEditPost,
@@ -1597,6 +1626,7 @@ const Newsfeed = () => {
       handleCommentPress,
       handleViewComments,
       currentUsername,
+      visiblePostIds,
     ]
   );
 
@@ -1662,6 +1692,9 @@ const Newsfeed = () => {
           maxToRenderPerBatch={5}
           windowSize={10}
           removeClippedSubviews={Platform.OS === "android"}
+          // Autoplay: attach viewability callbacks and config
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={viewabilityConfig}
         />
       )}
 
@@ -1823,6 +1856,7 @@ const Newsfeed = () => {
 
 // ============ STYLES ============
 const styles = StyleSheet.create({
+  // ...existing styles (unchanged)...
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
