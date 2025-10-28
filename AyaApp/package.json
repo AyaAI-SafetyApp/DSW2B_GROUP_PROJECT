@@ -14,8 +14,9 @@
     "@expo/metro-runtime": "~6.1.2",
     "@expo/vector-icons": "^15.0.2",
     "@react-native-async-storage/async-storage": "^2.1.2",
+    "@react-native-community/datetimepicker": "8.4.4",
     "@react-native-masked-view/masked-view": "^0.3.2",
-    "@react-native-picker/picker": "^2.11.1",
+    "@react-native-picker/picker": "2.11.1",
     "@react-navigation/bottom-tabs": "^7.4.6",
     "@react-navigation/native": "^7.1.17",
     "@react-navigation/native-stack": "^7.3.25",
@@ -31,8 +32,10 @@
     "expo-linking": "~8.0.8",
     "expo-local-authentication": "~17.0.7",
     "expo-location": "~19.0.7",
+    "expo-print": "~15.0.7",
     "expo-secure-store": "~15.0.7",
     "expo-sensors": "~15.0.7",
+    "expo-sharing": "~14.0.7",
     "expo-sms": "~14.0.7",
     "expo-speech": "~14.0.7",
     "expo-status-bar": "~3.0.8",
@@ -78,7 +81,7 @@
   },
   "devDependencies": {
     "@react-native-community/cli": "^20.0.0",
-    "expo": "^54.0.12",
+    "expo": "^54.0.21",
     "tailwindcss": "^4.1.11"
   },
   "private": true
