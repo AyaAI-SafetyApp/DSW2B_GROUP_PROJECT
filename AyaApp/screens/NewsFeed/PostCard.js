@@ -47,6 +47,7 @@ const PostCard = ({
   // added props
   shouldPlay,
   onViewMedia,
+  onViewLikes, // <-- added prop so parent can show likers
 }) => {
   const createdAt = useMemo(() => timeAgo(post.created_at), [post.created_at]);
   const media = Array.isArray(post.media_urls)
@@ -107,6 +108,8 @@ const PostCard = ({
     },
     [onLike, post.id, media, onViewMedia]
   );
+
+  const likesCount = Array.isArray(post.likes) ? post.likes.length : 0;
 
   return (
     <View style={styles.card}>
@@ -232,6 +235,15 @@ const PostCard = ({
         </TouchableOpacity>
       </View>
 
+      {/* clickable likes count: ask parent to show likers when provided */}
+      {likesCount > 0 ? (
+        <TouchableOpacity onPress={() => typeof onViewLikes === "function" && onViewLikes(post)}>
+          <Text style={styles.viewLikes}>
+            {likesCount} {likesCount === 1 ? "like" : "likes"}
+          </Text>
+        </TouchableOpacity>
+      ) : null}
+
       {post.comments && post.comments.length > 0 ? (
         <TouchableOpacity onPress={() => onViewComments?.(post)}>
           <Text style={styles.viewComments}>View all {post.comments.length} comments</Text>
@@ -336,6 +348,13 @@ const styles = StyleSheet.create({
   iconAction: {
     marginRight: 12,
   },
+  viewLikes: {
+    color: COLORS.text,
+    fontSize: 14,
+    marginTop: 6,
+    marginLeft: 4,
+    fontWeight: "600",
+  },
   viewComments: {
     color: COLORS.textSecondary,
     fontSize: 14,
@@ -349,4 +368,3 @@ const styles = StyleSheet.create({
 });
 
 export default PostCard;
-// ...existing code...

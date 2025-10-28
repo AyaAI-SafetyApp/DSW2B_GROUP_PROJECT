@@ -105,7 +105,6 @@ const DUMMY_STORIES = [
   },
 ];
 
-// small helper to detect video urls / file names
 const isVideoUrl = (uri) => {
   if (!uri) return false;
   try {
@@ -144,7 +143,6 @@ async function removeQueuedCreateByLocalId(localId) {
     if (!raw) return;
     const queue = JSON.parse(raw);
     const filtered = (queue || []).filter((i) => {
-      // keep items that do not match localId
       try {
         return !(i.payload && i.payload.localId && i.payload.localId === localId);
       } catch {
@@ -157,7 +155,6 @@ async function removeQueuedCreateByLocalId(localId) {
   }
 }
 
-// helper to resolve upload function from storage module (tolerant)
 function getStorageUploader() {
   const s = StorageAPI || {};
   const candidates = [
@@ -176,7 +173,6 @@ function getStorageUploader() {
   return fn;
 }
 
-// ============ new helper: upload URIs to 'posts' bucket ============
 async function uploadMediaUrisToPostsBucket(uris = []) {
   const uploadedUrls = [];
   const uploader = getStorageUploader();
@@ -221,9 +217,7 @@ async function uploadMediaUrisToPostsBucket(uris = []) {
               uploadedUrls.push(manual);
               continue;
             }
-          } catch (e) {
-            // ignore and push raw path
-          }
+          } catch (e) {}
         }
         uploadedUrls.push(url);
       } else {
@@ -350,6 +344,7 @@ const PostCard = React.memo(
     currentUsername,
     shouldPlay,
     onViewMedia, // new
+    onViewLikes, // NEW: receive handler from parent to show likers
   }) => {
     const [imageLoading, setImageLoading] = useState(true);
     const isLiked = post.likes && post.likes.includes(currentUsername);
@@ -361,10 +356,8 @@ const PostCard = React.memo(
       }
     }, [isLiked, onLike, post.id]);
 
-    // useRef for lastTap to avoid closure issues
     const lastTapRef = useRef(null);
 
-    // track current visible media index inside the post flatlist
     const currentMediaIndexRef = useRef(0);
     const mediaViewabilityConfig = useRef({
       itemVisiblePercentThreshold: 50,
@@ -379,7 +372,6 @@ const PostCard = React.memo(
     const handleSingleOrDoubleTap = () => {
       const now = Date.now();
       if (lastTapRef.current && now - lastTapRef.current < 300) {
-        // double tap
         lastTapRef.current = null;
         handleDoubleTap();
         return;
@@ -389,7 +381,6 @@ const PostCard = React.memo(
         if (!lastTapRef.current) return;
         const diff = Date.now() - now;
         if (diff >= 300) {
-          // single tap -> open viewer for currently visible media
           const idx = currentMediaIndexRef.current || 0;
           const uri = (post.media_urls && post.media_urls[idx]) || null;
           if (uri && typeof onViewMedia === "function") {
@@ -403,7 +394,6 @@ const PostCard = React.memo(
 
     return (
       <View style={styles.postCard}>
-        {/* Post Header */}
         <View style={styles.postHeader}>
           <View style={styles.postHeaderLeft}>
             <UserAvatar
@@ -439,7 +429,6 @@ const PostCard = React.memo(
           )}
         </View>
 
-        {/* Post Media */}
         {post.media_urls && post.media_urls.length > 0 && (
           <TouchableOpacity activeOpacity={1} onPress={handleSingleOrDoubleTap}>
             {imageLoading && (
@@ -491,7 +480,6 @@ const PostCard = React.memo(
           </TouchableOpacity>
         )}
 
-        {/* Post Actions */}
         <View style={styles.postActions}>
           <View style={styles.postActionsLeft}>
             <TouchableOpacity
@@ -531,14 +519,15 @@ const PostCard = React.memo(
           </TouchableOpacity>
         </View>
 
-        {/* Likes Count */}
-        {post.likes.length > 0 && (
-          <Text style={styles.likesCount}>
-            {post.likes.length} {post.likes.length === 1 ? "like" : "likes"}
-          </Text>
+        {/* Likes Count - now clickable to ask parent to open likers list */}
+        {post.likes && post.likes.length > 0 && (
+          <TouchableOpacity onPress={() => typeof onViewLikes === "function" && onViewLikes(post)}>
+            <Text style={styles.likesCount}>
+              {post.likes.length} {post.likes.length === 1 ? "like" : "likes"}
+            </Text>
+          </TouchableOpacity>
         )}
 
-        {/* Post Content */}
         {post.content && (
           <View style={styles.postContentContainer}>
             <Text style={styles.postContent}>
@@ -548,7 +537,6 @@ const PostCard = React.memo(
           </View>
         )}
 
-        {/* Comments Preview */}
         {post.comments && post.comments.length > 0 && (
           <TouchableOpacity onPress={() => onViewComments(post)}>
             <Text style={styles.viewComments}>
@@ -557,7 +545,6 @@ const PostCard = React.memo(
           </TouchableOpacity>
         )}
 
-        {/* Time Ago */}
         <Text style={styles.postTime}>{getTimeAgo(post.created_at)}</Text>
       </View>
     );
@@ -699,6 +686,51 @@ const CommentsModal = ({
   );
 };
 
+// ============ NEW: Likes Modal ============
+const LikesModal = ({ visible, likes, onClose }) => {
+  const items = Array.isArray(likes)
+    ? likes.map((l, idx) => {
+        if (!l) return { id: `l_${idx}`, username: String(l) };
+        if (typeof l === "string") return { id: `l_${l}_${idx}`, username: l };
+        if (typeof l === "object") {
+          const username = l.username || l.user || l.name || l.id || JSON.stringify(l);
+          const avatar = l.avatar || l.avatar_url || l.photo || null;
+          return { id: `l_${username}_${idx}`, username, avatar };
+        }
+        return { id: `l_${idx}`, username: String(l) };
+      })
+    : [];
+
+  return (
+    <Modal isVisible={visible} onBackdropPress={onClose} style={styles.likesModal}>
+      <View style={styles.likesContainer}>
+        <View style={styles.likesHeader}>
+          <Text style={styles.likesTitle}>Liked by</Text>
+          <TouchableOpacity onPress={onClose}>
+            <MaterialCommunityIcons name="close" size={22} color={COLORS.text} />
+          </TouchableOpacity>
+        </View>
+
+        <FlatList
+          data={items}
+          keyExtractor={(it) => it.id}
+          renderItem={({ item }) => (
+            <View style={styles.likeRow}>
+              <UserAvatar username={item.username} avatarUrl={item.avatar} size={36} style={styles.likeAvatar} />
+              <Text style={styles.likeName}>{item.username}</Text>
+            </View>
+          )}
+          ListEmptyComponent={
+            <View style={styles.emptyLikes}>
+              <Text style={styles.emptyLikesText}>No likes yet</Text>
+            </View>
+          }
+        />
+      </View>
+    </Modal>
+  );
+};
+
 // ============ STORY VIEWER ============
 // ...existing code...
 const StoryViewer = ({
@@ -712,7 +744,6 @@ const StoryViewer = ({
   onLike,
   progress,
 }) => {
-  // ...existing code unchanged...
   const [paused, setPaused] = useState(false);
   const pan = useRef(new Animated.ValueXY()).current;
 
@@ -873,12 +904,14 @@ const Newsfeed = () => {
   const storyTimerRef = useRef(null);
   const progressIntervalRef = useRef(null);
 
-  // New state: visible post ids (used to autoplay videos)
   const [visiblePostIds, setVisiblePostIds] = useState([]);
 
-  // New: fullscreen media viewer state
   const [mediaViewerVisible, setMediaViewerVisible] = useState(false);
   const [mediaViewerItem, setMediaViewerItem] = useState(null);
+
+  // NEW: likes modal state
+  const [likesModalVisible, setLikesModalVisible] = useState(false);
+  const [likesForModal, setLikesForModal] = useState([]);
 
   useEffect(() => {
     loadCurrentUser();
@@ -907,12 +940,23 @@ const Newsfeed = () => {
     setMediaViewerItem(null);
   }, []);
 
+  // NEW: open/close likes modal handlers
+  const openLikesModal = useCallback((post) => {
+    if (!post) return;
+    setLikesForModal(post.likes || []);
+    setLikesModalVisible(true);
+  }, []);
+
+  const closeLikesModal = useCallback(() => {
+    setLikesModalVisible(false);
+    setLikesForModal([]);
+  }, []);
+
   const loadPosts = useCallback(async () => {
     setLoading(true);
     try {
       const data = await fetchPosts();
 
-      // normalize created_at to numeric ms for posts and comments
       const normalized = (data || []).map((p) => {
         const rawCreated = p.created_at ?? p.createdAt ?? Date.now();
         const created_at =
@@ -958,7 +1002,6 @@ const Newsfeed = () => {
         };
       });
 
-      // ensure numeric created_at and sort by descending created_at
       setPosts(
         normalized
           .map((x) => ({ ...x, created_at: Number(x.created_at || Date.now()) }))
@@ -975,19 +1018,17 @@ const Newsfeed = () => {
     loadPosts();
   }, [loadPosts]);
 
-  // start offline auto-sync (uploads + create handled by offlineQueue)
   useEffect(() => {
     const uploader = getStorageUploader();
     const unsubscribe = startAutoSync({
       createPostFn: createPost,
-      uploadFn: uploader, // pass resolved uploader (may be null)
+      uploadFn: uploader,
     });
     return () => {
       if (typeof unsubscribe === "function") unsubscribe();
     };
   }, []);
 
-  // process CRUD ops queue (delete/like/comment/update on server) when network available
   const processOpsQueue = useCallback(async () => {
     try {
       const state = await NetInfo.fetch();
@@ -995,7 +1036,6 @@ const Newsfeed = () => {
       let q = await getOpsQueue();
       if (!q || q.length === 0) return;
 
-      // process sequentially
       for (const op of q.slice()) {
         try {
           if (String(op.postId || "").startsWith("local_")) {
@@ -1037,7 +1077,6 @@ const Newsfeed = () => {
     setRefreshing(false);
   }, [loadPosts]);
 
-  // Toggle like with optimistic update.
   const toggleLikePost = useCallback(
     async (postId) => {
       try {
@@ -1431,7 +1470,6 @@ const Newsfeed = () => {
     }
   }, [postContent, mediaUris, editingPostId, postType, loadPosts, currentUsername, currentUser]);
 
-  // Delete post handler ...
   const handleDeletePost = useCallback(async (postId) => {
     Alert.alert("Delete Post", "Are you sure you want to delete this post?", [
       { text: "Cancel", style: "cancel" },
@@ -1485,7 +1523,6 @@ const Newsfeed = () => {
     setCommentsModalVisible(true);
   }, []);
 
-  // ============ STORY OPERATIONS ============
   const openStoryViewer = useCallback((index) => {
     setActiveStoryIndex(index);
     setActiveStoryImageIndex(0);
@@ -1594,7 +1631,6 @@ const Newsfeed = () => {
     advanceStory,
   ]);
 
-  // ============ AUTOPLAY: Viewability handling ============
   const viewabilityConfig = useRef({
     itemVisiblePercentThreshold: 60,
     minimumViewTime: 200,
@@ -1609,7 +1645,6 @@ const Newsfeed = () => {
     }
   }).current;
 
-  // ============ RENDER METHODS ============
   const renderStoryItem = useCallback(
     ({ item: story, index }) => (
       <StoryItem story={story} index={index} onPress={handleStoryPress} />
@@ -1631,6 +1666,7 @@ const Newsfeed = () => {
           currentUsername={currentUsername}
           shouldPlay={shouldPlay}
           onViewMedia={openMediaViewer} // pass viewer handler
+          onViewLikes={openLikesModal} // PASS handler so PostCard can open likes modal
         />
       );
     },
@@ -1643,6 +1679,7 @@ const Newsfeed = () => {
       currentUsername,
       visiblePostIds,
       openMediaViewer,
+      openLikesModal,
     ]
   );
 
@@ -1671,7 +1708,6 @@ const Newsfeed = () => {
         backgroundColor={COLORS.cardBackground}
       />
 
-      {/* Header */}
       <View style={styles.header}></View>
 
       {loading ? (
@@ -1713,7 +1749,6 @@ const Newsfeed = () => {
         />
       )}
 
-      {/* FAB */}
       <FAB
         style={styles.fab}
         icon="plus"
@@ -1722,7 +1757,6 @@ const Newsfeed = () => {
         small
       />
 
-      {/* Create/Edit Post Modal */}
       <Modal
         isVisible={modalVisible}
         onBackdropPress={() => setModalVisible(false)}
@@ -1839,7 +1873,6 @@ const Newsfeed = () => {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* Comments Modal */}
       <CommentsModal
         visible={commentsModalVisible}
         post={selectedPost}
@@ -1853,7 +1886,9 @@ const Newsfeed = () => {
         currentUser={currentUser}
       />
 
-      {/* Fullscreen media viewer (image/video) */}
+      {/* NEW: Likes modal rendered here */}
+      <LikesModal visible={likesModalVisible} likes={likesForModal} onClose={closeLikesModal} />
+
       <RNModal visible={mediaViewerVisible} transparent animationType="fade" onRequestClose={closeMediaViewer}>
         <View style={{ flex: 1, backgroundColor: "#000" }}>
           <TouchableOpacity onPress={closeMediaViewer} style={{ position: "absolute", top: 40, right: 16, zIndex: 20 }}>
@@ -1877,7 +1912,6 @@ const Newsfeed = () => {
         </View>
       </RNModal>
 
-      {/* Story Viewer */}
       <StoryViewer
         visible={storyViewerVisible}
         stories={stories}
@@ -1895,7 +1929,6 @@ const Newsfeed = () => {
 
 // ============ STYLES ============
 const styles = StyleSheet.create({
-  // ...existing styles (unchanged)...
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
@@ -2365,6 +2398,54 @@ const styles = StyleSheet.create({
   },
   storyLikeBtn: {
     padding: 4,
+  },
+
+  /* Likes modal styles */
+  likesModal: {
+    margin: 0,
+    justifyContent: "flex-end",
+  },
+  likesContainer: {
+    backgroundColor: COLORS.cardBackground,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+    maxHeight: height * 0.6,
+    paddingBottom: Platform.OS === "ios" ? 34 : 12,
+  },
+  likesHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  likesTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: COLORS.text,
+  },
+  likeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  likeAvatar: {
+    marginRight: 12,
+    backgroundColor: COLORS.border,
+  },
+  likeName: {
+    fontSize: 15,
+    color: COLORS.text,
+  },
+  emptyLikes: {
+    alignItems: "center",
+    paddingVertical: 24,
+  },
+  emptyLikesText: {
+    color: COLORS.textSecondary,
   },
 });
 
