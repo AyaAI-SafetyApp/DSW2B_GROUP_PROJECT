@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -16,134 +16,126 @@ import axios from "axios";
 import { FontAwesome5, Ionicons } from "@expo/vector-icons";
 import * as Animatable from "react-native-animatable";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getFeatureAccess, getPlanById } from "../../utils/planAccess";
 
-// Constants
-const { width, height } = Dimensions.get("window");
+
+const { width } = Dimensions.get("window");
 
 const CONFIG = {
   API_BASE_URL: "https://dsw2b-backend.onrender.com",
   REQUEST_TIMEOUT: 15000,
 };
 
+// Simple PLANS definition used by this screen (monthly/yearly buckets)
 const PLANS = {
   monthly: [
     {
       id: "free",
       title: "Free",
-      price: "R0",
-      period: "forever",
-      icon: "gift",
-      iconColor: "#10B981",
-      description: "Basic safety features at no cost",
-      features: [
-        "Emergency SOS button",
-        "Basic location sharing",
-        "Up to 3 emergency contacts",
-        "Community support",
-        "Safety tips & resources",
-      ],
-      popular: false,
+      price: "Free",
+      period: "mo",
       isFree: true,
-    },
-    {
-      id: "P-1GN061938A031721GNC5CY4Q",
-      title: "Personal",
-      price: "R350",
-      period: "month",
       icon: "user",
-      iconColor: "#DE0973",
-      description: "Perfect for individual safety with premium features",
-      features: [
-        "Real-time alerts & notifications",
-        "Offline emergency support",
-        "AI-powered safe routes",
-        "24/7 priority support",
-        "Advanced location sharing",
-        "Unlimited emergency contacts",
-      ],
+      iconColor: "#6B7280",
+      features: ["Basic safety features"],
       popular: false,
     },
     {
-      id: "P-5PD448977L069480VNC5CZYY",
-      title: "Family",
-      price: "R900",
-      period: "3 months",
-      icon: "users",
-      iconColor: "#8B5CF6",
-      description: "Complete protection for your entire family",
-      features: [
-        "Up to 5 family members",
-        "Shared emergency alerts",
-        "Family location tracking",
-        "Group safety zones",
-        "Priority family support",
-        "Child safety features",
-      ],
+      id: "P-1GN061938A031721GNC5CY4Q", // Personal
+      title: "Personal",
+      price: "350",
+      period: "mo",
+      isFree: false,
+      icon: "user-shield",
+      iconColor: "#DE0973",
+      features: ["Advanced routing", "Priority support"],
       popular: true,
-      savings: "Save R150",
+    },
+    {
+      id: "P-5PD448977L069480VNC5CZYY", // Family
+      title: "Family",
+      price: "700",
+      period: "mo",
+      isFree: false,
+      icon: "users",
+      iconColor: "#10B981",
+      features: ["Family tracking", "Safety zones"],
+      popular: false,
     },
   ],
   yearly: [
     {
       id: "free",
       title: "Free",
-      price: "R0",
-      period: "forever",
-      icon: "gift",
-      iconColor: "#10B981",
-      description: "Basic safety features at no cost",
-      features: [
-        "Emergency SOS button",
-        "Basic location sharing",
-        "Up to 3 emergency contacts",
-        "Community support",
-        "Safety tips & resources",
-      ],
-      popular: false,
+      price: "Free",
+      period: "yr",
       isFree: true,
-    },
-    {
-      id: "P-9U8910582N234330WNC5C2OQ",
-      title: "Personal Pro",
-      price: "R3,500",
-      period: "year",
-      icon: "user-shield",
-      iconColor: "#10B981",
-      description: "Advanced protection with maximum savings",
-      features: [
-        "All Personal features",
-        "Annual billing discount",
-        "Extended offline maps",
-        "Advanced analytics",
-        "Priority feature access",
-        "Dedicated support line",
-      ],
+      icon: "user",
+      iconColor: "#6B7280",
+      features: ["Basic safety features"],
       popular: false,
-      savings: "Save R700",
     },
     {
-      id: "P-9L275883JF591292KNC5CX5I",
-      title: "Family Premium",
-      price: "R8,000",
-      period: "year",
-      icon: "crown",
-      iconColor: "#F59E0B",
-      description: "Ultimate family protection package",
-      features: [
-        "All Family features",
-        "Up to 10 family members",
-        "Advanced family analytics",
-        "Dedicated family manager",
-        "Custom safety zones",
-        "Premium support 24/7",
-      ],
+      id: "P-1GN061938A031721GNC5CY4Q",
+      title: "Personal",
+      price: "39.99",
+      period: "yr",
+      isFree: false,
+      icon: "user-shield",
+      iconColor: "#DE0973",
+      features: ["Advanced routing", "Priority support"],
       popular: true,
-      savings: "Save R2,800",
+    },
+    {
+      id: "P-5PD448977L069480VNC5CZYY",
+      title: "Family",
+      price: "79.99",
+      period: "yr",
+      isFree: false,
+      icon: "users",
+      iconColor: "#10B981",
+      features: ["Family tracking", "Safety zones"],
+      popular: false,
     },
   ],
 };
 
-// Custom Hook
+/**
+ * Save subscription + feature access into @user_session and also store simple keys.
+ */
+async function saveSubscriptionSession(planId, billingCycle, now = Date.now()) {
+  try {
+    const planMeta = getPlanById(planId);
+    // calculate expiry for paid plans
+    let expiresAt = null;
+    if (planId !== "free") {
+      expiresAt = billingCycle === "yearly"
+        ? now + 365 * 24 * 60 * 60 * 1000
+        : now + 30 * 24 * 60 * 60 * 1000;
+    }
+
+    const sessionRaw = await AsyncStorage.getItem("@user_session");
+    const session = sessionRaw ? JSON.parse(sessionRaw) : {};
+    session.subscription = {
+      id: planMeta.id,
+      title: planMeta.title,
+      expiresAt,
+    };
+    session.features = getFeatureAccess(planMeta.id);
+    await AsyncStorage.setItem("@user_session", JSON.stringify(session));
+
+    // convenience keys
+    await AsyncStorage.setItem("@user_plan", planMeta.id);
+    await AsyncStorage.setItem("@feature_access", JSON.stringify(session.features));
+
+    return true;
+  } catch (err) {
+    console.warn("saveSubscriptionSession error:", err);
+    return false;
+  }
+}
+
+// Custom Hook for Subscription Logic
 const useSubscription = (navigation, userID) => {
   const [checkoutUrl, setCheckoutUrl] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -159,18 +151,23 @@ const useSubscription = (navigation, userID) => {
       Alert.alert("Selection Required", "Please select a subscription plan to continue");
       return;
     }
-    
-    // Handle free plan - skip payment and go directly to app
+
+    // Handle free plan locally (no payment)
     if (selectedPlan.isFree) {
-      // Verify session exists before navigating
       const sessionData = await AsyncStorage.getItem("@user_session");
       if (!sessionData) {
-        console.error('❌ No session found when trying to access app');
+        console.error("❌ No session found when trying to access app");
         Alert.alert("Error", "Session not found. Please log in again.");
         return;
       }
-      
-      console.log('✅ Session verified, navigating to app');
+
+      const saved = await saveSubscriptionSession(selectedPlan.id, billingCycle);
+      if (!saved) {
+        Alert.alert("Error", "Failed to activate plan. Please try again.");
+        return;
+      }
+
+      console.log("✅ Free plan activated, navigating to app");
       Alert.alert(
         "Welcome to Aya App! 🎉",
         "You've selected the Free plan. You now have access to basic safety features.",
@@ -188,7 +185,8 @@ const useSubscription = (navigation, userID) => {
       );
       return;
     }
-    
+
+    // Paid plans require userID (auth)
     if (!userID) {
       Alert.alert("Authentication Error", "User authentication required");
       return;
@@ -196,7 +194,6 @@ const useSubscription = (navigation, userID) => {
 
     try {
       setLoading(true);
-
       const response = await axios.post(
         `${CONFIG.API_BASE_URL}/create-subscription`,
         {
@@ -208,9 +205,7 @@ const useSubscription = (navigation, userID) => {
         },
         {
           timeout: CONFIG.REQUEST_TIMEOUT,
-          headers: { 
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
         }
       );
 
@@ -221,54 +216,43 @@ const useSubscription = (navigation, userID) => {
       }
     } catch (error) {
       console.error("Subscription Error:", error);
-      Alert.alert(
-        "Subscription Error",
-        "Failed to process subscription. Please try again."
-      );
+      Alert.alert("Subscription Error", "Failed to process subscription. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   const handleWebViewNavigation = useCallback(
-    (navState) => {
+    async (navState) => {
       const { url } = navState;
-      
       if (!url) return;
 
+      // On success: persist subscription + features and navigate into app
       if (url.includes("success")) {
         setCheckoutUrl(null);
-        setTimeout(async () => {
-          // Verify session exists before navigating
-          const sessionData = await AsyncStorage.getItem("@user_session");
-          if (!sessionData) {
-            console.error('❌ No session found after payment');
-            Alert.alert("Error", "Session not found. Please log in again.");
-            return;
-          }
-          
-          console.log('✅ Session verified after payment, navigating to app');
-          Alert.alert(
-            "Subscription Successful!",
-            `Your ${selectedPlan?.title} plan has been activated.`,
-            [
-              {
-                text: "OK",
-                onPress: () =>
-                  navigation.reset({
-                    index: 0,
-                    routes: [{ name: "MainTabs" }],
-                  }),
-              },
-            ]
-          );
-        }, 300);
+
+        const saved = await saveSubscriptionSession(selectedPlan.id, billingCycle);
+        if (!saved) {
+          Alert.alert("Error", "Failed to activate subscription. Please contact support.");
+          return;
+        }
+
+        Alert.alert("Subscription Successful!", `Your ${selectedPlan?.title} plan has been activated.`, [
+          {
+            text: "OK",
+            onPress: () =>
+              navigation.reset({
+                index: 0,
+                routes: [{ name: "MainTabs" }],
+              }),
+          },
+        ]);
       } else if (url.includes("cancel")) {
         setCheckoutUrl(null);
         Alert.alert("Cancelled", "Subscription was cancelled.");
       }
     },
-    [navigation, selectedPlan]
+    [navigation, selectedPlan, billingCycle]
   );
 
   const resetCheckout = useCallback(() => {
@@ -289,17 +273,12 @@ const useSubscription = (navigation, userID) => {
   };
 };
 
-// Plan Card Component
+// Plan Card
 const PlanCard = React.memo(({ plan, selectedPlan, onSelectPlan, index }) => {
   const isSelected = selectedPlan?.id === plan.id;
 
   return (
-    <Animatable.View
-      animation="fadeInUp"
-      delay={index * 200}
-      duration={800}
-      useNativeDriver
-    >
+    <Animatable.View animation="fadeInUp" delay={index * 200} duration={800} useNativeDriver>
       <TouchableOpacity
         activeOpacity={0.9}
         onPress={() => onSelectPlan(plan)}
@@ -322,13 +301,6 @@ const PlanCard = React.memo(({ plan, selectedPlan, onSelectPlan, index }) => {
           </View>
         )}
 
-        {plan.savings && (
-          <View style={styles.savingsBadge}>
-            <Ionicons name="pricetag" size={12} color="#10B981" />
-            <Text style={styles.savingsText}>{plan.savings}</Text>
-          </View>
-        )}
-
         <View style={styles.iconContainer}>
           <FontAwesome5 name={plan.icon} size={32} color={plan.iconColor} />
         </View>
@@ -340,12 +312,12 @@ const PlanCard = React.memo(({ plan, selectedPlan, onSelectPlan, index }) => {
           <Text style={styles.planPeriod}>/{plan.period}</Text>
         </View>
 
-        <Text style={styles.planDescription}>{plan.description}</Text>
+        <Text style={styles.planDescription}>{plan.description || plan.features?.join(", ")}</Text>
 
         <View style={styles.divider} />
 
         <View style={styles.featuresContainer}>
-          {plan.features.map((feature, idx) => (
+          {(plan.features || []).map((feature, idx) => (
             <View key={idx} style={styles.featureItem}>
               <Ionicons name="checkmark-circle" size={18} color="#10B981" />
               <Text style={styles.featureText}>{feature}</Text>
@@ -360,7 +332,6 @@ const PlanCard = React.memo(({ plan, selectedPlan, onSelectPlan, index }) => {
 // Main Component
 export default function SubscriptionScreen({ navigation, route }) {
   const { userID } = route.params || {};
-  
   const {
     checkoutUrl,
     loading,
@@ -375,15 +346,11 @@ export default function SubscriptionScreen({ navigation, route }) {
 
   const plans = useMemo(() => PLANS[billingCycle], [billingCycle]);
 
- 
   if (checkoutUrl) {
     return (
       <SafeAreaView style={styles.webviewContainer}>
         <View style={styles.webviewHeader}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={setCheckoutUrl}
-          >
+          <TouchableOpacity style={styles.backButton} onPress={setCheckoutUrl}>
             <Ionicons name="arrow-back" size={24} color="#1F2937" />
           </TouchableOpacity>
           <Text style={styles.webviewTitle}>Complete Payment</Text>
@@ -391,8 +358,7 @@ export default function SubscriptionScreen({ navigation, route }) {
             <Ionicons name="lock-closed" size={16} color="#6B7280" />
           </View>
         </View>
-        
-        {/* WebView - Takes remaining space */}
+
         <View style={styles.webviewWrapper}>
           <WebView
             source={{ uri: checkoutUrl }}
@@ -407,7 +373,6 @@ export default function SubscriptionScreen({ navigation, route }) {
           />
         </View>
 
-        {/* Fixed Footer  */}
         <View style={styles.paypalFooter}>
           <Ionicons name="lock-closed" size={14} color="#6B7280" />
           <Text style={styles.footerText}>Secure payments with PayPal</Text>
@@ -426,8 +391,7 @@ export default function SubscriptionScreen({ navigation, route }) {
         <Animatable.View animation="fadeInDown" duration={1000} style={styles.header}>
           <Text style={styles.title}>Choose Your Safety Plan</Text>
           <Text style={styles.subtitle}>
-            Select a subscription plan to continue. Subscription is required to
-            use the application.
+            Select a subscription plan to continue. Subscription is required to use the application.
           </Text>
         </Animatable.View>
 
@@ -437,19 +401,11 @@ export default function SubscriptionScreen({ navigation, route }) {
             {["monthly", "yearly"].map((cycle) => (
               <TouchableOpacity
                 key={cycle}
-                style={[
-                  styles.toggleButton,
-                  billingCycle === cycle && styles.toggleActive,
-                ]}
+                style={[styles.toggleButton, billingCycle === cycle && styles.toggleActive]}
                 onPress={() => setBillingCycle(cycle)}
                 disabled={loading}
               >
-                <Text
-                  style={[
-                    styles.toggleText,
-                    billingCycle === cycle && styles.toggleTextActive,
-                  ]}
-                >
+                <Text style={[styles.toggleText, billingCycle === cycle && styles.toggleTextActive]}>
                   {cycle === "monthly" ? "Monthly" : "Yearly"}
                 </Text>
                 {cycle === "yearly" && (
@@ -510,7 +466,6 @@ export default function SubscriptionScreen({ navigation, route }) {
               )}
             </TouchableOpacity>
 
-            {/* Simple Footer */}
             {!selectedPlan.isFree && (
               <View style={styles.footer}>
                 <Ionicons name="lock-closed" size={14} color="#6B7280" />
@@ -525,52 +480,19 @@ export default function SubscriptionScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: "#F9FAFB" 
-  },
-  
-  scrollView: { 
-    flex: 1 
-  },
-  
+  container: { flex: 1, backgroundColor: "#F9FAFB" },
+  scrollView: { flex: 1 },
   scrollContent: {
     flexGrow: 1,
     paddingTop: Platform.OS === "ios" ? 60 : 40,
     paddingBottom: 20,
     paddingHorizontal: 20,
   },
-
-  header: { 
-    alignItems: "center", 
-    marginBottom: 30 
-  },
-  
-  title: { 
-    fontSize: 28, 
-    fontWeight: "700", 
-    color: "#111827", 
-    marginBottom: 8 
-  },
-  
-  subtitle: { 
-    fontSize: 16, 
-    color: "#6B7280", 
-    textAlign: "center" 
-  },
-
-  toggleSection: { 
-    alignItems: "center", 
-    marginBottom: 20 
-  },
-  
-  toggleLabel: { 
-    fontSize: 16, 
-    fontWeight: "600", 
-    color: "#1F2937", 
-    marginBottom: 12 
-  },
-  
+  header: { alignItems: "center", marginBottom: 30 },
+  title: { fontSize: 28, fontWeight: "700", color: "#111827", marginBottom: 8 },
+  subtitle: { fontSize: 16, color: "#6B7280", textAlign: "center" },
+  toggleSection: { alignItems: "center", marginBottom: 20 },
+  toggleLabel: { fontSize: 16, fontWeight: "600", color: "#1F2937", marginBottom: 12 },
   toggleContainer: {
     flexDirection: "row",
     backgroundColor: "#E5E7EB",
@@ -579,29 +501,10 @@ const styles = StyleSheet.create({
     width: width - 80,
     maxWidth: 320,
   },
-  
-  toggleButton: { 
-    flex: 1, 
-    paddingVertical: 12, 
-    alignItems: "center" 
-  },
-  
-  toggleActive: { 
-    backgroundColor: "#DE0973", 
-    borderRadius: 8 
-  },
-  
-  toggleText: { 
-    fontSize: 14, 
-    fontWeight: "600", 
-    color: "#6B7280" 
-  },
-  
-  toggleTextActive: { 
-    color: "#FFF", 
-    fontWeight: "700" 
-  },
-  
+  toggleButton: { flex: 1, paddingVertical: 12, alignItems: "center" },
+  toggleActive: { backgroundColor: "#DE0973", borderRadius: 8 },
+  toggleText: { fontSize: 14, fontWeight: "600", color: "#6B7280" },
+  toggleTextActive: { color: "#FFF", fontWeight: "700" },
   discountTag: {
     position: "absolute",
     top: -6,
@@ -610,17 +513,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     borderRadius: 8,
   },
-  
-  discountText: { 
-    fontSize: 10, 
-    fontWeight: "700", 
-    color: "#FFF" 
-  },
-
-  plansContainer: { 
-    gap: 16 
-  },
-  
+  discountText: { fontSize: 10, fontWeight: "700", color: "#FFF" },
+  plansContainer: { gap: 16 },
   planCard: {
     backgroundColor: "#FFF",
     borderRadius: 16,
@@ -630,23 +524,9 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "transparent",
   },
-  
-  popularCard: { 
-    borderColor: "#DE0973" 
-  },
-  
-  selectedCard: { 
-    borderColor: "#DE0973", 
-    backgroundColor: "#FDF2F8" 
-  },
-
-  tickContainer: {
-    position: "absolute",
-    top: 8,
-    right: 12,
-    zIndex: 3,
-  },
-
+  popularCard: { borderColor: "#DE0973" },
+  selectedCard: { borderColor: "#DE0973", backgroundColor: "#FDF2F8" },
+  tickContainer: { position: "absolute", top: 8, right: 12, zIndex: 3 },
   popularBadge: {
     position: "absolute",
     top: 32,
@@ -658,117 +538,22 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
-  
-  popularText: { 
-    fontSize: 10, 
-    fontWeight: "700", 
-    color: "#FFF", 
-    marginLeft: 4 
-  },
-
-  savingsBadge: {
-    position: "absolute",
-    top: 12,
-    left: 12,
-    backgroundColor: "#ECFDF5",
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 12,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  
-  savingsText: { 
-    fontSize: 10, 
-    fontWeight: "700", 
-    color: "#10B981", 
-    marginLeft: 4 
-  },
-
-  iconContainer: { 
-    alignItems: "center", 
-    marginBottom: 10 
-  },
-  
-  planTitle: { 
-    fontSize: 20, 
-    fontWeight: "700", 
-    color: "#1F2937", 
-    textAlign: "center" 
-  },
-  
-  priceContainer: { 
-    flexDirection: "row", 
-    justifyContent: "center", 
-    alignItems: "flex-end" 
-  },
-  
-  planPrice: { 
-    fontSize: 26, 
-    fontWeight: "800", 
-    color: "#DE0973" 
-  },
-  
-  planPeriod: { 
-    fontSize: 14, 
-    color: "#6B7280", 
-    marginLeft: 4 
-  },
-  
-  planDescription: { 
-    fontSize: 14, 
-    color: "#6B7280", 
-    textAlign: "center" 
-  },
-  
-  divider: { 
-    height: 1, 
-    backgroundColor: "#E5E7EB", 
-    marginVertical: 10 
-  },
-  
-  featuresContainer: { 
-    gap: 8 
-  },
-  
-  featureItem: { 
-    flexDirection: "row", 
-    alignItems: "center", 
-    gap: 8 
-  },
-  
-  featureText: { 
-    fontSize: 14, 
-    color: "#374151" 
-  },
-
-  paymentSection: { 
-    marginTop: 20, 
-    alignItems: "center" 
-  },
-  
-  selectedPlanSummary: { 
-    alignItems: "center", 
-    marginBottom: 16 
-  },
-  
-  selectedPlanTitle: { 
-    fontSize: 14, 
-    color: "#6B7280" 
-  },
-  
-  selectedPlanName: { 
-    fontSize: 18, 
-    fontWeight: "700", 
-    color: "#111827" 
-  },
-  
-  selectedPlanPrice: { 
-    fontSize: 16, 
-    color: "#DE0973", 
-    fontWeight: "700" 
-  },
-  
+  popularText: { fontSize: 10, fontWeight: "700", color: "#FFF", marginLeft: 4 },
+  iconContainer: { alignItems: "center", marginBottom: 10 },
+  planTitle: { fontSize: 20, fontWeight: "700", color: "#1F2937", textAlign: "center" },
+  priceContainer: { flexDirection: "row", justifyContent: "center", alignItems: "flex-end" },
+  planPrice: { fontSize: 26, fontWeight: "800", color: "#DE0973" },
+  planPeriod: { fontSize: 14, color: "#6B7280", marginLeft: 4 },
+  planDescription: { fontSize: 14, color: "#6B7280", textAlign: "center" },
+  divider: { height: 1, backgroundColor: "#E5E7EB", marginVertical: 10 },
+  featuresContainer: { gap: 8 },
+  featureItem: { flexDirection: "row", alignItems: "center", gap: 8 },
+  featureText: { fontSize: 14, color: "#374151" },
+  paymentSection: { marginTop: 20, alignItems: "center" },
+  selectedPlanSummary: { alignItems: "center", marginBottom: 16 },
+  selectedPlanTitle: { fontSize: 14, color: "#6B7280" },
+  selectedPlanName: { fontSize: 18, fontWeight: "700", color: "#111827" },
+  selectedPlanPrice: { fontSize: 16, color: "#DE0973", fontWeight: "700" },
   proceedButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -779,21 +564,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     gap: 8,
   },
-  
-  freeButton: {
-    backgroundColor: "#10B981",
-  },
-  
-  proceedButtonDisabled: { 
-    opacity: 0.7 
-  },
-  
-  proceedButtonText: { 
-    fontSize: 16, 
-    fontWeight: "700", 
-    color: "#FFF" 
-  },
-
+  freeButton: { backgroundColor: "#10B981" },
+  proceedButtonDisabled: { opacity: 0.7 },
+  proceedButtonText: { fontSize: 16, fontWeight: "700", color: "#FFF" },
   footer: {
     flexDirection: "row",
     alignItems: "center",
@@ -801,18 +574,8 @@ const styles = StyleSheet.create({
     gap: 6,
     marginTop: 16,
   },
-  
-  footerText: {
-    fontSize: 12,
-    color: "#6B7280",
-  },
-
-  // Fixed WebView Styles
-  webviewContainer: { 
-    flex: 1, 
-    backgroundColor: "#FFF" 
-  },
-  
+  footerText: { fontSize: 12, color: "#6B7280" },
+  webviewContainer: { flex: 1, backgroundColor: "#FFF" },
   webviewHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -821,41 +584,14 @@ const styles = StyleSheet.create({
     backgroundColor: "#F3F4F6",
     borderBottomWidth: 1,
     borderBottomColor: "#E5E7EB",
-    height: 60, 
+    height: 60,
   },
-  
-  backButton: { 
-    marginRight: 12,
-    padding: 4,
-  },
-  
-  webviewTitle: { 
-    fontSize: 16, 
-    fontWeight: "700", 
-    color: "#1F2937",
-    flex: 1,
-    textAlign: "center",
-  },
-  
-  lockContainer: {
-    marginLeft: 8,
-    width: 24, 
-  },
-  
-  webviewWrapper: {
-    flex: 1, 
-  },
-  
-  webview: { 
-    flex: 1 
-  },
-  
-  webviewLoading: { 
-    flex: 1, 
-    justifyContent: "center", 
-    alignItems: "center" 
-  },
-
+  backButton: { marginRight: 12, padding: 4 },
+  webviewTitle: { fontSize: 16, fontWeight: "700", color: "#1F2937", flex: 1, textAlign: "center" },
+  lockContainer: { marginLeft: 8, width: 24 },
+  webviewWrapper: { flex: 1 },
+  webview: { flex: 1 },
+  webviewLoading: { flex: 1, justifyContent: "center", alignItems: "center" },
   paypalFooter: {
     flexDirection: "row",
     alignItems: "center",

@@ -33,7 +33,7 @@ const TOMTOM_API_KEY = '97VjAqYxN2dPpjTn2A2Fde2ZfYErlX1B';
 export default function PremiumMultiStepForm() {
   const route = useRoute();
   const navigation = useNavigation();
-  const { userID, initialFullName, userEmail } = route.params;
+  const { userID, initialFullName, userEmail } = route.params || {};
 
   const [step, setStep] = useState(0);
   const [fullName, setFullName] = useState(initialFullName || "");
@@ -81,34 +81,75 @@ export default function PremiumMultiStepForm() {
     }
   }, [gender, step]);
 
-  // ---------- Image Upload with Remove Functionality ----------
+  // ---------- Image Upload with Remove Functionality (robust) ----------
   const pickImage = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) return;
+    try {
+      // Request permission (handle both granted/status shapes)
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const granted = permissionResult?.granted ?? (permissionResult?.status === "granted");
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
+      if (!granted) {
+        Alert.alert(
+          "Permission required",
+          "We need access to your photos to upload a profile picture. Please enable photo permissions in settings."
+        );
+        return;
+      }
 
-    if (!result.canceled) {
-      const uri = result.assets[0].uri;
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      // Support both new and older result shapes
+      const cancelled = result?.canceled ?? result?.cancelled ?? false;
+      if (cancelled) {
+        // user cancelled
+        return;
+      }
+
+      // Newer SDK returns result.assets array
+      const uri = result?.assets?.[0]?.uri ?? result?.uri;
+      if (!uri) {
+        console.warn("ImagePicker returned no uri:", result);
+        Alert.alert("Upload Error", "Could not read selected image. Please try again.");
+        return;
+      }
+
       setProfilePic(uri);
-      await AsyncStorage.setItem("profilePic", uri);
+      try {
+        await AsyncStorage.setItem("profilePic", uri);
+      } catch (e) {
+        console.warn("Failed to cache profile pic:", e);
+      }
+
+    } catch (err) {
+      console.error("pickImage error:", err);
+      // Specific emulator note
+      const emulatorMsg = Platform.OS === "android" ? " If you are on an Android emulator, ensure it has an image in the gallery or try a physical device." : "";
+      Alert.alert("Image Error", "Unable to pick image. Restart the app and try again." + emulatorMsg);
     }
   };
 
   const removeImage = async () => {
-    setProfilePic(null);
-    await AsyncStorage.removeItem("profilePic");
+    try {
+      setProfilePic(null);
+      await AsyncStorage.removeItem("profilePic");
+    } catch (e) {
+      console.warn("removeImage error:", e);
+    }
   };
 
   useEffect(() => {
     const loadCachedImage = async () => {
-      const cached = await AsyncStorage.getItem("profilePic");
-      if (cached) setProfilePic(cached);
+      try {
+        const cached = await AsyncStorage.getItem("profilePic");
+        if (cached) setProfilePic(cached);
+      } catch (e) {
+        console.warn("Failed to load cached profile pic:", e);
+      }
     };
     loadCachedImage();
   }, []);
@@ -133,14 +174,13 @@ export default function PremiumMultiStepForm() {
       }
 
       // Get current position with better configuration
-      const location = await Location.getCurrentPositionAsync({
+      const loc = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.High,
         timeout: 15000,
         distanceInterval: 10,
       });
 
-      const { latitude, longitude } = location.coords;
-      
+      const { latitude, longitude } = loc.coords;
       console.log('Detected coordinates:', latitude, longitude);
 
       // Store coordinates
@@ -187,25 +227,18 @@ export default function PremiumMultiStepForm() {
         
         // Build exact street-level location name
         let locationName = '';
-        
-        // Priority: Street + Number > Street > Suburb > Municipality
         if (address.streetNumber && address.streetName) {
           locationName = `${address.streetNumber} ${address.streetName}`;
         } else if (address.streetName) {
           locationName = address.streetName;
         } else if (address.municipalitySubdivision) {
-          locationName = address.municipalitySubdivision; // Suburb
+          locationName = address.municipalitySubdivision;
         } else if (address.municipality) {
-          locationName = address.municipality; // Fallback to municipality
+          locationName = address.municipality;
         }
-        
-        // Add suburb for context if available and different
-        if (locationName && address.municipalitySubdivision && 
-            !locationName.includes(address.municipalitySubdivision)) {
+        if (locationName && address.municipalitySubdivision && !locationName.includes(address.municipalitySubdivision)) {
           locationName = `${locationName}, ${address.municipalitySubdivision}`;
         }
-        
-        // Final fallback
         if (!locationName) {
           locationName = address.freeformAddress || `Current Location`;
         }
@@ -235,7 +268,6 @@ export default function PremiumMultiStepForm() {
     try {
       console.log('Searching for:', input);
       
-      // TomTom Search API for South Africa - simplified query
       const response = await fetch(
         `https://api.tomtom.com/search/2/search/${encodeURIComponent(input)}.json?key=${TOMTOM_API_KEY}&countrySet=ZA&limit=10&typeahead=true`
       );
@@ -273,20 +305,15 @@ export default function PremiumMultiStepForm() {
     return results
       .map((place, index) => {
         const address = place.address || {};
-        
         console.log('Processing place:', place);
-        
-        // Extract street-level location details
         let mainText = '';
         let secondaryText = '';
-        
-        // Priority for main text: Street address > Suburb > Municipality > POI
         if (address.streetNumber && address.streetName) {
           mainText = `${address.streetNumber} ${address.streetName}`;
         } else if (address.streetName) {
           mainText = address.streetName;
         } else if (address.municipalitySubdivision) {
-          mainText = address.municipalitySubdivision; // Suburb
+          mainText = address.municipalitySubdivision;
         } else if (address.municipality) {
           mainText = address.municipality;
         } else if (place.poi && place.poi.name) {
@@ -294,27 +321,15 @@ export default function PremiumMultiStepForm() {
         } else {
           mainText = address.freeformAddress || 'Location';
         }
-        
-        // Build secondary text with suburb and municipality
         const addressParts = [];
-        
-        // Add suburb if available and different from main text
         if (address.municipalitySubdivision && mainText !== address.municipalitySubdivision) {
           addressParts.push(address.municipalitySubdivision);
         }
-        
-        // Add municipality if available and different from main text and suburb
-        if (address.municipality && 
-            mainText !== address.municipality && 
-            address.municipalitySubdivision !== address.municipality) {
+        if (address.municipality && mainText !== address.municipality && address.municipalitySubdivision !== address.municipality) {
           addressParts.push(address.municipality);
         }
-        
         secondaryText = addressParts.join(', ');
-        
-        // Use freeformAddress as fallback for description
         const description = address.freeformAddress || mainText + (secondaryText ? `, ${secondaryText}` : '');
-        
         return {
           id: place.id || `location-${index}-${Date.now()}`,
           description: description,
@@ -325,19 +340,15 @@ export default function PremiumMultiStepForm() {
           lon: place.position?.lon
         };
       })
-      .slice(0, 10); // Limit to top 10 results
+      .slice(0, 10);
   };
 
   // ---------- Enhanced Location Change Handler ----------
   const handleLocationChange = (text) => {
     setLocation(text);
-    
-    // Clear previous timeout
     if (locationTimeoutRef.current) {
       clearTimeout(locationTimeoutRef.current);
     }
-    
-    // Set new timeout with debouncing
     locationTimeoutRef.current = setTimeout(() => {
       if (text.trim().length >= 2) {
         console.log('Triggering search for:', text);
@@ -355,8 +366,6 @@ export default function PremiumMultiStepForm() {
     setLocation(place.description);
     setLocationSuggestions([]);
     setIsSearching(false);
-    
-    // Store coordinates if available
     if (place.lat && place.lon) {
       setCurrentCoordinates({
         latitude: parseFloat(place.lat),
@@ -492,23 +501,18 @@ export default function PremiumMultiStepForm() {
 
   const handleSubmit = async () => {
     if (!validateStep()) return;
-    
-    // Final age verification before submission
-    if (!verifyAgeAndProceed()) {
-      return;
-    }
+    if (!verifyAgeAndProceed()) return;
     
     setLoading(true);
     try {
-      // Plain object for local/session usage
       const accountData = { fullName, username, age, gender, phone, location, profilePic };
-      const encryptedAccount = {        username,
+      const encryptedAccount = {
+        username,
         age: parseInt(age),
         gender,
         fullName: fullName,
         phone: encryptData(phone),
-        location: encryptData(location),
-        profilePic: profilePic ? profilePic : null,
+        location: encryptData(location), 
       };
 
       await axios.post(`https://dsw2b-backend.onrender.com/account`, {
@@ -526,10 +530,9 @@ export default function PremiumMultiStepForm() {
         location: encryptedAccount.location, 
         age: encryptedAccount.age,
         gender: encryptedAccount.gender,
-        profilePicUri: encryptedAccount.profilePic,
+        profilePicUri: profilePic,
         provider: 'email'
       });
-
 
       const userData = {
         email: userID,
@@ -550,7 +553,6 @@ export default function PremiumMultiStepForm() {
       await AsyncStorage.setItem("@user_session", JSON.stringify(userData));
       
       animateStepCompletion(step);
-      // Navigate to passkey creation first (before subscription)
       navigation.navigate("CreateCredential", { 
         userID,
         initialFullName: fullName,
@@ -808,7 +810,6 @@ export default function PremiumMultiStepForm() {
           <>
             <Text style={styles.sectionTitle}>Select Gender</Text>
             <View style={styles.genderGrid}>
-              {/* First Row */}
               <View style={styles.genderRow}>
                 <Pressable
                   style={[styles.genderOption, gender === "Male" && styles.genderOptionSelected]}
@@ -828,7 +829,6 @@ export default function PremiumMultiStepForm() {
                 </Pressable>
               </View>
               
-              {/* Second Row */}
               <View style={styles.genderRow}>
                 <Pressable
                   style={[styles.genderOption, gender === "Non-binary" && styles.genderOptionSelected]}
@@ -862,7 +862,6 @@ export default function PremiumMultiStepForm() {
         <Image source={require("../../assets/Logos/Aya_AI_Logo.png")} style={{ width: 80, height: 80 }} />
       </Animated.View>
 
-      {/* Step Icons and Progress Bar */}
       {renderStepIcons()}
       {renderProgressBar()}
 
