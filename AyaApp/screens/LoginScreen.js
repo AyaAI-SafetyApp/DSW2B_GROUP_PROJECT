@@ -236,14 +236,16 @@ export default function LoginScreen({ navigation }) {
             placeholder="Enter your email"
             value={email}
             onChangeText={setEmail}
-            style={styles.input}
+            style={[styles.input, { color: 'black' }]} 
+            placeholderTextColor="gray"
             keyboardType="email-address"
           />
           <TextInput
             placeholder="Enter your password"
             value={password}
             onChangeText={setPassword}
-            style={styles.input}
+            style={[styles.input, { color: 'black' }]} 
+            placeholderTextColor="gray"
             secureTextEntry
           />
           <TouchableOpacity onPress={handleForgotPassword}>

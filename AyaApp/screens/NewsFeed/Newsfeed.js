@@ -105,7 +105,6 @@ const DUMMY_STORIES = [
   },
 ];
 
-// small helper to detect video urls / file names
 const isVideoUrl = (uri) => {
   if (!uri) return false;
   try {
@@ -144,7 +143,6 @@ async function removeQueuedCreateByLocalId(localId) {
     if (!raw) return;
     const queue = JSON.parse(raw);
     const filtered = (queue || []).filter((i) => {
-      // keep items that do not match localId
       try {
         return !(i.payload && i.payload.localId && i.payload.localId === localId);
       } catch {
@@ -157,7 +155,6 @@ async function removeQueuedCreateByLocalId(localId) {
   }
 }
 
-// helper to resolve upload function from storage module (tolerant)
 function getStorageUploader() {
   const s = StorageAPI || {};
   const candidates = [
@@ -168,7 +165,7 @@ function getStorageUploader() {
     s.default && s.default.uploadFile,
     s.default && s.default.upload,
   ];
-  const fn = candidates.find((c) => typeof c === "function");
+  const fn = candidates.find((c) => typeof c === 'function');
   if (!fn) {
     console.error("Storage uploader not found. exports in ../../NewsfeedCRUD/api/storage:", Object.keys(s));
     return null;
@@ -176,16 +173,11 @@ function getStorageUploader() {
   return fn;
 }
 
-// ============ new helper: upload URIs to 'posts' bucket ============
-// Ensures any local file:// or asset URI is uploaded to the 'posts' bucket
-// and returns an array of public URLs. If an item is already an http(s) URL,
-// it will be kept as-is.
 async function uploadMediaUrisToPostsBucket(uris = []) {
   const uploadedUrls = [];
   const uploader = getStorageUploader();
   for (const uri of uris || []) {
     if (!uri) continue;
-    // keep already uploaded public URLs
     if (typeof uri === "string" && (uri.startsWith("http://") || uri.startsWith("https://"))) {
       uploadedUrls.push(uri);
       continue;
@@ -195,9 +187,7 @@ async function uploadMediaUrisToPostsBucket(uris = []) {
       continue;
     }
     try {
-      // call resolved uploader
       const res = await uploader(uri, "posts");
-      // tolerant resolution of response: accept string or object with publicURL/url/publicUrl
       let url = null;
       if (!res) {
         url = null;
@@ -210,19 +200,15 @@ async function uploadMediaUrisToPostsBucket(uris = []) {
       } else if (res.url) {
         url = res.url;
       } else if (res.Key) {
-        // best-effort: if storage return a Key/path, attempt to construct a URL (may need adjusting to your storage provider)
         url = res.Key;
       } else if (res.path) {
         url = res.path;
       } else {
-        // fallback to stringified
         url = String(res);
       }
 
       if (url) {
-        // if returned path looks like storage path (no http), attempt to construct public url for Supabase public buckets
         if (typeof url === "string" && !/^https?:\/\//i.test(url) && url.includes("/")) {
-          // leave as-is; PostCard will attempt to resolve if needed. However try to construct supabase public URL if supabase base exists
           try {
             const base = StorageAPI?.supabaseUrl || StorageAPI?.supabase?.url || null;
             if (base && !/^https?:\/\//i.test(url)) {
@@ -231,9 +217,7 @@ async function uploadMediaUrisToPostsBucket(uris = []) {
               uploadedUrls.push(manual);
               continue;
             }
-          } catch (e) {
-            // ignore and push raw path
-          }
+          } catch (e) {}
         }
         uploadedUrls.push(url);
       } else {
@@ -254,14 +238,12 @@ const UserAvatar = React.memo(({ username, avatarUrl, size = 40, style }) => {
   };
 
   const getBackgroundColor = (name) => {
-    // Generate a consistent color based on username
     if (!name) return '#FF1493';
     const colors = ['#FF1493', '#9C27B0', '#3F51B5', '#2196F3', '#00BCD4', '#009688', '#4CAF50', '#FF9800', '#FF5722', '#E91E63'];
     const index = name.charCodeAt(0) % colors.length;
     return colors[index];
   };
 
-  // If there's an avatar URL and it's not the default placeholder, show the image
   if (avatarUrl && !avatarUrl.includes('pravatar.cc')) {
     return (
       <Image
@@ -279,7 +261,6 @@ const UserAvatar = React.memo(({ username, avatarUrl, size = 40, style }) => {
     );
   }
 
-  // Otherwise show the first letter
   return (
     <View
       style={[
@@ -351,8 +332,20 @@ const StoryItem = React.memo(({ story, index, onPress }) => {
 });
 
 // ============ POST CARD COMPONENT ============
+// NOTE: added `shouldPlay` and `onViewMedia` props so parent (FlatList) can control autoplay on visibility
 const PostCard = React.memo(
-  ({ post, onLike, onEdit, onDelete, onComment, onViewComments, currentUsername }) => {
+  ({
+    post,
+    onLike,
+    onEdit,
+    onDelete,
+    onComment,
+    onViewComments,
+    currentUsername,
+    shouldPlay,
+    onViewMedia, // new
+    onViewLikes, // NEW: receive handler from parent to show likers
+  }) => {
     const [imageLoading, setImageLoading] = useState(true);
     const isLiked = post.likes && post.likes.includes(currentUsername);
     const isOwnPost = post.username === currentUsername;
@@ -363,18 +356,44 @@ const PostCard = React.memo(
       }
     }, [isLiked, onLike, post.id]);
 
-    let lastTap = null;
-    const handleImagePress = () => {
-      const now = Date.now();
-      if (lastTap && now - lastTap < 300) {
-        handleDoubleTap();
+    const lastTapRef = useRef(null);
+
+    const currentMediaIndexRef = useRef(0);
+    const mediaViewabilityConfig = useRef({
+      itemVisiblePercentThreshold: 50,
+      minimumViewTime: 50,
+    }).current;
+    const onViewableMediaChanged = useRef(({ viewableItems }) => {
+      if (viewableItems && viewableItems.length > 0) {
+        currentMediaIndexRef.current = viewableItems[0].index || 0;
       }
-      lastTap = now;
+    }).current;
+
+    const handleSingleOrDoubleTap = () => {
+      const now = Date.now();
+      if (lastTapRef.current && now - lastTapRef.current < 300) {
+        lastTapRef.current = null;
+        handleDoubleTap();
+        return;
+      }
+      lastTapRef.current = now;
+      setTimeout(() => {
+        if (!lastTapRef.current) return;
+        const diff = Date.now() - now;
+        if (diff >= 300) {
+          const idx = currentMediaIndexRef.current || 0;
+          const uri = (post.media_urls && post.media_urls[idx]) || null;
+          if (uri && typeof onViewMedia === "function") {
+            const isVideo = post.media_type === "video" || isVideoUrl(uri);
+            onViewMedia(uri, isVideo);
+          }
+          lastTapRef.current = null;
+        }
+      }, 300);
     };
 
     return (
       <View style={styles.postCard}>
-        {/* Post Header */}
         <View style={styles.postHeader}>
           <View style={styles.postHeaderLeft}>
             <UserAvatar
@@ -410,9 +429,8 @@ const PostCard = React.memo(
           )}
         </View>
 
-        {/* Post Media */}
         {post.media_urls && post.media_urls.length > 0 && (
-          <TouchableOpacity activeOpacity={1} onPress={handleImagePress}>
+          <TouchableOpacity activeOpacity={1} onPress={handleSingleOrDoubleTap}>
             {imageLoading && (
               <View style={styles.imageLoadingContainer}>
                 <ActivityIndicator size="small" color={COLORS.accent} />
@@ -427,34 +445,41 @@ const PostCard = React.memo(
                 const itemIsVideo = post.media_type === "video" || isVideoUrl(item);
                 if (itemIsVideo) {
                   return (
-                    <Video
-                      source={{ uri: item }}
-                      style={styles.postImage}
-                      useNativeControls
-                      resizeMode="contain"
-                      isLooping
-                      onLoadStart={() => setImageLoading(true)}
-                      onLoad={() => setImageLoading(false)}
-                      onError={() => setImageLoading(false)}
-                    />
+                    <TouchableOpacity activeOpacity={1} onPress={() => onViewMedia?.(item, true)}>
+                      <Video
+                        source={{ uri: item }}
+                        style={styles.postImage}
+                        useNativeControls
+                        resizeMode="contain"
+                        isLooping
+                        onLoadStart={() => setImageLoading(true)}
+                        onLoad={() => setImageLoading(false)}
+                        onError={() => setImageLoading(false)}
+                        shouldPlay={!!shouldPlay}
+                        isMuted={!shouldPlay ? true : false}
+                      />
+                    </TouchableOpacity>
                   );
                 }
                 return (
-                  <Image
-                    source={{ uri: item }}
-                    style={styles.postImage}
-                    onLoadStart={() => setImageLoading(true)}
-                    onLoadEnd={() => setImageLoading(false)}
-                    onError={() => setImageLoading(false)}
-                  />
+                  <TouchableOpacity activeOpacity={1} onPress={() => onViewMedia?.(item, false)}>
+                    <Image
+                      source={{ uri: item }}
+                      style={styles.postImage}
+                      onLoadStart={() => setImageLoading(true)}
+                      onLoadEnd={() => setImageLoading(false)}
+                      onError={() => setImageLoading(false)}
+                    />
+                  </TouchableOpacity>
                 );
               }}
               showsHorizontalScrollIndicator={false}
+              viewabilityConfig={mediaViewabilityConfig}
+              onViewableItemsChanged={onViewableMediaChanged}
             />
           </TouchableOpacity>
         )}
 
-        {/* Post Actions */}
         <View style={styles.postActions}>
           <View style={styles.postActionsLeft}>
             <TouchableOpacity
@@ -494,14 +519,15 @@ const PostCard = React.memo(
           </TouchableOpacity>
         </View>
 
-        {/* Likes Count */}
-        {post.likes.length > 0 && (
-          <Text style={styles.likesCount}>
-            {post.likes.length} {post.likes.length === 1 ? "like" : "likes"}
-          </Text>
+        {/* Likes Count - now clickable to ask parent to open likers list */}
+        {post.likes && post.likes.length > 0 && (
+          <TouchableOpacity onPress={() => typeof onViewLikes === "function" && onViewLikes(post)}>
+            <Text style={styles.likesCount}>
+              {post.likes.length} {post.likes.length === 1 ? "like" : "likes"}
+            </Text>
+          </TouchableOpacity>
         )}
 
-        {/* Post Content */}
         {post.content && (
           <View style={styles.postContentContainer}>
             <Text style={styles.postContent}>
@@ -511,7 +537,6 @@ const PostCard = React.memo(
           </View>
         )}
 
-        {/* Comments Preview */}
         {post.comments && post.comments.length > 0 && (
           <TouchableOpacity onPress={() => onViewComments(post)}>
             <Text style={styles.viewComments}>
@@ -520,7 +545,6 @@ const PostCard = React.memo(
           </TouchableOpacity>
         )}
 
-        {/* Time Ago */}
         <Text style={styles.postTime}>{getTimeAgo(post.created_at)}</Text>
       </View>
     );
@@ -662,7 +686,53 @@ const CommentsModal = ({
   );
 };
 
+// ============ NEW: Likes Modal ============
+const LikesModal = ({ visible, likes, onClose }) => {
+  const items = Array.isArray(likes)
+    ? likes.map((l, idx) => {
+        if (!l) return { id: `l_${idx}`, username: String(l) };
+        if (typeof l === "string") return { id: `l_${l}_${idx}`, username: l };
+        if (typeof l === "object") {
+          const username = l.username || l.user || l.name || l.id || JSON.stringify(l);
+          const avatar = l.avatar || l.avatar_url || l.photo || null;
+          return { id: `l_${username}_${idx}`, username, avatar };
+        }
+        return { id: `l_${idx}`, username: String(l) };
+      })
+    : [];
+
+  return (
+    <Modal isVisible={visible} onBackdropPress={onClose} style={styles.likesModal}>
+      <View style={styles.likesContainer}>
+        <View style={styles.likesHeader}>
+          <Text style={styles.likesTitle}>Liked by</Text>
+          <TouchableOpacity onPress={onClose}>
+            <MaterialCommunityIcons name="close" size={22} color={COLORS.text} />
+          </TouchableOpacity>
+        </View>
+
+        <FlatList
+          data={items}
+          keyExtractor={(it) => it.id}
+          renderItem={({ item }) => (
+            <View style={styles.likeRow}>
+              <UserAvatar username={item.username} avatarUrl={item.avatar} size={36} style={styles.likeAvatar} />
+              <Text style={styles.likeName}>{item.username}</Text>
+            </View>
+          )}
+          ListEmptyComponent={
+            <View style={styles.emptyLikes}>
+              <Text style={styles.emptyLikesText}>No likes yet</Text>
+            </View>
+          }
+        />
+      </View>
+    </Modal>
+  );
+};
+
 // ============ STORY VIEWER ============
+// ...existing code...
 const StoryViewer = ({
   visible,
   stories,
@@ -787,13 +857,11 @@ const StoryViewer = ({
 
 // ============ HELPER FUNCTIONS ============
 const getTimeAgo = (timestamp) => {
-  // tolerant: accept numeric ms, seconds, or ISO strings
   let ts = timestamp;
   if (typeof ts === "string") {
     const parsed = Date.parse(ts);
     ts = isNaN(parsed) ? undefined : parsed;
   } else if (typeof ts === "number") {
-    // ensure it's milliseconds; if it looks like seconds (10-digit), convert to ms
     if (String(ts).length === 10) ts = ts * 1000;
   } else {
     ts = undefined;
@@ -836,6 +904,15 @@ const Newsfeed = () => {
   const storyTimerRef = useRef(null);
   const progressIntervalRef = useRef(null);
 
+  const [visiblePostIds, setVisiblePostIds] = useState([]);
+
+  const [mediaViewerVisible, setMediaViewerVisible] = useState(false);
+  const [mediaViewerItem, setMediaViewerItem] = useState(null);
+
+  // NEW: likes modal state
+  const [likesModalVisible, setLikesModalVisible] = useState(false);
+  const [likesForModal, setLikesForModal] = useState([]);
+
   useEffect(() => {
     loadCurrentUser();
   }, []);
@@ -853,12 +930,33 @@ const Newsfeed = () => {
     }
   };
 
+  const openMediaViewer = useCallback((uri, isVideo = false) => {
+    setMediaViewerItem({ uri, isVideo });
+    setMediaViewerVisible(true);
+  }, []);
+
+  const closeMediaViewer = useCallback(() => {
+    setMediaViewerVisible(false);
+    setMediaViewerItem(null);
+  }, []);
+
+  // NEW: open/close likes modal handlers
+  const openLikesModal = useCallback((post) => {
+    if (!post) return;
+    setLikesForModal(post.likes || []);
+    setLikesModalVisible(true);
+  }, []);
+
+  const closeLikesModal = useCallback(() => {
+    setLikesModalVisible(false);
+    setLikesForModal([]);
+  }, []);
+
   const loadPosts = useCallback(async () => {
     setLoading(true);
     try {
       const data = await fetchPosts();
 
-      // normalize created_at to numeric ms for posts and comments
       const normalized = (data || []).map((p) => {
         const rawCreated = p.created_at ?? p.createdAt ?? Date.now();
         const created_at =
@@ -904,7 +1002,6 @@ const Newsfeed = () => {
         };
       });
 
-      // ensure numeric created_at and sort by descending created_at
       setPosts(
         normalized
           .map((x) => ({ ...x, created_at: Number(x.created_at || Date.now()) }))
@@ -921,20 +1018,17 @@ const Newsfeed = () => {
     loadPosts();
   }, [loadPosts]);
 
-  // start offline auto-sync (uploads + create handled by offlineQueue)
   useEffect(() => {
     const uploader = getStorageUploader();
     const unsubscribe = startAutoSync({
       createPostFn: createPost,
-      uploadFn: uploader, // pass resolved uploader (may be null)
-      // startAutoSync should know the bucket to use (uploader is called with bucket='posts' inside uploadMediaUrisToPostsBucket)
+      uploadFn: uploader,
     });
     return () => {
       if (typeof unsubscribe === "function") unsubscribe();
     };
   }, []);
 
-  // process CRUD ops queue (delete/like/comment/update on server) when network available
   const processOpsQueue = useCallback(async () => {
     try {
       const state = await NetInfo.fetch();
@@ -942,13 +1036,9 @@ const Newsfeed = () => {
       let q = await getOpsQueue();
       if (!q || q.length === 0) return;
 
-      // process sequentially
       for (const op of q.slice()) {
         try {
-          // If op targets a local placeholder id, skip processing here.
-          // These ops must be applied after the create sync maps localId -> serverId.
           if (String(op.postId || "").startsWith("local_")) {
-            // keep in queue for now
             continue;
           }
 
@@ -957,18 +1047,15 @@ const Newsfeed = () => {
           } else if (op.type === "update") {
             await updatePost(op.postId, op.payload);
           } else if (op.type === "like") {
-            // payload contains likes array
             await updatePost(op.postId, { likes: op.payload.likes });
           } else if (op.type === "comment") {
-            // comments array
             await updatePost(op.postId, { comments: op.payload.comments });
           }
-          // on success remove the op from queue
           q = q.filter((x) => x.id !== op.id);
           await setOpsQueue(q);
         } catch (err) {
           console.error("processOpsQueue item failed, stop and retry later", err);
-          break; // stop and retry later
+          break;
         }
       }
     } catch (e) {
@@ -977,7 +1064,6 @@ const Newsfeed = () => {
   }, []);
 
   useEffect(() => {
-    // run on mount and when connectivity changes
     processOpsQueue();
     const unsub = NetInfo.addEventListener((state) => {
       if (state.isConnected) processOpsQueue();
@@ -991,7 +1077,6 @@ const Newsfeed = () => {
     setRefreshing(false);
   }, [loadPosts]);
 
-  // Toggle like with optimistic update. Skip server update for local-only posts; if offline queue server op.
   const toggleLikePost = useCallback(
     async (postId) => {
       try {
@@ -1006,7 +1091,6 @@ const Newsfeed = () => {
           })
         );
 
-        // if local placeholder, do not call server — enqueue op referencing local id
         if (String(postId).startsWith("local_")) {
           await enqueueOp({
             id: `op_${Date.now()}`,
@@ -1028,7 +1112,6 @@ const Newsfeed = () => {
           : [...(target.likes || []), currentUsername];
 
         if (!state.isConnected) {
-          // enqueue op to update likes later
           await enqueueOp({
             id: `op_${Date.now()}`,
             type: "like",
@@ -1058,14 +1141,12 @@ const Newsfeed = () => {
         created_at: Date.now(),
       };
 
-      // optimistic local update
       setPosts((prev) =>
         prev.map((p) =>
           p.id === postId ? { ...p, comments: [...(p.comments || []), comment] } : p
         )
       );
 
-      // Update selected post for modal
       setSelectedPost((prev) =>
         prev && prev.id === postId
           ? { ...prev, comments: [...(prev.comments || []), comment] }
@@ -1073,7 +1154,6 @@ const Newsfeed = () => {
       );
 
       try {
-        // If target is a local placeholder, enqueue local comment op and do NOT call server.
         if (String(postId).startsWith("local_")) {
           await enqueueOp({
             id: `op_${Date.now()}`,
@@ -1086,7 +1166,6 @@ const Newsfeed = () => {
 
         const state = await NetInfo.fetch();
         if (!state.isConnected) {
-          // enqueue comment update for later
           const target = posts.find((p) => p.id === postId) || {};
           await enqueueOp({
             id: `op_${Date.now()}`,
@@ -1142,7 +1221,6 @@ const Newsfeed = () => {
               );
 
               try {
-                // If local placeholder, enqueue local comment change and do not call server
                 if (String(postId).startsWith("local_")) {
                   const target = posts.find((p) => p.id === postId) || {};
                   await enqueueOp({
@@ -1222,8 +1300,7 @@ const Newsfeed = () => {
     setMediaUris((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
-  // Submit post. If offline, create local placeholder and enqueue create payload (with localId).
-  // IMPORTANT: ensure any local media URIs are uploaded to the 'posts' bucket before creating/updating server posts.
+  // Submit post (unchanged) ...
   const handleSubmitPost = useCallback(async () => {
     if (!postContent.trim() && mediaUris.length === 0) {
       Alert.alert("Validation", "Please enter text or select media.");
@@ -1232,8 +1309,6 @@ const Newsfeed = () => {
 
     try {
       if (editingPostId) {
-        // editing existing post - if local placeholder just update local state,
-        // otherwise attempt server update or enqueue.
         if (String(editingPostId).startsWith("local_")) {
           setPosts((prev) =>
             prev.map((p) =>
@@ -1263,13 +1338,11 @@ const Newsfeed = () => {
               )
             );
           } else {
-            // ONLINE EDIT: upload any local URIs to posts bucket and replace them with public URLs
             let finalMediaUrls = mediaUris;
             try {
               finalMediaUrls = await uploadMediaUrisToPostsBucket(mediaUris);
             } catch (uploadErr) {
               console.error("Failed to upload media while editing:", uploadErr);
-              // continue with whatever URLs we have (may be empty)
             }
 
             await updatePost(editingPostId, {
@@ -1280,27 +1353,23 @@ const Newsfeed = () => {
           }
         }
       } else {
-        // new post
         const state = await NetInfo.fetch();
         if (!state.isConnected) {
-          // offline -> create local placeholder + enqueue create payload (include localId)
           const localId = `local_${Date.now()}`;
           const createdAtIso = new Date().toISOString();
           await enqueuePost({
-            // offlineQueue expects simple post payload; include localId so we can remove it if user deletes before sync
             localId,
             username: currentUsername,
             avatar: currentUser?.user_metadata?.avatar_url || null,
             content: postContent,
-            mediaUris, // local URIs so offlineQueue can upload later (startAutoSync must handle upload to 'posts' bucket)
+            mediaUris,
             media_type: postType,
             likes: [],
             comments: [],
             created_at: createdAtIso,
-            bucket: "posts", // hint to offlineQueue/startAutoSync that this should go to the 'posts' bucket
+            bucket: "posts",
           });
 
-          // optimistic UI: add local placeholder post
           setPosts((prev) => [
             {
               id: localId,
@@ -1325,7 +1394,6 @@ const Newsfeed = () => {
           return;
         }
 
-        // ONLINE: upload media to 'posts' bucket first (if any), then create post using public URLs
         let uploadedUrls = [];
         if (mediaUris.length > 0) {
           uploadedUrls = await uploadMediaUrisToPostsBucket(mediaUris);
@@ -1356,7 +1424,6 @@ const Newsfeed = () => {
         msg.toLowerCase().includes("network") || msg === "Network request failed";
 
       if (isNetworkErr) {
-        // fallback to offline create path
         try {
           const localId = `local_${Date.now()}`;
           await enqueuePost({
@@ -1403,7 +1470,6 @@ const Newsfeed = () => {
     }
   }, [postContent, mediaUris, editingPostId, postType, loadPosts, currentUsername, currentUser]);
 
-  // Delete post handler: works for local placeholders and server posts.
   const handleDeletePost = useCallback(async (postId) => {
     Alert.alert("Delete Post", "Are you sure you want to delete this post?", [
       { text: "Cancel", style: "cancel" },
@@ -1412,15 +1478,12 @@ const Newsfeed = () => {
         style: "destructive",
         onPress: async () => {
           try {
-            // if local placeholder -> remove locally and remove queued create if exists
             if (String(postId).startsWith("local_")) {
               setPosts((prev) => prev.filter((p) => p.id !== postId));
-              // remove from offline create queue so it won't be uploaded later
               await removeQueuedCreateByLocalId(postId);
               return;
             }
 
-            // for server posts: if offline, remove locally and enqueue delete op to run later
             const state = await NetInfo.fetch();
             if (!state.isConnected) {
               setPosts((prev) => prev.filter((p) => p.id !== postId));
@@ -1433,7 +1496,6 @@ const Newsfeed = () => {
               return;
             }
 
-            // online: call API
             await deletePost(postId);
             setPosts((prev) => prev.filter((p) => p.id !== postId));
           } catch (e) {
@@ -1461,7 +1523,6 @@ const Newsfeed = () => {
     setCommentsModalVisible(true);
   }, []);
 
-  // ============ STORY OPERATIONS ============
   const openStoryViewer = useCallback((index) => {
     setActiveStoryIndex(index);
     setActiveStoryImageIndex(0);
@@ -1570,7 +1631,20 @@ const Newsfeed = () => {
     advanceStory,
   ]);
 
-  // ============ RENDER METHODS ============
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 60,
+    minimumViewTime: 200,
+  }).current;
+
+  const onViewableItemsChanged = useRef(({ viewableItems }) => {
+    try {
+      const ids = (viewableItems || []).map((v) => v.item?.id).filter(Boolean);
+      setVisiblePostIds(ids);
+    } catch (e) {
+      // ignore
+    }
+  }).current;
+
   const renderStoryItem = useCallback(
     ({ item: story, index }) => (
       <StoryItem story={story} index={index} onPress={handleStoryPress} />
@@ -1579,17 +1653,23 @@ const Newsfeed = () => {
   );
 
   const renderPostItem = useCallback(
-    ({ item }) => (
-      <PostCard
-        post={item}
-        onLike={toggleLikePost}
-        onEdit={handleEditPost}
-        onDelete={handleDeletePost}
-        onComment={handleCommentPress}
-        onViewComments={handleViewComments}
-        currentUsername={currentUsername}
-      />
-    ),
+    ({ item }) => {
+      const shouldPlay = visiblePostIds.includes(item.id) && (item.media_urls || []).some(isVideoUrl);
+      return (
+        <PostCard
+          post={item}
+          onLike={toggleLikePost}
+          onEdit={handleEditPost}
+          onDelete={handleDeletePost}
+          onComment={handleCommentPress}
+          onViewComments={handleViewComments}
+          currentUsername={currentUsername}
+          shouldPlay={shouldPlay}
+          onViewMedia={openMediaViewer} // pass viewer handler
+          onViewLikes={openLikesModal} // PASS handler so PostCard can open likes modal
+        />
+      );
+    },
     [
       toggleLikePost,
       handleEditPost,
@@ -1597,6 +1677,9 @@ const Newsfeed = () => {
       handleCommentPress,
       handleViewComments,
       currentUsername,
+      visiblePostIds,
+      openMediaViewer,
+      openLikesModal,
     ]
   );
 
@@ -1625,7 +1708,6 @@ const Newsfeed = () => {
         backgroundColor={COLORS.cardBackground}
       />
 
-      {/* Header */}
       <View style={styles.header}></View>
 
       {loading ? (
@@ -1662,10 +1744,11 @@ const Newsfeed = () => {
           maxToRenderPerBatch={5}
           windowSize={10}
           removeClippedSubviews={Platform.OS === "android"}
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={viewabilityConfig}
         />
       )}
 
-      {/* FAB */}
       <FAB
         style={styles.fab}
         icon="plus"
@@ -1674,7 +1757,6 @@ const Newsfeed = () => {
         small
       />
 
-      {/* Create/Edit Post Modal */}
       <Modal
         isVisible={modalVisible}
         onBackdropPress={() => setModalVisible(false)}
@@ -1791,7 +1873,6 @@ const Newsfeed = () => {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* Comments Modal */}
       <CommentsModal
         visible={commentsModalVisible}
         post={selectedPost}
@@ -1805,7 +1886,32 @@ const Newsfeed = () => {
         currentUser={currentUser}
       />
 
-      {/* Story Viewer */}
+      {/* NEW: Likes modal rendered here */}
+      <LikesModal visible={likesModalVisible} likes={likesForModal} onClose={closeLikesModal} />
+
+      <RNModal visible={mediaViewerVisible} transparent animationType="fade" onRequestClose={closeMediaViewer}>
+        <View style={{ flex: 1, backgroundColor: "#000" }}>
+          <TouchableOpacity onPress={closeMediaViewer} style={{ position: "absolute", top: 40, right: 16, zIndex: 20 }}>
+            <MaterialCommunityIcons name="close-circle" size={36} color="#fff" />
+          </TouchableOpacity>
+
+          {mediaViewerItem?.isVideo ? (
+            <Video
+              source={{ uri: mediaViewerItem.uri }}
+              style={{ width: width, height: height, backgroundColor: "#000" }}
+              useNativeControls
+              resizeMode="contain"
+              shouldPlay
+            />
+          ) : (
+            <Image
+              source={{ uri: mediaViewerItem?.uri }}
+              style={{ width, height, resizeMode: "contain" }}
+            />
+          )}
+        </View>
+      </RNModal>
+
       <StoryViewer
         visible={storyViewerVisible}
         stories={stories}
@@ -2292,6 +2398,54 @@ const styles = StyleSheet.create({
   },
   storyLikeBtn: {
     padding: 4,
+  },
+
+  /* Likes modal styles */
+  likesModal: {
+    margin: 0,
+    justifyContent: "flex-end",
+  },
+  likesContainer: {
+    backgroundColor: COLORS.cardBackground,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+    maxHeight: height * 0.6,
+    paddingBottom: Platform.OS === "ios" ? 34 : 12,
+  },
+  likesHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  likesTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: COLORS.text,
+  },
+  likeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  likeAvatar: {
+    marginRight: 12,
+    backgroundColor: COLORS.border,
+  },
+  likeName: {
+    fontSize: 15,
+    color: COLORS.text,
+  },
+  emptyLikes: {
+    alignItems: "center",
+    paddingVertical: 24,
+  },
+  emptyLikesText: {
+    color: COLORS.textSecondary,
   },
 });
 

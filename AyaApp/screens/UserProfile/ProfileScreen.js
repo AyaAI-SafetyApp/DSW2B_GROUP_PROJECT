@@ -140,9 +140,10 @@ const ProfileScreen = () => {
   const uploadProfilePicture = async (imageUri) => {
     try {
       setUploading(true);
+      const { uploadProfilePicture: upload, saveUserProfile } = require('../../lib/profileService');
       
       // Upload image to Supabase
-      const publicUrl = await uploadProfilePic(imageUri, userData.email);
+      const publicUrl = await upload(imageUri, userData.email);
       
       // Update profile with new image URL
       await saveUserProfile({
@@ -353,6 +354,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#FECACA',
+    
   },
   backButton: {
     padding: 8,
@@ -384,7 +386,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     paddingVertical: 32,
-    marginBottom: 24,
+    marginBottom: 14,
   },
   avatarContainer: {
     position: 'relative',
@@ -526,8 +528,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#FFFFFF',
     marginHorizontal: 20,
-    marginTop: 24,
-    marginBottom: 12,
+    marginTop: 12,
+    marginBottom: 50,
     paddingVertical: 16,
     borderRadius: 12,
     borderWidth: 1,
