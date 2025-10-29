@@ -82,6 +82,27 @@ export default function LoginScreen({ navigation }) {
         throw new Error("User profile not found");
       }
       
+      // Check if account is deactivated and reactivate it
+      if (userProfile.is_active === false) {
+        console.log('🔄 Reactivating deactivated account...');
+        const { error: reactivateError } = await supabase
+          .from('user_profiles')
+          .update({ 
+            is_active: true,
+            deactivated_at: null,
+            last_login_at: new Date().toISOString()
+          })
+          .eq('email', userEmail);
+        
+        if (reactivateError) {
+          console.error('⚠️ Reactivation error:', reactivateError);
+        } else {
+          console.log('✅ Account reactivated successfully');
+          userProfile.is_active = true;
+          userProfile.deactivated_at = null;
+        }
+      }
+      
       // Create comprehensive user session data
       const userData = {
         email: userEmail,
@@ -152,6 +173,27 @@ export default function LoginScreen({ navigation }) {
       try {
         userProfile = await getUserProfile(email);
         console.log('📊 Profile loaded:', userProfile);
+        
+        // Check if account is deactivated and reactivate it
+        if (userProfile && userProfile.is_active === false) {
+          console.log('🔄 Reactivating deactivated account...');
+          const { error: reactivateError } = await supabase
+            .from('user_profiles')
+            .update({ 
+              is_active: true,
+              deactivated_at: null,
+              last_login_at: new Date().toISOString()
+            })
+            .eq('email', email);
+          
+          if (reactivateError) {
+            console.error('⚠️ Reactivation error:', reactivateError);
+          } else {
+            console.log('✅ Account reactivated successfully');
+            userProfile.is_active = true;
+            userProfile.deactivated_at = null;
+          }
+        }
       } catch (profileError) {
         console.warn('⚠️ Could not load profile:', profileError);
       }

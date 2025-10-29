@@ -1,0 +1,262 @@
+// Subscription and Feature Access Control Utility
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from '../lib/supabaseClient';
+
+// Subscription Tiers
+export const SUBSCRIPTION_TIERS = {
+  FREE: 'free',
+  PERSONAL: 'personal',
+  FAMILY: 'family',
+  PERSONAL_PRO: 'personal_pro',
+};
+
+// Feature Access Levels
+export const FEATURES = {
+  // Free tier features (always available)
+  EMERGENCY_SOS: 'emergency_sos',
+  BASIC_LOCATION: 'basic_location',
+  THREE_CONTACTS: 'three_contacts',
+  COMMUNITY_SUPPORT: 'community_support',
+  SAFETY_TIPS: 'safety_tips',
+  GBV_NEWS: 'gbv_news',
+  LEARNING_GAMES: 'learning_games',
+  
+  // Personal tier features (R49.99/month)
+  REAL_TIME_ALERTS: 'real_time_alerts',
+  OFFLINE_SUPPORT: 'offline_support',
+  AI_SAFE_ROUTES: 'ai_safe_routes',
+  PRIORITY_SUPPORT: 'priority_support',
+  ADVANCED_LOCATION: 'advanced_location',
+  UNLIMITED_CONTACTS: 'unlimited_contacts',
+  FALL_DETECTION: 'fall_detection',
+  
+  // Family tier features (R67.99/month)
+  FAMILY_TRACKING: 'family_tracking',
+  SHARED_ALERTS: 'shared_alerts',
+  GROUP_SAFETY_ZONES: 'group_safety_zones',
+  CHILD_SAFETY: 'child_safety',
+  FAMILY_SUPPORT: 'family_support',
+  
+  // Personal Pro tier features (R99.99/month)
+  AI_COMPANION: 'ai_companion',
+  ADVANCED_ANALYTICS: 'advanced_analytics',
+  EXTENDED_MAPS: 'extended_maps',
+  DEDICATED_SUPPORT: 'dedicated_support',
+  THERAPIST_ACCESS: 'therapist_access',
+  HEALTH_MONITORING: 'health_monitoring',
+};
+
+// Feature to Tier Mapping
+const FEATURE_ACCESS = {
+  // Free tier
+  [FEATURES.EMERGENCY_SOS]: [SUBSCRIPTION_TIERS.FREE, SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
+  [FEATURES.BASIC_LOCATION]: [SUBSCRIPTION_TIERS.FREE, SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
+  [FEATURES.THREE_CONTACTS]: [SUBSCRIPTION_TIERS.FREE, SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
+  [FEATURES.COMMUNITY_SUPPORT]: [SUBSCRIPTION_TIERS.FREE, SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
+  [FEATURES.SAFETY_TIPS]: [SUBSCRIPTION_TIERS.FREE, SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
+  [FEATURES.GBV_NEWS]: [SUBSCRIPTION_TIERS.FREE, SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
+  [FEATURES.LEARNING_GAMES]: [SUBSCRIPTION_TIERS.FREE, SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
+  
+  // Personal tier
+  [FEATURES.REAL_TIME_ALERTS]: [SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
+  [FEATURES.OFFLINE_SUPPORT]: [SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
+  [FEATURES.AI_SAFE_ROUTES]: [SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
+  [FEATURES.PRIORITY_SUPPORT]: [SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
+  [FEATURES.ADVANCED_LOCATION]: [SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
+  [FEATURES.UNLIMITED_CONTACTS]: [SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
+  [FEATURES.FALL_DETECTION]: [SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
+  
+  // Family tier
+  [FEATURES.FAMILY_TRACKING]: [SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
+  [FEATURES.SHARED_ALERTS]: [SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
+  [FEATURES.GROUP_SAFETY_ZONES]: [SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
+  [FEATURES.CHILD_SAFETY]: [SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
+  [FEATURES.FAMILY_SUPPORT]: [SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
+  
+  // Personal Pro tier
+  [FEATURES.AI_COMPANION]: [SUBSCRIPTION_TIERS.PERSONAL_PRO],
+  [FEATURES.ADVANCED_ANALYTICS]: [SUBSCRIPTION_TIERS.PERSONAL_PRO],
+  [FEATURES.EXTENDED_MAPS]: [SUBSCRIPTION_TIERS.PERSONAL_PRO],
+  [FEATURES.DEDICATED_SUPPORT]: [SUBSCRIPTION_TIERS.PERSONAL_PRO],
+  [FEATURES.THERAPIST_ACCESS]: [SUBSCRIPTION_TIERS.PERSONAL_PRO],
+  [FEATURES.HEALTH_MONITORING]: [SUBSCRIPTION_TIERS.PERSONAL_PRO],
+};
+
+/**
+ * Get user's current subscription tier
+ * @returns {Promise<string>} Current subscription tier
+ */
+export const getUserSubscriptionTier = async () => {
+  try {
+    // Check cached subscription
+    const cachedSub = await AsyncStorage.getItem('@user_subscription');
+    if (cachedSub) {
+      const { tier, expiresAt } = JSON.parse(cachedSub);
+      
+      // Check if subscription is still valid
+      if (expiresAt && new Date(expiresAt) > new Date()) {
+        return tier;
+      }
+    }
+
+    // Fetch from Supabase
+    const sessionData = await AsyncStorage.getItem('@user_session');
+    if (!sessionData) {
+      return SUBSCRIPTION_TIERS.FREE;
+    }
+
+    const { email } = JSON.parse(sessionData);
+    
+    const { data, error } = await supabase
+      .from('user_subscriptions')
+      .select('subscription_tier, expires_at, is_active')
+      .eq('email', email)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (error || !data) {
+      return SUBSCRIPTION_TIERS.FREE;
+    }
+
+    // Cache the subscription
+    await AsyncStorage.setItem('@user_subscription', JSON.stringify({
+      tier: data.subscription_tier,
+      expiresAt: data.expires_at,
+    }));
+
+    return data.subscription_tier || SUBSCRIPTION_TIERS.FREE;
+  } catch (error) {
+    console.error('Error getting subscription tier:', error);
+    return SUBSCRIPTION_TIERS.FREE;
+  }
+};
+
+/**
+ * Check if user has access to a specific feature
+ * @param {string} feature - Feature to check
+ * @returns {Promise<boolean>} True if user has access
+ */
+export const hasFeatureAccess = async (feature) => {
+  try {
+    const userTier = await getUserSubscriptionTier();
+    const allowedTiers = FEATURE_ACCESS[feature] || [];
+    return allowedTiers.includes(userTier);
+  } catch (error) {
+    console.error('Error checking feature access:', error);
+    return false;
+  }
+};
+
+/**
+ * Show upgrade prompt for locked features
+ * @param {object} navigation - Navigation object
+ * @param {string} featureName - Name of the locked feature
+ */
+export const showUpgradePrompt = (navigation, featureName = 'this feature') => {
+  const { Alert } = require('react-native');
+  
+  Alert.alert(
+    '🔒 Premium Feature',
+    `${featureName} is only available for premium subscribers. Upgrade now to unlock this and many more features!`,
+    [
+      {
+        text: 'Maybe Later',
+        style: 'cancel',
+      },
+      {
+        text: 'View Plans',
+        onPress: () => {
+          if (navigation) {
+            navigation.navigate('SubscriptionScreen');
+          }
+        },
+      },
+    ]
+  );
+};
+
+/**
+ * Update user's subscription tier
+ * @param {string} tier - New subscription tier
+ * @param {string} expiresAt - Expiration date
+ */
+export const updateUserSubscription = async (tier, expiresAt = null) => {
+  try {
+    const sessionData = await AsyncStorage.getItem('@user_session');
+    if (!sessionData) {
+      throw new Error('No user session found');
+    }
+
+    const { email } = JSON.parse(sessionData);
+
+    // Update in Supabase
+    const { error } = await supabase
+      .from('user_subscriptions')
+      .upsert({
+        email,
+        subscription_tier: tier,
+        expires_at: expiresAt,
+        is_active: true,
+        updated_at: new Date().toISOString(),
+      });
+
+    if (error) throw error;
+
+    // Update cache
+    await AsyncStorage.setItem('@user_subscription', JSON.stringify({
+      tier,
+      expiresAt,
+    }));
+
+    return true;
+  } catch (error) {
+    console.error('Error updating subscription:', error);
+    return false;
+  }
+};
+
+/**
+ * Get feature description for upgrade prompts
+ * @param {string} feature - Feature key
+ * @returns {object} Feature info
+ */
+export const getFeatureInfo = (feature) => {
+  const featureInfo = {
+    [FEATURES.FALL_DETECTION]: {
+      name: 'Fall Detection',
+      description: 'Automatically detect falls and alert emergency contacts',
+      requiredTier: 'Personal (R49.99/month)',
+    },
+    [FEATURES.AI_COMPANION]: {
+      name: 'AI Companion',
+      description: 'Chat with your personal AI safety assistant',
+      requiredTier: 'Personal Pro (R99.99/month)',
+    },
+    [FEATURES.THERAPIST_ACCESS]: {
+      name: 'Therapist Access',
+      description: 'Connect with professional therapists and counselors',
+      requiredTier: 'Personal Pro (R99.99/month)',
+    },
+    [FEATURES.HEALTH_MONITORING]: {
+      name: 'Health Monitoring',
+      description: 'Track and monitor your health metrics',
+      requiredTier: 'Personal Pro (R99.99/month)',
+    },
+    [FEATURES.ADVANCED_LOCATION]: {
+      name: 'Advanced Location Sharing',
+      description: 'Share your precise location with unlimited contacts',
+      requiredTier: 'Personal (R49.99/month)',
+    },
+    [FEATURES.FAMILY_TRACKING]: {
+      name: 'Family Location Tracking',
+      description: 'Track all your family members in real-time',
+      requiredTier: 'Family (R67.99/month)',
+    },
+  };
+
+  return featureInfo[feature] || {
+    name: 'Premium Feature',
+    description: 'This feature requires a premium subscription',
+    requiredTier: 'Premium Plan',
+  };
+};
