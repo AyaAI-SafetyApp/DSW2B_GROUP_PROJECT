@@ -1727,9 +1727,14 @@ const Newsfeed = () => {
         backgroundColor={COLORS.cardBackground}
       />
 
-      {/* header with call icon */}
+      {/* header with centered app name and call icon */}
       <View style={styles.header}>
-        <View />
+        <View style={styles.headerLeft} />
+        {/* updated: styled app name with app colors */}
+        <View style={styles.headerTitleContainer}>
+          <Text style={styles.headerTitlePrimary}>Aya</Text>
+          <Text style={styles.headerTitleSecondary}>Social</Text>
+        </View>
         <View style={styles.headerRight}>
           <TouchableOpacity
             onPress={() => setCallModalVisible(true)}
@@ -2004,17 +2009,62 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     // ensure header icon is not cut under status bar / notch on Android
     paddingTop: Platform.OS === "android" ? (StatusBar.currentHeight || 0) + 8 : 12,
     paddingBottom: 10,
     backgroundColor: COLORS.cardBackground,
+    // ensure header tall enough so content won't be cut
+    minHeight: Platform.OS === "android" ? (StatusBar.currentHeight || 24) + 56 : 64,
+    borderBottomWidth: 0.5,
+    borderBottomColor: COLORS.border,
+  },
+  headerLeft: {
+    // placeholder to balance the right icon so title stays centered
+    width: 44,
+    height: 44,
+  },
+  /* header title container - updated styling for nicer app name */
+  headerTitleContainer: {
+    flex: 1,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  headerTitlePrimary: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: COLORS.accent,
+    letterSpacing: 0.6,
+    textShadowColor: "rgba(0,0,0,0.08)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  headerTitleSecondary: {
+    marginLeft: 8,
+    fontSize: 13,
+    fontWeight: "700",
+    color: COLORS.text,
+    textTransform: "capitalize",
+    backgroundColor: COLORS.cardBackground,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: COLORS.accent,
+    overflow: "hidden",
+    elevation: 1,
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 2,
   },
   headerRight: {
-    flexDirection: "row",
-    alignItems: "center",
+    width: 44,
+    height: 44,
+    justifyContent: "center",
+    alignItems: "flex-end",
   },
   iconCircle: {
     backgroundColor: COLORS.accent,
@@ -2023,7 +2073,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: "center",
     alignItems: "center",
-    marginLeft: 8,
     elevation: 4,
     shadowColor: "#000",
     shadowOpacity: 0.15,
