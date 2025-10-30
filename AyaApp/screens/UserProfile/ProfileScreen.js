@@ -224,7 +224,7 @@ const ProfileScreen = () => {
               
               navigation.reset({
                 index: 0,
-                routes: [{ name: 'OnboardingScreen' }],
+                routes: [{ name: 'Login' }],
               });
             } catch (error) {
               console.error('Logout error:', error);
