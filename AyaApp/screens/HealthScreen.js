@@ -18,6 +18,9 @@ import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 
+// added minimal imports to save/load card to Supabase (placed in HealthBackend folder)
+import { supabase } from "../HealthBackend/supabaseClient";
+import { getCardForUser, upsertCardByUser } from "../HealthBackend/healthService";
 
 const { width } = Dimensions.get("window");
 
@@ -38,6 +41,55 @@ const DigitalCard = ({ navigation }) => {
 
   useEffect(() => {
     flipAnimation.setValue(isFlipped ? 1 : 0);
+  }, []);
+
+  // load saved card for signed-in user on mount (minimal change)
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        // try multiple supabase auth APIs to support v1/v2
+        let uid = null;
+        try {
+          if (typeof supabase.auth?.getUser === "function") {
+            const { data } = await supabase.auth.getUser();
+            uid = data?.user?.id ?? null;
+          } else if (typeof supabase.auth?.user === "function") {
+            const u = supabase.auth.user();
+            uid = u?.id ?? null;
+          } else if (supabase.auth?.session) {
+            const s = supabase.auth.session && supabase.auth.session();
+            uid = s?.user?.id ?? null;
+          }
+        } catch (e) {
+          console.warn("supabase auth getUser failed", e);
+        }
+
+        if (!uid) return;
+
+        const { data, error } = await getCardForUser(uid);
+        if (error) {
+          console.warn("getCardForUser error", error);
+          return;
+        }
+        if (data && mounted) {
+          const loaded = {
+            name: data.name ?? "",
+            dob: data.dob ? String(data.dob) : "",
+            gender: data.gender ?? "",
+            bloodType: data.blood_type ?? "",
+            medicalAid: data.medical_aid ?? "",
+          };
+          setCardDetails(loaded);
+          setForm(loaded);
+        }
+      } catch (e) {
+        console.warn("load card error", e);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const flipCard = () => {
@@ -68,13 +120,13 @@ const DigitalCard = ({ navigation }) => {
   };
 
   const handleShare = async () => {
-  try {
-    if (!cardDetails.name) {
-      Alert.alert("Missing Info", "Please fill in your card details first.");
-      return;
-    }
+    try {
+      if (!cardDetails.name) {
+        Alert.alert("Missing Info", "Please fill in your card details first.");
+        return;
+      }
 
-    const html = `
+      const html = `
       <html>
         <head>
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -113,25 +165,78 @@ const DigitalCard = ({ navigation }) => {
       </html>
     `;
 
-  
-    const { uri } = await Print.printToFileAsync({ html });
-    console.log("PDF generated at:", uri);
+      const { uri } = await Print.printToFileAsync({ html });
+      console.log("PDF generated at:", uri);
 
-    if (await Sharing.isAvailableAsync()) {
-      await Sharing.shareAsync(uri);
-    } else {
-      Alert.alert("Sharing not supported", "Cannot share on this device.");
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri);
+      } else {
+        Alert.alert("Sharing not supported", "Cannot share on this device.");
+      }
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      Alert.alert("Error", "Something went wrong while creating the PDF.");
     }
-  } catch (error) {
-    console.error("Error generating PDF:", error);
-    Alert.alert("Error", "Something went wrong while creating the PDF.");
-  }
-};
+  };
 
+  // changed: now upserts to Supabase; UI behavior preserved
+  const handleSaveDetails = async () => {
+    try {
+      // optimistic UI update
+      setCardDetails(form);
+      setFormVisible(false);
 
-  const handleSaveDetails = () => {
-    setCardDetails(form);
-    setFormVisible(false);
+      // determine signed-in user id (supports supabase v1/v2)
+      let uid = null;
+      try {
+        if (typeof supabase.auth?.getUser === "function") {
+          const { data } = await supabase.auth.getUser();
+          uid = data?.user?.id ?? null;
+        } else if (typeof supabase.auth?.user === "function") {
+          const u = supabase.auth.user();
+          uid = u?.id ?? null;
+        } else if (supabase.auth?.session) {
+          const s = supabase.auth.session && supabase.auth.session();
+          uid = s?.user?.id ?? null;
+        }
+      } catch (e) {
+        console.warn("supabase auth retrieval failed", e);
+      }
+
+      if (!uid) {
+        Alert.alert("Not signed in", "Please sign in to save card details.");
+        return;
+      }
+
+      const payload = {
+        user_id: uid,
+        name: form.name || null,
+        dob: form.dob || null,
+        gender: form.gender || null,
+        blood_type: form.bloodType || null,
+        medical_aid: form.medicalAid || null,
+      };
+
+      const { data, error } = await upsertCardByUser(payload);
+      if (error) {
+        console.error("Failed to save card:", error);
+        Alert.alert("Save failed", error.message || "Could not save card details.");
+        return;
+      }
+
+      if (data) {
+        setCardDetails({
+          name: data.name ?? "",
+          dob: data.dob ? String(data.dob) : "",
+          gender: data.gender ?? "",
+          bloodType: data.blood_type ?? "",
+          medicalAid: data.medical_aid ?? "",
+        });
+      }
+    } catch (err) {
+      console.error("handleSaveDetails error", err);
+      Alert.alert("Error", "An error occurred while saving details.");
+    }
   };
 
   return (
