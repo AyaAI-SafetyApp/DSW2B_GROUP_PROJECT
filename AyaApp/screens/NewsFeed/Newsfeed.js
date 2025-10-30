@@ -75,6 +75,7 @@ const DUMMY_STORIES = [
     isAddStory: true,
     likedByMe: false,
   },
+  
   {
     id: "s2",
     username: "katlego_m",
