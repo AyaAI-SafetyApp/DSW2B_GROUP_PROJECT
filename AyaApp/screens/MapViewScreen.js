@@ -10,11 +10,17 @@ import {
   Dimensions,
   Platform,
   Alert,
+  TextInput,
+  ScrollView,
+  Pressable,
+  ActivityIndicator,
+  Keyboard,
 } from "react-native";
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
 import * as Location from "expo-location";
 import * as ImagePicker from "expo-image-picker";
 import { Accelerometer } from "expo-sensors";
+import { Ionicons } from "@expo/vector-icons";
 
 const { width, height } = Dimensions.get("window");
 
@@ -249,7 +255,7 @@ const GhostButton = ({ title, onPress, style }) => (
 /* ------------------------------ Mocked world ----------------------------- */
 
 /**
- * Johannesburg base (CBD-ish). We’ll center camera here by default
+ * Johannesburg base (CBD-ish). We'll center camera here by default
  * if we don't have a GPS fix yet.
  */
 const JHB_CENTER = {
@@ -538,10 +544,22 @@ export default function SafeRouteScreen() {
   const [step, setStep] = useState(0); // 0: caution, 1: start, 2: dest, 3: routes, 4: navigating
   const [region, setRegion] = useState(JHB_CENTER);
   const mapRef = useRef(null);
+  const searchInputRef = useRef(null);
 
   // Start & Destination
   const [start, setStart] = useState(null);
   const [dest, setDest] = useState(null);
+
+  // Search functionality
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchSuggestions, setSearchSuggestions] = useState([]);
+  const [loadingSearch, setLoadingSearch] = useState(false);
+  const [showSearchResults, setShowSearchResults] = useState(false);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const searchTimeoutRef = useRef(null);
+
+  // Current location state
+  const [currentLocation, setCurrentLocation] = useState(null);
 
   // Image analysis (mock)
   const [photo, setPhoto] = useState(null);
@@ -565,6 +583,9 @@ export default function SafeRouteScreen() {
   const animTimer = useRef(null);
   const [isRunning, setIsRunning] = useState(false);
 
+  // TomTom API Key
+  const TOMTOM_API_KEY = '97VjAqYxN2dPpjTn2A2Fde2ZfYErlX1B';
+
   // Sensors (accelerometer) for tiny heading wobble
   useEffect(() => {
     Accelerometer.setUpdateInterval(250);
@@ -576,23 +597,300 @@ export default function SafeRouteScreen() {
     return () => sub && sub.remove();
   }, []);
 
-  // Ask for location permission once
+  // Get current location on component mount for start point
   useEffect(() => {
-    (async () => {
+    getCurrentLocationForStart();
+  }, []);
+
+  // Get current location only for start point
+  const getCurrentLocationForStart = async () => {
+    try {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") return;
-      const loc = await Location.getCurrentPositionAsync({
+      if (status !== 'granted') {
+        console.log('Location permission denied');
+        return;
+      }
+
+      const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
+
+      const { latitude, longitude } = location.coords;
+      const currentCoord = { latitude, longitude };
+      
+      setCurrentLocation(currentCoord);
+      
+      // Set as start point automatically
       if (!start) {
-        const s = {
-          latitude: loc.coords.latitude,
-          longitude: loc.coords.longitude,
-        };
-        setStart(s);
-        setRegion({ ...s, latitudeDelta: 0.02, longitudeDelta: 0.02 });
+        setStart(currentCoord);
+        setRegion({ ...currentCoord, latitudeDelta: 0.02, longitudeDelta: 0.02 });
       }
-    })();
+      
+    } catch (error) {
+      console.log('Location error:', error);
+    }
+  };
+
+  // Search for locations using TomTom API with real-time suggestions
+  const searchLocations = async (query) => {
+    if (!query || query.trim().length < 2) {
+      setSearchSuggestions([]);
+      return;
+    }
+
+    // Show loading state while searching
+    setLoadingSearch(true);
+    setShowSearchResults(true);
+    
+    try {
+      console.log('🔍 Searching TomTom API for:', query);
+      
+      const testQuery = query.trim();
+      const url = `https://api.tomtom.com/search/2/geocode/${encodeURIComponent(testQuery)}.json?key=${TOMTOM_API_KEY}&countrySet=ZA&limit=10&language=en-GB&idxSet=Str,PAD&typeahead=true`;
+      
+      console.log('📡 API URL:', url);
+      
+      const response = await fetch(url);
+      console.log('Response status:', response.status);
+      
+      if (!response.ok) {
+        throw new Error(`TomTom API error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('📍 TomTom API response received:', JSON.stringify(data, null, 2));
+      
+      if (data && data.results && data.results.length > 0) {
+        console.log(`🎯 Found ${data.results.length} results`);
+        
+        const suggestions = data.results.map((place, index) => {
+          const address = place.address || {};
+          
+          // Construct a meaningful display name
+          let displayName = place.poi?.name || address.streetName || address.freeformAddress || 'Unknown Location';
+          let addressText = '';
+          
+          // Build detailed address
+          if (address.streetName && address.municipalitySubdivision) {
+            addressText = `${address.streetName}, ${address.municipalitySubdivision}`;
+          } else if (address.freeformAddress) {
+            addressText = address.freeformAddress;
+          } else if (address.municipality) {
+            addressText = `${address.municipality}, ${address.countrySubdivision || ''}`;
+          }
+          
+          const suggestion = {
+            id: place.id || `search-${index}-${Date.now()}`,
+            name: displayName,
+            address: addressText,
+            position: {
+              lat: place.position.lat,
+              lon: place.position.lon
+            },
+            type: place.type || 'Address',
+          };
+          
+          return suggestion;
+        });
+        
+        console.log('Processed suggestions:', suggestions);
+        setSearchSuggestions(suggestions);
+        setShowSearchResults(true);
+      } else {
+        console.log('❌ No results found in API response');
+        setSearchSuggestions([]);
+        setShowSearchResults(false);
+        
+        // Add fallback mock results for testing
+        if (query.toLowerCase().includes('test')) {
+          const mockResults = [
+            {
+              id: 'mock-1',
+              name: 'Sandton City Mall',
+              address: 'Sandton, Johannesburg',
+              position: { lat: -26.1076, lon: 28.0567 },
+              type: 'POI'
+            },
+            {
+              id: 'mock-2', 
+              name: 'Nelson Mandela Square',
+              address: 'Sandton, Johannesburg',
+              position: { lat: -26.1070, lon: 28.0550 },
+              type: 'POI'
+            }
+          ];
+          setSearchSuggestions(mockResults);
+          setShowSearchResults(true);
+        }
+      }
+    } catch (error) {
+      console.log("🔴 Search error:", error);
+      
+      // Fallback mock data for testing
+      const mockResults = [
+        {
+          id: 'fallback-1',
+          name: 'Sandton City',
+          address: 'Sandton, Johannesburg',
+          position: { lat: -26.1076, lon: 28.0567 },
+          type: 'POI'
+        },
+        {
+          id: 'fallback-2',
+          name: 'Melrose Arch',
+          address: 'Johannesburg', 
+          position: { lat: -26.1306, lon: 28.0706 },
+          type: 'POI'
+        },
+        {
+          id: 'fallback-3',
+          name: 'Maboneng Precinct',
+          address: 'Johannesburg CBD',
+          position: { lat: -26.2039, lon: 28.0456 },
+          type: 'POI'
+        }
+      ];
+      
+      setSearchSuggestions(mockResults);
+      setShowSearchResults(true);
+    } finally {
+      setLoadingSearch(false);
+    }
+  };
+
+  // Handle search input with debouncing
+  const handleSearchChange = (text) => {
+    console.log('Search text changed:', text);
+    setSearchQuery(text);
+    
+    // Show loading and results container if we have text
+    if (text.trim().length > 0) {
+      setShowSearchResults(true);
+    }
+    
+    // Clear previous timeout
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    
+    // Set new timeout with debouncing
+    searchTimeoutRef.current = setTimeout(() => {
+      if (text.trim().length >= 2) {
+        console.log('🚀 Triggering search for:', text);
+        searchLocations(text.trim());
+      } else {
+        console.log('Clearing suggestions - text too short');
+        setSearchSuggestions([]);
+        if (text.trim().length === 0) {
+          setShowSearchResults(false);
+        }
+      }
+    }, 500); // Slightly increased debounce time to prevent too many API calls
+  };
+
+  // Select a search result as destination
+  const selectSearchResult = (place) => {
+    console.log('📍 Selected location:', place);
+    
+    if (!place.position || !place.position.lat || !place.position.lon) {
+      console.error('Invalid place coordinates:', place);
+      Alert.alert("Error", "Invalid location selected. Please try again.");
+      return;
+    }
+    
+    const coord = {
+      latitude: place.position.lat,
+      longitude: place.position.lon,
+    };
+    
+    console.log('Setting destination coordinates:', coord);
+    setDest(coord);
+    
+    // Set search query to the full location name
+    const displayText = place.name + (place.address ? ` - ${place.address}` : '');
+    setSearchQuery(displayText);
+    
+    setShowSearchResults(false);
+    setSearchSuggestions([]);
+    
+    // Dismiss keyboard
+    Keyboard.dismiss();
+    
+    // Update map region to show the selected destination
+    const newRegion = { 
+      ...coord, 
+      latitudeDelta: 0.02, 
+      longitudeDelta: 0.02 
+    };
+    setRegion(newRegion);
+    goTo(coord);
+    
+    // Show confirmation with more detailed location info
+    Alert.alert(
+      "Destination Set", 
+      `You're going to:\n${place.name}\n${place.address || ''}`,
+      [{ text: "OK" }]
+    );
+    
+    // Automatically move to step 3 (routes) if we have both start and destination
+    if (start && coord) {
+      setTimeout(() => {
+        setStep(3);
+        // Fit the map to show both points
+        if (mapRef.current) {
+          mapRef.current.fitToCoordinates([start, coord], {
+            edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
+            animated: true
+          });
+        }
+      }, 1000);
+    }
+  };
+
+  // Focus search input
+  const focusSearchInput = () => {
+    if (searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  };
+
+  // Handle search input focus
+  const handleSearchFocus = () => {
+    setIsSearchFocused(true);
+    // Only show results if we have a query and suggestions
+    if (searchQuery.length >= 2) {
+      setShowSearchResults(true);
+      // Trigger a new search to refresh results
+      searchLocations(searchQuery);
+    }
+  };
+
+  // Handle search input blur
+  const handleSearchBlur = () => {
+    setIsSearchFocused(false);
+    // Small delay to allow for item selection
+    setTimeout(() => {
+      if (!isSearchFocused) {
+        setShowSearchResults(false);
+      }
+    }, 300);
+  };
+
+  // Clear search
+  const clearSearch = () => {
+    setSearchQuery("");
+    setSearchSuggestions([]);
+    setShowSearchResults(false);
+    focusSearchInput();
+  };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
   }, []);
 
   // Camera helper
@@ -712,17 +1010,21 @@ export default function SafeRouteScreen() {
 
   const onPickCurrentStart = async () => {
     try {
-      const loc = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-      const s = {
-        latitude: loc.coords.latitude,
-        longitude: loc.coords.longitude,
-      };
-      setStart(s);
-      setRegion({ ...s, latitudeDelta: 0.02, longitudeDelta: 0.02 });
-      goTo(s);
-      setStep(2);
+      if (!currentLocation) {
+        await getCurrentLocationForStart();
+        return;
+      }
+      setStart(currentLocation);
+      setRegion({ ...currentLocation, latitudeDelta: 0.02, longitudeDelta: 0.02 });
+      goTo(currentLocation);
+      setStep(2); // Move to destination selection step
+      
+      // Focus the search input after a short delay to allow the UI to update
+      setTimeout(() => {
+        if (searchInputRef.current) {
+          searchInputRef.current.focus();
+        }
+      }, 500);
     } catch (e) {
       Alert.alert("Location", "Unable to get your current location.");
     }
@@ -735,6 +1037,101 @@ export default function SafeRouteScreen() {
     setStep(1); // stay on step 1; enable tap-select
   };
 
+  /* --------------------------- Search Components -------------------------- */
+
+  const SearchBar = () => (
+    <View style={[
+      styles.searchContainer,
+      step === 2 && styles.searchContainerProminent
+    ]}>
+      <Pressable 
+        style={[
+          styles.searchInputContainer,
+          step === 2 && styles.searchInputContainerProminent
+        ]}
+        onPress={focusSearchInput}
+      >
+        <Ionicons name="search" size={20} color="#666" style={styles.searchIcon} />
+        <TextInput
+          ref={searchInputRef}
+          style={styles.searchInput}
+          placeholder={step === 2 ? "Search for your destination..." : "Search for destinations..."}
+          value={searchQuery}
+          onChangeText={handleSearchChange}
+          placeholderTextColor="#999"
+          onFocus={handleSearchFocus}
+          onBlur={handleSearchBlur}
+          returnKeyType="search"
+          autoCorrect={false}
+          autoCapitalize="sentences"
+          clearButtonMode="while-editing"
+        />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity
+            onPress={clearSearch}
+            style={styles.clearButton}
+          >
+            <Ionicons name="close-circle" size={20} color="#999" />
+          </TouchableOpacity>
+        )}
+      </Pressable>
+
+      {loadingSearch && (
+        <View style={styles.searchLoading}>
+          <ActivityIndicator size="small" color="#ce0e68" />
+          <Text style={styles.searchLoadingText}>Searching locations...</Text>
+        </View>
+      )}
+
+      {showSearchResults && searchSuggestions.length > 0 && (
+        <View style={styles.searchResultsContainer}>
+          <Text style={styles.suggestionsTitle}>
+            {step === 2 ? "Select your destination" : "Search Results"}
+          </Text>
+          <ScrollView 
+            style={styles.searchResultsScrollView}
+            nestedScrollEnabled={true}
+            keyboardShouldPersistTaps="handled"
+          >
+            {searchSuggestions.map((item) => (
+              <Pressable
+                key={item.id}
+                onPress={() => selectSearchResult(item)}
+                style={({ pressed }) => [
+                  styles.searchResultItem,
+                  pressed && styles.searchResultItemPressed,
+                ]}
+              >
+                <Ionicons
+                  name="location-outline"
+                  size={18}
+                  color="#ce0e68"
+                  style={{ marginRight: 12 }}
+                />
+                <View style={styles.searchResultTextContainer}>
+                  <Text style={styles.searchResultMainText}>{item.name}</Text>
+                  {item.address ? (
+                    <Text style={styles.searchResultSecondaryText} numberOfLines={2}>
+                      {item.address}
+                    </Text>
+                  ) : null}
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="#ccc" />
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
+      {showSearchResults && searchSuggestions.length === 0 && !loadingSearch && searchQuery.length >= 2 && (
+        <View style={styles.noResultsContainer}>
+          <Ionicons name="location" size={32} color="#ccc" />
+          <Text style={styles.noResultsText}>No locations found</Text>
+          <Text style={styles.noResultsSubtext}>Try a different search term</Text>
+        </View>
+      )}
+    </View>
+  );
   const onPickDestOnMap = () => {
     Alert.alert("Pick Destination", "Tap on the map to set your destination.", [
       { text: "OK" },
@@ -941,7 +1338,20 @@ export default function SafeRouteScreen() {
         style={styles.map}
         provider={PROVIDER_GOOGLE}
         initialRegion={region}
-        onPress={onMapPress}
+        onPress={(e) => {
+          // Only allow map tapping for start point in step 1
+          if (step === 1) {
+            const coord = e.nativeEvent.coordinate;
+            setStart(coord);
+            setRegion({ ...coord, latitudeDelta: 0.02, longitudeDelta: 0.02 });
+            setTimeout(() => {
+              setStep(2);
+              if (searchInputRef.current) {
+                searchInputRef.current.focus();
+              }
+            }, 200);
+          }
+        }}
         customMapStyle={appleLikeMapStyle}
       >
         {start && (
@@ -988,18 +1398,10 @@ export default function SafeRouteScreen() {
         )}
       </MapView>
 
-      {/* Street snapshot overlay */}
-      {step >= 3 && (
-        <View style={styles.streetSnap}>
-          <Image
-            source={{ uri: currentStreetShot }}
-            style={styles.streetSnapImage}
-          />
-          <Text style={styles.snapLabel}>Street preview (mock)</Text>
-        </View>
-      )}
+      {/* Search Bar with Real-time Suggestions - Only visible after start location is selected */}
+      {(step >= 2) && <SearchBar />}
 
-      {/* Bottom sheet card (no scrolling; each step fits) */}
+      {/* Bottom sheet card */}
       <View style={styles.sheet}>
         <StepHeader />
 
@@ -1016,16 +1418,24 @@ export default function SafeRouteScreen() {
         )}
 
         {step === 1 && (
-          <Card title="Pick your starting point">
+          <Card title="Set Your Starting Point">
+            <Text style={styles.subtle}>
+              Where would you like to start your journey?
+            </Text>
+            <View style={{ height: 12 }} />
             <PrimaryButton
-              title="Use Current Location"
+              title="Use My Current Location"
               onPress={onPickCurrentStart}
             />
             <View style={{ height: 8 }} />
             <GhostButton
-              title="Upload Route Photo (optional)"
-              onPress={onUploadPhoto}
+              title="Tap on Map to Set Start"
+              onPress={onPickStartOnMap}
             />
+            <View style={{ height: 8 }} />
+            <Text style={[styles.subtle, { textAlign: 'center', marginTop: 8 }]}>
+              Or search for a start location above
+            </Text>
           </Card>
         )}
 
@@ -1162,6 +1572,7 @@ export default function SafeRouteScreen() {
             <View style={{ height: 10 }} />
             <PrimaryButton
               title="End Navigation"
+              title="End Navigation"
               onPress={() => {
                 setIsRunning(false);
                 // Stop location tracking
@@ -1175,36 +1586,11 @@ export default function SafeRouteScreen() {
               }}
               style={{ backgroundColor: "#ef4444" }}
             />
+            <View style={{ height: 8 }} />
+            <GhostButton title="Change Route" onPress={() => setStep(3)} />
           </Card>
         )}
       </View>
-
-      {/* AI Photo Explanation Modal */}
-      <Modal visible={aiModalVisible} transparent animationType="slide">
-        <View style={styles.modalWrap}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>AI Observations</Text>
-            {photo && (
-              <Image source={{ uri: photo.uri }} style={styles.modalImage} />
-            )}
-            {[
-              { key: "lowLight", label: "Low light detected" },
-              { key: "fewPeople", label: "Few people present" },
-              { key: "narrowAlley", label: "Narrow passage" },
-              { key: "brokenLights", label: "Street lights broken" },
-            ].map((f) => (
-              <View key={f.key} style={styles.flagRow}>
-                <Text style={styles.flagLabel}>{f.label}</Text>
-                <Switch
-                  value={flags[f.key]}
-                  onValueChange={(v) => setFlags((p) => ({ ...p, [f.key]: v }))}
-                />
-              </View>
-            ))}
-            <PrimaryButton title="OK" onPress={confirmPhotoAI} />
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -1212,7 +1598,6 @@ export default function SafeRouteScreen() {
 /* ------------------------------ Apple-ish map ---------------------------- */
 
 const appleLikeMapStyle = [
-  // light, clean look
   { elementType: "geometry", stylers: [{ color: "#f5f5f5" }] },
   { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
   { elementType: "labels.text.fill", stylers: [{ color: "#616161" }] },
@@ -1290,6 +1675,170 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#ffffff" },
   map: { ...StyleSheet.absoluteFillObject },
 
+  // Search Styles
+  searchContainer: {
+    position: "absolute",
+    top: Platform.OS === "ios" ? 50 : 30,
+    left: 16,
+    right: 16,
+    zIndex: 1000,
+  },
+  searchContainerProminent: {
+    top: Platform.OS === "ios" ? 40 : 20,
+  },
+  searchInputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "white",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderWidth: 2,
+    borderColor: "#ce0e68",
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
+  },
+  searchInputContainerProminent: {
+    paddingVertical: 14,
+    backgroundColor: "#ffffff",
+    borderWidth: 2.5,
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+  searchIcon: {
+    marginRight: 10,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: "#1C1C1E",
+    padding: 0,
+    paddingVertical: 2,
+  },
+  clearButton: {
+    padding: 4,
+    marginLeft: 8,
+  },
+  searchLoading: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "white",
+    padding: 16,
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
+    borderWidth: 1,
+    borderTopWidth: 0,
+    borderColor: "#e5e7eb",
+  },
+  searchLoadingText: {
+    marginLeft: 12,
+    fontSize: 14,
+    color: "#666",
+    fontWeight: '500',
+  },
+  searchResultsContainer: {
+    backgroundColor: "white",
+    borderRadius: 12,
+    marginTop: 8,
+    maxHeight: 300,
+    borderWidth: 2,
+    borderColor: "#ce0e68",
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
+  },
+  suggestionsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+    padding: 16,
+    paddingBottom: 8,
+    backgroundColor: '#f8f9fa',
+  },
+  searchResultsScrollView: {
+    maxHeight: 250,
+  },
+  searchResultItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
+  },
+  searchResultItemPressed: {
+    backgroundColor: "#f8f8f8",
+  },
+  searchResultTextContainer: {
+    flex: 1,
+    marginRight: 8,
+  },
+  searchResultMainText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: "#1C1C1E",
+    marginBottom: 4,
+  },
+  searchResultSecondaryText: {
+    fontSize: 14,
+    color: "#666666",
+  },
+  noResultsContainer: {
+    backgroundColor: "white",
+    padding: 24,
+    borderRadius: 12,
+    marginTop: 8,
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#ce0e68",
+  },
+  noResultsText: {
+    fontSize: 16,
+    color: "#666",
+    marginTop: 12,
+    fontWeight: '600',
+  },
+  noResultsSubtext: {
+    fontSize: 14,
+    color: "#999",
+    marginTop: 4,
+  },
+
+  // New styles for step 2
+  searchPrompt: {
+    alignItems: 'center',
+    padding: 20,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    marginTop: 12,
+  },
+  searchPromptText: {
+    marginTop: 8,
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+  },
+  destinationSet: {
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#f0fdf4',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+  },
+  destinationSetText: {
+    marginTop: 8,
+    fontSize: 14,
+    color: '#166534',
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+
   sheet: {
     position: "absolute",
     left: 0,
@@ -1359,17 +1908,6 @@ const styles = StyleSheet.create({
     borderColor: "#e5e7eb",
   },
   buttonGhostText: { color: "#780752ff", fontWeight: "700" },
-
-  quickRow: { flexDirection: "row", gap: 8 },
-  quickChip: {
-    backgroundColor: "#f3f4f6",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-  },
-  quickChipText: { color: "#111827", fontWeight: "600", fontSize: 13 },
 
   routePill: {
     paddingVertical: 10,
