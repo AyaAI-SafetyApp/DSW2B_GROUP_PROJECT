@@ -200,6 +200,9 @@ const ProfileScreen = () => {
       case 5:
         // Achievements
         navigation.navigate('AchievementsScreen');
+      case 6:
+        // Achievements
+        navigation.navigate('SubscriptionUpgrade');
         break;
       default:
         Alert.alert(option.title, option.subtitle);
@@ -242,6 +245,7 @@ const ProfileScreen = () => {
     { id: 3, title: 'Privacy & Security', icon: 'lock-closed-outline', subtitle: 'Account security' },
     { id: 4, title: 'Help & Support', icon: 'help-circle-outline', subtitle: 'Get assistance' },
     { id: 5, title: 'Achievements', icon: 'ribbon-outline', subtitle: 'Safety milestones and badges'},
+    { id: 6, title: 'Account upgrade', icon: 'crown', subtitle: 'Subscription plans'},
   ];
 
   return (

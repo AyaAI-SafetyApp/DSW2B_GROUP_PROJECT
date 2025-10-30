@@ -35,6 +35,7 @@ import PrivacySecurityScreen from "./screens/UserProfile/PrivacySecurityScreen";
 import HelpSupportScreen from "./screens/UserProfile/HelpSupportScreen";
 import AchievementsScreen from "./screens/UserProfile/AchievementsScreen";
 import EditProfile from "./screens/UserProfile/EditProfile";
+import SubscriptionUpgrade from "./screens/Subscription/SubscriptionUpgrade.js";
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -183,7 +184,7 @@ export default function App() {
     <NavigationContainer>
       <Stack.Navigator
         screenOptions={{ headerShown: false }}
-        initialRouteName="OnboardingScreen"
+        initialRouteName="SubscriptionUpgrade"
       >
         <Stack.Screen name="OnboardingScreen" component={OnboardingScreen} />
         <Stack.Screen name="Login" component={LoginScreen} />
@@ -208,6 +209,7 @@ export default function App() {
         <Stack.Screen name="HelpSupportScreen" component={HelpSupportScreen} />
         <Stack.Screen name="AchievementsScreen" component={AchievementsScreen} />
         <Stack.Screen name="EditProfileScreen" component={EditProfile} />
+        <Stack.Screen name="SubscriptionUpgrade" component={SubscriptionUpgrade} />
       </Stack.Navigator>
     </NavigationContainer>
   );
