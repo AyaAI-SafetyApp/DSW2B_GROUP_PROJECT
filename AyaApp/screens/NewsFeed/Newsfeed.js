@@ -47,6 +47,23 @@ import { enqueuePost, startAutoSync } from "../../NewsfeedCRUD/api/offlineQueue"
 // changed: import entire storage module namespace and resolve uploader at runtime
 import * as StorageAPI from "../../NewsfeedCRUD/api/storage";
 
+// NOTE: removed static import of CallFeature that triggers native-module require in Expo Go
+// Use runtime-safe require below so Expo Go doesn't crash if react-native-agora is not linked.
+let VoiceCallComponent = null;
+try {
+  // eslint-disable-next-line global-require
+  VoiceCallComponent = require("./CallFeature").default;
+} catch (err) {
+  VoiceCallComponent = null;
+  // keep a warning for debugging in development
+  // (this avoids the red screen in Expo Go when native module is missing)
+  // eslint-disable-next-line no-console
+  console.warn(
+    "CallFeature not loaded (react-native-agora missing or native module not available).",
+    err && err.message ? err.message : err
+  );
+}
+
 const { width, height } = Dimensions.get("window");
 
 const COLORS = {
@@ -333,7 +350,6 @@ const StoryItem = React.memo(({ story, index, onPress }) => {
 });
 
 // ============ POST CARD COMPONENT ============
-// NOTE: added `shouldPlay` and `onViewMedia` props so parent (FlatList) can control autoplay on visibility
 const PostCard = React.memo(
   ({
     post,
@@ -344,8 +360,8 @@ const PostCard = React.memo(
     onViewComments,
     currentUsername,
     shouldPlay,
-    onViewMedia, // new
-    onViewLikes, // NEW: receive handler from parent to show likers
+    onViewMedia,
+    onViewLikes,
   }) => {
     const [imageLoading, setImageLoading] = useState(true);
     const isLiked = post.likes && post.likes.includes(currentUsername);
@@ -733,7 +749,6 @@ const LikesModal = ({ visible, likes, onClose }) => {
 };
 
 // ============ STORY VIEWER ============
-// ...existing code...
 const StoryViewer = ({
   visible,
   stories,
@@ -904,6 +919,9 @@ const Newsfeed = () => {
   const [currentUsername, setCurrentUsername] = useState("current_user");
   const storyTimerRef = useRef(null);
   const progressIntervalRef = useRef(null);
+
+  // NEW: call modal visibility
+  const [callModalVisible, setCallModalVisible] = useState(false);
 
   const [visiblePostIds, setVisiblePostIds] = useState([]);
 
@@ -1666,8 +1684,8 @@ const Newsfeed = () => {
           onViewComments={handleViewComments}
           currentUsername={currentUsername}
           shouldPlay={shouldPlay}
-          onViewMedia={openMediaViewer} // pass viewer handler
-          onViewLikes={openLikesModal} // PASS handler so PostCard can open likes modal
+          onViewMedia={openMediaViewer}
+          onViewLikes={openLikesModal}
         />
       );
     },
@@ -1709,7 +1727,19 @@ const Newsfeed = () => {
         backgroundColor={COLORS.cardBackground}
       />
 
-      <View style={styles.header}></View>
+      {/* header with call icon */}
+      <View style={styles.header}>
+        <View />
+        <View style={styles.headerRight}>
+          <TouchableOpacity
+            onPress={() => setCallModalVisible(true)}
+            style={styles.iconCircle}
+            accessibilityLabel="Voice call"
+          >
+            <MaterialCommunityIcons name="phone" size={18} color="#fff" />
+          </TouchableOpacity>
+        </View>
+      </View>
 
       {loading ? (
         <View style={styles.centerFill}>
@@ -1757,6 +1787,27 @@ const Newsfeed = () => {
         onPress={handleAddPost}
         small
       />
+
+      {/* Call modal */}
+      <Modal
+        isVisible={callModalVisible}
+        onBackdropPress={() => setCallModalVisible(false)}
+        style={styles.callModal}
+        animationIn="slideInUp"
+        animationOut="slideOutDown"
+      >
+        <View style={styles.callModalContent}>
+          {VoiceCallComponent ? (
+            <VoiceCallComponent />
+          ) : (
+            <View style={{flex:1,justifyContent:'center',alignItems:'center',padding:16}}>
+              <Text style={{textAlign:'center',color:COLORS.text}}>
+                Call feature unavailable in Expo Go. To enable it, install react-native-agora and run a custom dev client (EAS) or eject to the bare workflow and rebuild the app.
+              </Text>
+            </View>
+          )}
+        </View>
+      </Modal>
 
       <Modal
         isVisible={modalVisible}
@@ -1956,8 +2007,28 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    // ensure header icon is not cut under status bar / notch on Android
+    paddingTop: Platform.OS === "android" ? (StatusBar.currentHeight || 0) + 8 : 12,
+    paddingBottom: 10,
     backgroundColor: COLORS.cardBackground,
+  },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  iconCircle: {
+    backgroundColor: COLORS.accent,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    marginLeft: 8,
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
   },
 
   storiesContainer: {
@@ -2198,8 +2269,8 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: "absolute",
-    right: 16,
-    bottom: 80,
+    right: 20,
+    bottom: Platform.OS === 'ios' ? 120 : 100,
     backgroundColor: COLORS.accent,
   },
   commentsModal: {
@@ -2447,6 +2518,20 @@ const styles = StyleSheet.create({
   },
   emptyLikesText: {
     color: COLORS.textSecondary,
+  },
+
+  /* Call modal styles */
+  callModal: {
+    margin: 0,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  callModalContent: {
+    width: "92%",
+    height: "78%",
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    overflow: "hidden",
   },
 });
 
