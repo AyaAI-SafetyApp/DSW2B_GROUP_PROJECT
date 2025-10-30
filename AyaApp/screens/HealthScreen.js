@@ -18,6 +18,9 @@ import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 
+// added minimal imports to save/load card to Supabase (placed in HealthBackend folder)
+import { supabase } from "../HealthBackend/supabaseClient";
+import { getCardForUser, upsertCardByUser } from "../HealthBackend/healthService";
 
 const { width } = Dimensions.get("window");
 
@@ -38,6 +41,88 @@ const DigitalCard = ({ navigation }) => {
 
   useEffect(() => {
     flipAnimation.setValue(isFlipped ? 1 : 0);
+  }, []);
+
+  // helper: robustly get current signed-in user's id
+  const getCurrentUserId = async () => {
+    try {
+      // supabase-js v2: getSession
+      if (typeof supabase.auth?.getSession === "function") {
+        const { data } = await supabase.auth.getSession();
+        const uid = data?.session?.user?.id ?? null;
+        if (uid) return uid;
+      }
+
+      // supabase-js v2: getUser
+      if (typeof supabase.auth?.getUser === "function") {
+        const { data } = await supabase.auth.getUser();
+        const uid = data?.user?.id ?? null;
+        if (uid) return uid;
+      }
+
+      // supabase-js v1: auth.user()
+      if (typeof supabase.auth?.user === "function") {
+        const u = supabase.auth.user();
+        if (u?.id) return u.id;
+      }
+
+      // fallback: wait for onAuthStateChange event briefly
+      return await new Promise((resolve) => {
+        let resolved = false;
+        const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+          const id = session?.user?.id ?? null;
+          if (!resolved) {
+            resolved = true;
+            resolve(id);
+          }
+          listener?.unsubscribe?.();
+        });
+        // timeout after 1.5s
+        setTimeout(() => {
+          if (!resolved) {
+            resolved = true;
+            listener?.unsubscribe?.();
+            resolve(null);
+          }
+        }, 1500);
+      });
+    } catch (e) {
+      console.warn("getCurrentUserId error", e);
+      return null;
+    }
+  };
+
+  // load saved card for signed-in user on mount (minimal change)
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const uid = await getCurrentUserId();
+        if (!uid) return;
+
+        const { data, error } = await getCardForUser(uid);
+        if (error) {
+          console.warn("getCardForUser error", error);
+          return;
+        }
+        if (data && mounted) {
+          const loaded = {
+            name: data.name ?? "",
+            dob: data.dob ? String(data.dob) : "",
+            gender: data.gender ?? "",
+            bloodType: data.blood_type ?? "",
+            medicalAid: data.medical_aid ?? "",
+          };
+          setCardDetails(loaded);
+          setForm(loaded);
+        }
+      } catch (e) {
+        console.warn("load card error", e);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const flipCard = () => {
@@ -68,13 +153,13 @@ const DigitalCard = ({ navigation }) => {
   };
 
   const handleShare = async () => {
-  try {
-    if (!cardDetails.name) {
-      Alert.alert("Missing Info", "Please fill in your card details first.");
-      return;
-    }
+    try {
+      if (!cardDetails.name) {
+        Alert.alert("Missing Info", "Please fill in your card details first.");
+        return;
+      }
 
-    const html = `
+      const html = `
       <html>
         <head>
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -113,25 +198,63 @@ const DigitalCard = ({ navigation }) => {
       </html>
     `;
 
-  
-    const { uri } = await Print.printToFileAsync({ html });
-    console.log("PDF generated at:", uri);
+      const { uri } = await Print.printToFileAsync({ html });
+      console.log("PDF generated at:", uri);
 
-    if (await Sharing.isAvailableAsync()) {
-      await Sharing.shareAsync(uri);
-    } else {
-      Alert.alert("Sharing not supported", "Cannot share on this device.");
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri);
+      } else {
+        Alert.alert("Sharing not supported", "Cannot share on this device.");
+      }
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      Alert.alert("Error", "Something went wrong while creating the PDF.");
     }
-  } catch (error) {
-    console.error("Error generating PDF:", error);
-    Alert.alert("Error", "Something went wrong while creating the PDF.");
-  }
-};
+  };
 
+  // changed: now upserts to Supabase; UI behavior preserved
+  const handleSaveDetails = async () => {
+    try {
+      // optimistic UI update
+      setCardDetails(form);
+      setFormVisible(false);
 
-  const handleSaveDetails = () => {
-    setCardDetails(form);
-    setFormVisible(false);
+      const uid = await getCurrentUserId();
+
+      if (!uid) {
+        Alert.alert("Not signed in", "Please sign in to save card details.");
+        return;
+      }
+
+      const payload = {
+        user_id: uid,
+        name: form.name || null,
+        dob: form.dob || null,
+        gender: form.gender || null,
+        blood_type: form.bloodType || null,
+        medical_aid: form.medicalAid || null,
+      };
+
+      const { data, error } = await upsertCardByUser(payload);
+      if (error) {
+        console.error("Failed to save card:", error);
+        Alert.alert("Save failed", error.message || "Could not save card details.");
+        return;
+      }
+
+      if (data) {
+        setCardDetails({
+          name: data.name ?? "",
+          dob: data.dob ? String(data.dob) : "",
+          gender: data.gender ?? "",
+          bloodType: data.blood_type ?? "",
+          medicalAid: data.medical_aid ?? "",
+        });
+      }
+    } catch (err) {
+      console.error("handleSaveDetails error", err);
+      Alert.alert("Error", "An error occurred while saving details.");
+    }
   };
 
   return (
@@ -252,15 +375,12 @@ const DigitalCard = ({ navigation }) => {
                 <View key={key} style={styles.inputGroup}>
                   <Text style={styles.inputLabel}>{key.toUpperCase()}</Text>
                   <TextInput
-                     style={[styles.input, { color: 'black' }]} 
-                      placeholderTextColor="gray"
+                    style={styles.input}
                     value={form[key]}
                     onChangeText={(text) =>
                       setForm((prev) => ({ ...prev, [key]: text }))
                     }
-                    placeholder={`Enter ${key}`
-                  
-                  }
+                    placeholder={`Enter ${key}`}
                   />
                 </View>
               ))}
