@@ -189,6 +189,7 @@ export default function App() {
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Signup" component={SignupScreen} />
         <Stack.Screen name="subscription" component={subscription} />
+        <Stack.Screen name="SubscriptionScreen" component={subscription} />
         <Stack.Screen name="MainTabs" component={TabsNavigator} />
         <Stack.Screen name="Health" component={HealthScreen} />
         <Stack.Screen name="ReactionGame" component={ReactionGame} />

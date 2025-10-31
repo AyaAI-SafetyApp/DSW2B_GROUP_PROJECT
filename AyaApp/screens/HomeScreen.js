@@ -162,34 +162,56 @@ const QuickActions = ({ navigation }) => {
       color: PRIMARY,
       text: "Safe Route",
       route: "MapViewScreen",
+      requiresFeature: FEATURES.AI_SAFE_ROUTES,
+      isPremium: true,
     },
     {
       icon: "call-outline",
       color: "#e1170c",
       text: "Emergency",
       route: "EmergencyScreen",
+      requiresFeature: FEATURES.EMERGENCY_SOS,
+      isPremium: false,
     },
     {
       icon: "medkit-outline",
       color: "#34C759",
       text: "Medical",
       route: "Health",
+      requiresFeature: FEATURES.HEALTH_MONITORING,
+      isPremium: true,
     },
   ];
+  
+  const handleActionPress = async (action) => {
+    if (action.requiresFeature) {
+      const hasAccess = await hasFeatureAccess(action.requiresFeature);
+      if (!hasAccess) {
+        showUpgradePrompt(navigation, action.text);
+        return;
+      }
+    }
+    
+    Haptics.selectionAsync();
+    navigation.navigate(action.route);
+  };
+  
   return (
     <FadeView style={styles.quickActions} delay={300}>
       {actions.map((a, i) => (
         <TouchableOpacity
           key={i}
           style={styles.quickActionItem}
-          onPress={() => {
-            Haptics.selectionAsync();
-            navigation.navigate(a.route);
-          }}
+          onPress={() => handleActionPress(a)}
           accessibilityLabel={a.text}
         >
           <View style={[styles.quickActionIcon, { backgroundColor: a.color }]}>
             <Ionicons name={a.icon} size={22} color="#fff" />
+            {a.isPremium && (
+              <View style={styles.premiumBadge}>
+                <Ionicons name="lock-closed" size={10} color="#FFD700" />
+              </View>
+            )}
           </View>
           <Text style={styles.quickActionText}>{a.text}</Text>
         </TouchableOpacity>
@@ -829,6 +851,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 8,
+    position: "relative",
+  },
+  premiumBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "#1F2937",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
   },
   quickActionText: {
     fontSize: 13,
