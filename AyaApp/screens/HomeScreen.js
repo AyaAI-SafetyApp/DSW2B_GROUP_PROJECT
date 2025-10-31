@@ -17,6 +17,7 @@ import {
   Image,
   RefreshControl,
   Animated,
+  AppState,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as Location from "expo-location";
@@ -30,14 +31,13 @@ import LottieView from "lottie-react-native";
 import { supabaseAuth } from "../lib/supabaseClient";
 import { fetchNews } from "./GBVNews/newsService";
 import NotificationModal from "../components/NotificationModal";
-import * as NotificationService from "../components/NotificationService";
 import {
   registerForPushNotifications,
   sendTokenToBackend,
-  loadAndNotifyTimeTip,
   fetchNotificationsFromBackend,
   setupNotificationListeners,
   clearAllNotifications,
+  sendLocationRiskNotification,
 } from "../components/NotificationService";
 
 const { width } = Dimensions.get("window");
@@ -48,7 +48,7 @@ const FEATURES = {
   EMERGENCY_SOS: "EMERGENCY_SOS",
   HEALTH_MONITORING: "HEALTH_MONITORING",
 };
-// ==================== ANIMATED COMPONENTS ====================
+
 const FadeView = ({ children, delay = 0, style }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -66,7 +66,6 @@ const FadeView = ({ children, delay = 0, style }) => {
   );
 };
 
-// ==================== HEADER COMPONENT ====================
 const Header = ({
   notificationsCount,
   onOpenNotifications,
@@ -115,7 +114,6 @@ const Header = ({
   </FadeView>
 );
 
-// ==================== RISK CARD COMPONENT ====================
 const RiskCard = ({ crimeProbability, riskColor, riskLabel, safetyTip }) => (
   <FadeView style={styles.riskCard} delay={200}>
     <View style={styles.riskHeader}>
@@ -153,7 +151,6 @@ const RiskCard = ({ crimeProbability, riskColor, riskLabel, safetyTip }) => (
   </FadeView>
 );
 
-// ==================== QUICK ACTIONS COMPONENT ====================
 const QuickActions = ({ navigation }) => {
   const actions = [
     {
@@ -219,7 +216,6 @@ const QuickActions = ({ navigation }) => {
   );
 };
 
-// ==================== NEWS FEED COMPONENT ====================
 const NewsFeed = ({ data, onOpenNews, navigation }) => (
   <FadeView style={styles.newsSection} delay={400}>
     <View style={styles.newsSectionHeader}>
@@ -227,10 +223,7 @@ const NewsFeed = ({ data, onOpenNews, navigation }) => (
         <Ionicons name="newspaper-outline" size={20} color={PRIMARY} />
         <Text style={styles.sectionTitle}>Last Updates</Text>
       </View>
-      <TouchableOpacity
-        onPress={onOpenNews}
-        accessibilityLabel="Open news feed"
-      >
+      <TouchableOpacity onPress={onOpenNews} accessibilityLabel="Open news feed">
         <Text style={styles.moreButton}>More</Text>
       </TouchableOpacity>
     </View>
@@ -267,22 +260,19 @@ const NewsFeed = ({ data, onOpenNews, navigation }) => (
   </FadeView>
 );
 
-// ==================== MAIN HOME SCREEN COMPONENT ====================
 export default function HomeScreen() {
   const navigation = useNavigation();
 
-  // ========== Location & Safety State ==========
   const [currentLocation, setCurrentLocation] = useState("Loading...");
   const [crimeProbability, setCrimeProbability] = useState(0);
   const [safetyData, setSafetyData] = useState(null);
   const [loadingSafety, setLoadingSafety] = useState(true);
   const [showLottie, setShowLottie] = useState(true);
-
-  // ========== News State ==========
   const [newsArticles, setNewsArticles] = useState([]);
   const [loadingNews, setLoadingNews] = useState(true);
-
-  // ========== Notification State ==========
+  const [lastRiskData, setLastRiskData] = useState(null);
+  const [appState, setAppState] = useState('active');
+  const [hasSentInitialNotification, setHasSentInitialNotification] = useState(false);
   const [notifications, setNotifications] = useState([
     {
       id: "welcome",
@@ -294,31 +284,21 @@ export default function HomeScreen() {
     {
       id: "intro",
       message: "Stay safe with real-time alerts.",
-      timestamp: new Date(Date.now() - 60000).toISOString(), // 1 min ago
+      timestamp: new Date(Date.now() - 60000).toISOString(), 
       isRead: false,
       priority: "normal",
     },
   ]);
   const [modalVisible, setModalVisible] = useState(false);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
-
-  // ========== UI State ==========
   const [refreshing, setRefreshing] = useState(false);
 
-  // ==================== SETUP PUSH NOTIFICATIONS ====================
   useEffect(() => {
     const initializeNotifications = async () => {
       try {
-        // Register for push notifications
         const token = await registerForPushNotifications();
         if (token) {
           await sendTokenToBackend(token);
-        }
-
-        // Load time-based safety tip
-        const tipNotification = await loadAndNotifyTimeTip();
-        if (tipNotification) {
-          setNotifications((prev) => [tipNotification, ...prev]);
         }
       } catch (error) {
         console.error("Error initializing notifications:", error);
@@ -327,10 +307,8 @@ export default function HomeScreen() {
 
     initializeNotifications();
 
-    // Setup notification listeners
     const cleanup = setupNotificationListeners(
       (notification) => {
-        // When notification is received
         const content = notification.request.content;
         const newNotification = {
           id: notification.request.identifier,
@@ -342,23 +320,18 @@ export default function HomeScreen() {
         setNotifications((prev) => [newNotification, ...prev]);
       },
       (response) => {
-        // When notification is tapped
-        console.log("Notification tapped:", response);
-        // Mark as read
         const notificationId = response.notification.request.identifier;
         setNotifications((prev) =>
           prev.map((n) =>
             n.id === notificationId ? { ...n, isRead: true } : n
           )
         );
-        // You can navigate to specific screens based on notification data
       }
     );
 
     return cleanup;
   }, []);
 
-  // ==================== LOAD CACHED SAFETY DATA ====================
   useEffect(() => {
     (async () => {
       try {
@@ -368,7 +341,6 @@ export default function HomeScreen() {
     })();
   }, []);
 
-  // ==================== LOAD NEWS ARTICLES ====================
   useEffect(() => {
     loadNewsArticles();
   }, []);
@@ -417,7 +389,6 @@ export default function HomeScreen() {
     return `${diffDays}d`;
   };
 
-  // ==================== FETCH LOCATION & SAFETY DATA ====================
   useEffect(() => {
     let mounted = true;
     const fetchLocation = async () => {
@@ -452,7 +423,6 @@ export default function HomeScreen() {
     return () => (mounted = false);
   }, []);
 
-  // ==================== COMPUTE RISK INDICATORS ====================
   const riskColor = useMemo(
     () =>
       crimeProbability < 40
@@ -473,13 +443,38 @@ export default function HomeScreen() {
     [crimeProbability]
   );
 
-  // ==================== UPDATE CRIME PROBABILITY & SPEAK ====================
   useEffect(() => {
     const target = safetyData?.Danger_Percentage ?? 65;
     setCrimeProbability(target);
   }, [safetyData, riskLabel]);
 
-  // ==================== FETCH SAFETY DATA FROM API ====================
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      setAppState(nextAppState);
+      if (nextAppState === 'active') {
+        checkAndSendRiskNotification();
+      }
+    });
+
+    return () => subscription.remove();
+  }, [currentLocation, crimeProbability, riskLabel, lastRiskData]);
+
+  const checkAndSendRiskNotification = useCallback(() => {
+    if (currentLocation && currentLocation !== "Loading..." && lastRiskData) {
+      const shouldSend = !hasSentInitialNotification || 
+        (Date.now() - (lastRiskData.timestamp || 0)) > 30 * 60 * 1000;
+      
+      if (shouldSend && currentLocation !== "Error fetching location") {
+        sendLocationRiskNotification(
+          currentLocation,
+          lastRiskData.crimeProbability,
+          lastRiskData.riskLevel,
+          lastRiskData.dangerPercentage
+        );
+      }
+    }
+  }, [currentLocation, lastRiskData, hasSentInitialNotification]);
+
   const fetchSafetyData = useCallback(
     async (area = "Johannesburg", lat = null, lon = null) => {
       setLoadingSafety(true);
@@ -497,9 +492,49 @@ export default function HomeScreen() {
               Danger_Percentage: 50,
               safetyTips: ["Data unavailable. Stay alert."],
             };
+        
         setSafetyData(data);
         await AsyncStorage.setItem("@safety_last", JSON.stringify(data));
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+        const dangerPercentage = data.Danger_Percentage || 50;
+        const riskLevel = dangerPercentage < 40 ? "Low Risk" : 
+                         dangerPercentage < 70 ? "Moderate Risk" : "High Risk";
+
+        const currentRiskData = {
+          location: area,
+          crimeProbability: dangerPercentage,
+          riskLevel: riskLevel,
+          dangerPercentage: dangerPercentage,
+          timestamp: Date.now()
+        };
+
+        if (lastRiskData) {
+          const riskChanged = 
+            currentRiskData.location !== lastRiskData.location ||
+            Math.abs(currentRiskData.crimeProbability - lastRiskData.crimeProbability) > 15 ||
+            currentRiskData.riskLevel !== lastRiskData.riskLevel;
+
+          if (riskChanged && area !== "Loading..." && area !== "Error fetching location") {
+            await sendLocationRiskNotification(
+              currentRiskData.location,
+              currentRiskData.crimeProbability,
+              currentRiskData.riskLevel,
+              currentRiskData.dangerPercentage
+            );
+          }
+        } else if (area !== "Loading..." && area !== "Error fetching location" && !hasSentInitialNotification) {
+          await sendLocationRiskNotification(
+            currentRiskData.location,
+            currentRiskData.crimeProbability,
+            currentRiskData.riskLevel,
+            currentRiskData.dangerPercentage
+          );
+          setHasSentInitialNotification(true);
+        }
+
+        setLastRiskData(currentRiskData);
+        
       } catch {
         setSafetyData(
           (prev) =>
@@ -513,28 +548,9 @@ export default function HomeScreen() {
         setTimeout(() => setShowLottie(false), 2000);
       }
     },
-    []
+    [lastRiskData, hasSentInitialNotification]
   );
 
-  // ==================== REFRESH HANDLER ====================
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    try {
-      const loc = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-      await fetchSafetyData(
-        currentLocation,
-        loc.coords.latitude,
-        loc.coords.longitude
-      );
-    } catch {
-      await fetchSafetyData(currentLocation || "Johannesburg");
-    }
-    setRefreshing(false);
-  }, [currentLocation]);
-
-  // ==================== NOTIFICATION HANDLERS ====================
   const handleOpenNotifications = useCallback(async () => {
     try {
       setLoadingNotifications(true);
@@ -544,14 +560,10 @@ export default function HomeScreen() {
 
       if (backendNotifications.length > 0) {
         setNotifications((prev) => {
-          // Create a map of existing notification IDs
           const existingIds = new Set(prev.map((n) => n.id));
-
-          // Filter out duplicates and add new ones
           const newNotifications = backendNotifications.filter(
             (n) => !existingIds.has(n.id)
           );
-
           return [...newNotifications, ...prev];
         });
       }
@@ -579,32 +591,40 @@ export default function HomeScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   }, []);
 
-  // ==================== LOGOUT HANDLER ====================
   const handleLogout = useCallback(async () => {
     try {
-      console.log("🚪 HomeScreen: Starting logout...");
-
       await supabaseAuth.signOut();
-      console.log("✅ Supabase signout complete");
-
       await AsyncStorage.removeItem("userSession");
       await AsyncStorage.removeItem("userID");
-      console.log("✅ AsyncStorage cleared");
-
       navigation.dispatch(
         CommonActions.reset({
           index: 0,
           routes: [{ name: "OnboardingScreen" }],
         })
       );
-      console.log("✅ Navigation reset to OnboardingScreen");
     } catch (error) {
-      console.error("❌ Logout error:", error);
+      console.error("Logout error:", error);
       alert("Logout failed. Please try again.");
     }
   }, [navigation]);
 
-  // ==================== RENDER ====================
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      await fetchSafetyData(
+        currentLocation,
+        loc.coords.latitude,
+        loc.coords.longitude
+      );
+    } catch {
+      await fetchSafetyData(currentLocation || "Johannesburg");
+    }
+    setRefreshing(false);
+  }, [currentLocation, fetchSafetyData]);
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar
@@ -613,7 +633,6 @@ export default function HomeScreen() {
         backgroundColor="transparent"
       />
 
-      {/* Header */}
       <Header
         notificationsCount={notifications.length}
         onOpenNotifications={handleOpenNotifications}
@@ -621,7 +640,6 @@ export default function HomeScreen() {
         riskColor={riskColor}
       />
 
-      {/* Notification Modal */}
       <NotificationModal
         visible={modalVisible}
         notifications={notifications}
@@ -630,7 +648,6 @@ export default function HomeScreen() {
         onClearAll={handleClearAll}
       />
 
-      {/* Main Content */}
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
@@ -639,7 +656,6 @@ export default function HomeScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        {/* Location Banner */}
         <View style={styles.locationBanner}>
           <Ionicons name="location-outline" size={16} color={PRIMARY} />
           <View style={{ flex: 1, marginLeft: 8 }}>
@@ -657,7 +673,6 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Loading Animation or Risk Card */}
         {showLottie ? (
           <FadeView style={{ alignItems: "center", marginTop: 24 }}>
             <LottieView
@@ -682,10 +697,8 @@ export default function HomeScreen() {
           />
         )}
 
-        {/* Quick Actions */}
         <QuickActions navigation={navigation} />
 
-        {/* News Feed */}
         {!loadingNews && newsArticles.length > 0 && (
           <NewsFeed
             data={newsArticles}
@@ -694,7 +707,6 @@ export default function HomeScreen() {
           />
         )}
 
-        {/* Footer Animation */}
         <FadeView
           style={{ alignItems: "center", marginTop: 0, marginBottom: 80 }}
           delay={0}
@@ -714,7 +726,6 @@ export default function HomeScreen() {
   );
 }
 
-// ==================== STYLES ====================
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#ffffffff" },
   scrollView: { flex: 1 },

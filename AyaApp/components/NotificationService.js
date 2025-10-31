@@ -9,6 +9,7 @@ export function formatExactTime(dateString) {
   const minutes = date.getMinutes().toString().padStart(2, '0');
   return `${month} ${day}, ${year} ${hours}:${minutes}`;
 }
+
 // ==================== FORMAT TIME AGO ====================
 export function formatTimeAgo(dateString) {
   if (!dateString) return "Just now";
@@ -23,14 +24,15 @@ export function formatTimeAgo(dateString) {
   if (diffHours < 24) return `${diffHours}h ago`;
   return `${diffDays}d ago`;
 }
+
 import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
 import { Platform, Alert } from "react-native";
 import Constants from "expo-constants";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const LAST_TIP_KEY = "@last_tip_shown";
-const API_BASE_URL = "http://10.246.164.187:3001";
+const NOTIFICATIONS_STORAGE_KEY = "@saved_notifications";
+const API_BASE_URL = "https://dsw2b-backend.onrender.com";
 
 // ==================== NOTIFICATION HANDLER CONFIGURATION ====================
 Notifications.setNotificationHandler({
@@ -101,7 +103,15 @@ export async function sendTokenToBackend(token) {
   if (!token) return;
 
   try {
-    const response = await fetch(`${API_BASE_URL}/api/save-push-token`, {
+    // Get user session from AsyncStorage
+    const sessionData = await AsyncStorage.getItem("@user_session");
+    let userId = "anonymous";
+    if (sessionData) {
+      const user = JSON.parse(sessionData);
+      userId = user.id || user.user_id || user.email || "anonymous";
+    }
+
+    const response = await fetch(`${API_BASE_URL}/save-push-token`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -109,21 +119,21 @@ export async function sendTokenToBackend(token) {
       body: JSON.stringify({ 
         token,
         platform: Platform.OS,
-        timestamp: new Date().toISOString()
+        userId: userId
       }),
     });
 
     if (response.ok) {
-      console.log("✅ Push token registered with backend");
+      console.log("Push token registered with backend");
     } else {
-      console.warn("⚠️ Failed to register token with backend");
+      console.warn("Failed to register token with backend");
     }
   } catch (error) {
-    console.error("❌ Error sending token to backend:", error);
+    console.error("Error sending token to backend:", error);
   }
 }
 
-// ==================== SCHEDULE LOCAL NOTIFICATION ====================
+//   ========== SCHEDULE LOCAL NOTIFICATION ================
 export async function scheduleLocalNotification(title, body, data = {}) {
   try {
     await Notifications.scheduleNotificationAsync({
@@ -133,157 +143,117 @@ export async function scheduleLocalNotification(title, body, data = {}) {
         data,
         sound: true,
       },
-      trigger: null, // immediate
+      trigger: null, 
     });
-    console.log("✅ Local notification scheduled");
+    console.log("Local notification scheduled:", title);
   } catch (error) {
-    console.warn("⚠️ Failed to schedule notification:", error);
+    console.warn("Failed to schedule notification:", error);
   }
 }
 
-// ==================== FETCH TIME-BASED SAFETY TIPS ====================
-export async function fetchTimeBasedSafetyTips() {
+// ========= NOTIFICATION STORAGE FUNCTIONS ================
+
+// Save notification to local storage
+export async function saveNotification(notification) {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/time-based-safety-tips`);
-    if (!response.ok) return [];
+    const stored = await AsyncStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
+    const notifications = stored ? JSON.parse(stored) : [];
     
-    const tips = await response.json();
-    return Array.isArray(tips) ? tips : [];
+    const newNotification = {
+      id: notification.request?.identifier || Date.now().toString(),
+      title: notification.request?.content?.title || "Notification",
+      message: notification.request?.content?.body || "New notification",
+      timestamp: new Date().toISOString(),
+      isRead: false,
+      data: notification.request?.content?.data || {},
+      deviceId: Constants.deviceId,
+    };
+    
+    // Add to beginning of array 
+    notifications.unshift(newNotification);
+    
+    // Keep only last 50 notifications
+    const trimmed = notifications.slice(0, 50);
+    
+    await AsyncStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(trimmed));
+    console.log("✅ Notification saved to storage");
+    
+    return trimmed;
   } catch (error) {
-    console.error("Error fetching time-based tips:", error);
+    console.error("Error saving notification:", error);
     return [];
   }
 }
 
-// ==================== PICK TIP FOR CURRENT HOUR ====================
-function pickTipForHour(tips, hour) {
-  if (!Array.isArray(tips) || tips.length === 0) return null;
-  
-  const exact = tips.find(
-    (t) => Number(t.hour_start) <= hour && hour < Number(t.hour_end)
-  );
-  
-  return exact || tips[0] || null;
-}
-
-// ==================== LOAD AND NOTIFY TIME TIP ====================
-export async function loadAndNotifyTimeTip() {
+// Get stored notifications for current device only
+export async function getStoredNotifications() {
   try {
-    const tips = await fetchTimeBasedSafetyTips();
-    if (tips.length === 0) return null;
-
-    const now = new Date();
-    const hour = now.getHours();
-    const selected = pickTipForHour(tips, hour);
+    const stored = await AsyncStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
+    const allNotifications = stored ? JSON.parse(stored) : [];
     
-    if (!selected) return null;
-
-    // Check if we've already shown this tip
-    const last = await AsyncStorage.getItem(LAST_TIP_KEY);
-    const selectedId = String(
-      selected.id ?? selected.time_range ?? selected.hour_start
+    // Filter notifications to only show those from current device
+    const deviceNotifications = allNotifications.filter(
+      notification => notification.deviceId === Constants.deviceId
     );
     
-    if (last === selectedId) {
-      console.log("ℹ️ Tip already shown today");
-      return null;
-    }
-
-    const message = `${selected.awareness}: ${selected.tip}`;
-    
-    // Schedule local notification
-    await scheduleLocalNotification("Safety Tip", message, {
-      type: "safety_tip",
-      tipId: selectedId,
-    });
-
-    // Save that we've shown this tip
-    await AsyncStorage.setItem(LAST_TIP_KEY, selectedId);
-    
-    console.log("✅ Time-based tip notification sent");
-    return message;
+    return deviceNotifications;
   } catch (error) {
-    console.warn("⚠️ Error loading time tip:", error);
-    return null;
+    console.error("Error getting stored notifications:", error);
+    return [];
   }
 }
 
-// ==================== FETCH NOTIFICATIONS FROM BACKEND ====================
-export async function fetchNotificationsFromBackend() {
-  const endpoints = [
-    `${API_BASE_URL}/api/notifications`,
-    `${API_BASE_URL}/api/time-based-safety-tips`,
-    `${API_BASE_URL}/api/notifications-log`,
-    `${API_BASE_URL}/api/notifications_all`,
-  ];
-
-  let items = [];
-  
-  for (const url of endpoints) {
-    try {
-      const response = await fetch(url);
-      if (!response.ok) continue;
-      
-      const json = await response.json();
-      if (Array.isArray(json) && json.length > 0) {
-        items = json;
-        break;
-      }
-    } catch (error) {
-      console.warn(`Failed to fetch from ${url}:`, error);
-      continue;
-    }
+// Mark notification as read (only if it belongs to current device)
+export async function markNotificationAsRead(notificationId) {
+  try {
+    const stored = await AsyncStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
+    const notifications = stored ? JSON.parse(stored) : [];
+    
+    const updated = notifications.map(n => 
+      n.id === notificationId && n.deviceId === Constants.deviceId 
+        ? { ...n, isRead: true } 
+        : n
+    );
+    
+    await AsyncStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(updated));
+    console.log("✅ Notification marked as read");
+    
+    return updated.filter(n => n.deviceId === Constants.deviceId);
+  } catch (error) {
+    console.error("Error marking notification as read:", error);
+    return [];
   }
-
-  return formatNotifications(items);
 }
 
-// ==================== FORMAT NOTIFICATIONS ====================
-function formatNotifications(items) {
-  const formatted = [];
-  
-  if (!Array.isArray(items) || items.length === 0) {
-    return formatted;
-  }
-
-  for (const item of items) {
-    if (!item) continue;
+// Mark all notifications as read for current device only
+export async function markAllNotificationsAsRead() {
+  try {
+    const stored = await AsyncStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
+    const notifications = stored ? JSON.parse(stored) : [];
     
-    // If it's already a string
-    if (typeof item === "string") {
-      formatted.push(item);
-      continue;
-    }
-
-    // Extract body
-    const body =
-      item.message ??
-      item.body ??
-      item.tip ??
-      item.notification ??
-      item.text ??
-      item.payload ??
-      "";
-
-    // Extract title
-    const title =
-      item.title ??
-      item.awareness ??
-      item.type ??
-      item.time_range ??
-      item.category ??
-      "";
-
-    // Create display text
-    const display =
-      title && body
-        ? `${title}: ${body}`
-        : body || title || JSON.stringify(item);
+    const updated = notifications.map(n => 
+      n.deviceId === Constants.deviceId ? { ...n, isRead: true } : n
+    );
     
-    formatted.push(display);
+    await AsyncStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(updated));
+    console.log("✅ All notifications marked as read for this device");
+    
+    return updated.filter(n => n.deviceId === Constants.deviceId);
+  } catch (error) {
+    console.error("Error marking all notifications as read:", error);
+    return [];
   }
+}
 
-  return formatted;
+// Get unread count for current device only
+export async function getUnreadCount() {
+  try {
+    const notifications = await getStoredNotifications();
+    return notifications.filter(n => !n.isRead).length;
+  } catch (error) {
+    console.error("Error getting unread count:", error);
+    return 0;
+  }
 }
 
 // ==================== SETUP NOTIFICATION LISTENERS ====================
@@ -293,8 +263,12 @@ export function setupNotificationListeners(
 ) {
   // Listener for when notification is received
   const receivedListener =
-    Notifications.addNotificationReceivedListener((notification) => {
+    Notifications.addNotificationReceivedListener(async (notification) => {
       console.log("📬 Notification received:", notification);
+      
+      // Save notification to storage with device ID
+      await saveNotification(notification);
+      
       if (onNotificationReceived) {
         onNotificationReceived(notification);
       }
@@ -302,8 +276,15 @@ export function setupNotificationListeners(
 
   // Listener for when user taps notification
   const responseListener =
-    Notifications.addNotificationResponseReceivedListener((response) => {
-      console.log("👆 Notification tapped:", response);
+    Notifications.addNotificationResponseReceivedListener(async (response) => {
+      console.log(" Notification tapped:", response);
+      
+      // Mark as read when tapped 
+      const notificationId = response.notification.request?.identifier;
+      if (notificationId) {
+        await markNotificationAsRead(notificationId);
+      }
+      
       if (onNotificationResponse) {
         onNotificationResponse(response);
       }
@@ -311,8 +292,8 @@ export function setupNotificationListeners(
 
   // Return cleanup function
   return () => {
-  receivedListener.remove();
-  responseListener.remove();
+    receivedListener.remove();
+    responseListener.remove();
   };
 }
 
@@ -335,13 +316,103 @@ export async function setBadgeCount(count) {
   }
 }
 
-// ==================== CLEAR ALL NOTIFICATIONS ====================
+// ==================== CLEAR ALL NOTIFICATIONS FOR CURRENT DEVICE ====================
 export async function clearAllNotifications() {
   try {
+    const stored = await AsyncStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
+    const allNotifications = stored ? JSON.parse(stored) : [];
+    
+    // Keep only notifications from other devices
+    const filteredNotifications = allNotifications.filter(
+      notification => notification.deviceId !== Constants.deviceId
+    );
+    
+    await AsyncStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(filteredNotifications));
     await Notifications.dismissAllNotificationsAsync();
     await setBadgeCount(0);
-    console.log("✅ All notifications cleared");
+    console.log("✅ All notifications cleared for this device");
   } catch (error) {
     console.warn("Error clearing notifications:", error);
+  }
+}
+
+//          ===== DELETE SINGLE NOTIFICATION ======
+export async function deleteNotification(notificationId) {
+  try {
+    const stored = await AsyncStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
+    const allNotifications = stored ? JSON.parse(stored) : [];
+    
+    // Remove only if it belongs to current device
+    const filteredNotifications = allNotifications.filter(
+      notification => !(notification.id === notificationId && notification.deviceId === Constants.deviceId)
+    );
+    
+    await AsyncStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(filteredNotifications));
+    console.log("✅ Notification deleted for this device");
+    
+    return filteredNotifications.filter(n => n.deviceId === Constants.deviceId);
+  } catch (error) {
+    console.warn("Error deleting notification:", error);
+    return [];
+  }
+}
+
+//   ========= INITIALIZE ALL NOTIFICATION SERVICES ===========
+export async function initializeAllNotificationServices() {
+  try {
+    console.log('🚀 Initializing all notification services...');
+    
+    // Clear any existing scheduled notifications to prevent defaults
+    await Notifications.cancelAllScheduledNotificationsAsync();
+    await Notifications.dismissAllNotificationsAsync();
+    
+    // 1. Register for push notifications
+    const token = await registerForPushNotifications();
+    if (token) {
+      await sendTokenToBackend(token);
+    }
+    
+    console.log('All notification services initialized successfully');
+    return true;
+  } catch (error) {
+    console.error('Error initializing notification services:', error);
+    return false;
+  }
+}
+
+// ==================== LOCATION RISK NOTIFICATION ====================
+export async function sendLocationRiskNotification(location, crimeProbability, riskLevel, dangerPercentage) {
+  try {
+    let title, body, priority;
+    
+    // Customize notification based on risk level
+    if (riskLevel === 'High Risk') {
+      title = 'High Crime Risk Alert';
+      body = `You are currently in ${location}. An area with ${dangerPercentage}% crime rate - ${riskLevel} area. Stay vigilant!`;
+      priority = 'high';
+    } else if (riskLevel === 'Moderate Risk') {
+      title = 'Moderate Crime Risk';
+      body = `You are currently in ${location}. An area with ${dangerPercentage}% crime rate - ${riskLevel} area. Be cautious.`;
+      priority = 'medium';
+    } else {
+      title = 'Low Crime Risk';
+      body = `You are  currently in  ${location}. An area with ${dangerPercentage}% crime rate - ${riskLevel} area. Stay safe!`;
+      priority = 'low';
+    }
+
+    await scheduleLocalNotification(title, body, {
+      type: 'location_risk',
+      location: location,
+      crimeProbability: crimeProbability,
+      riskLevel: riskLevel,
+      dangerPercentage: dangerPercentage,
+      timestamp: new Date().toISOString()
+    });
+
+    console.log(`📍 Location risk notification sent: ${location} - ${riskLevel}`);
+    return true;
+  } catch (error) {
+    console.error('Error sending location risk notification:', error);
+    return false;
   }
 }

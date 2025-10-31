@@ -1,30 +1,27 @@
 {
   "expo": {
     "name": "Aya",
-    "slug": "Welcome to Aya",
+    "slug": "AyaAI",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/Logos/Aya_Logo.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": false,
+
     "splash": {
       "image": "./assets/Logos/Aya_Logo.png"
     },
-    "platforms": [
-      "ios",
-      "android",
-      "web"
-    ],
-    "assetBundlePatterns": [
-      "**/*",
-      "assets/*.ppn"
-    ],
+
+    "platforms": ["ios", "android", "web"],
+    "assetBundlePatterns": ["**/*", "assets/*.ppn"],
+
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
         "NSMicrophoneUsageDescription": "This app uses the microphone to record your voice input."
       }
     },
+
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/Logos/Aya_Logo.png"
@@ -38,11 +35,13 @@
       "package": "com.anonymous.AyaAI",
       "googleServicesFile": "./android/app/google-services.json"
     },
+
     "web": {
       "favicon": "./assets/Logos/Aya_Logo.png",
       "bundler": "metro",
       "output": "single"
     },
+
     "plugins": [
       "expo-av",
       "expo-web-browser",
@@ -53,8 +52,17 @@
           "faceIDPermission": "Use Face ID to authenticate with biometrics."
         }
       ],
+      [
+        "expo-background-fetch",
+        {
+          "minimumInterval": 360,
+          "stopOnTerminate": false,
+          "startOnBoot": true
+        }
+      ],
       "expo-asset"
     ],
+
     "extra": {
       "eas": {
         "projectId": "d5390f12-de98-48c7-9c03-66a7a663f7cd"
