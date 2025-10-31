@@ -221,17 +221,29 @@ const ProfileScreen = () => {
   };
 
   const handleLogout = async () => {
-    Alert.alert("Logout", "Are you sure?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Logout",
-        style: "destructive",
-        onPress: async () => {
-          await AsyncStorage.clear();
-          navigation.reset({
-            index: 0,
-            routes: [{ name: "OnboardingScreen" }],
-          });
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              console.log('🚪 Logging out, clearing session...');
+              await AsyncStorage.removeItem('@user_session');
+              await AsyncStorage.removeItem('@safety_last');
+              console.log('✅ Session cleared successfully');
+              
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Login' }],
+              });
+            } catch (error) {
+              console.error('Logout error:', error);
+            }
+          },
         },
       },
     ]);
