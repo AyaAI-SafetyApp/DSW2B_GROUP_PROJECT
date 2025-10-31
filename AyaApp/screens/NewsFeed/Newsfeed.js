@@ -43,7 +43,10 @@ import {
 } from "../../NewsfeedCRUD/api/posts";
 import { pickMedia } from "../../NewsfeedCRUD/api/media";
 
-import { enqueuePost, startAutoSync } from "../../NewsfeedCRUD/api/offlineQueue";
+import {
+  enqueuePost,
+  startAutoSync,
+} from "../../NewsfeedCRUD/api/offlineQueue";
 // changed: import entire storage module namespace and resolve uploader at runtime
 import * as StorageAPI from "../../NewsfeedCRUD/api/storage";
 
@@ -92,7 +95,7 @@ const DUMMY_STORIES = [
     isAddStory: true,
     likedByMe: false,
   },
-  
+
   {
     id: "s2",
     username: "katlego_m",
@@ -127,7 +130,11 @@ const isVideoUrl = (uri) => {
   if (!uri) return false;
   try {
     const u = String(uri);
-    return /\.(mp4|mov|webm|mkv|3gp)(?:\?.*)?$/i.test(u) || u.includes("/video/") || u.includes("content-type=video");
+    return (
+      /\.(mp4|mov|webm|mkv|3gp)(?:\?.*)?$/i.test(u) ||
+      u.includes("/video/") ||
+      u.includes("content-type=video")
+    );
   } catch {
     return false;
   }
@@ -162,12 +169,19 @@ async function removeQueuedCreateByLocalId(localId) {
     const queue = JSON.parse(raw);
     const filtered = (queue || []).filter((i) => {
       try {
-        return !(i.payload && i.payload.localId && i.payload.localId === localId);
+        return !(
+          i.payload &&
+          i.payload.localId &&
+          i.payload.localId === localId
+        );
       } catch {
         return true;
       }
     });
-    await AsyncStorage.setItem(OFFLINE_POST_QUEUE_KEY, JSON.stringify(filtered));
+    await AsyncStorage.setItem(
+      OFFLINE_POST_QUEUE_KEY,
+      JSON.stringify(filtered)
+    );
   } catch (e) {
     console.error("removeQueuedCreateByLocalId", e);
   }
@@ -183,9 +197,12 @@ function getStorageUploader() {
     s.default && s.default.uploadFile,
     s.default && s.default.upload,
   ];
-  const fn = candidates.find((c) => typeof c === 'function');
+  const fn = candidates.find((c) => typeof c === "function");
   if (!fn) {
-    console.error("Storage uploader not found. exports in ../../NewsfeedCRUD/api/storage:", Object.keys(s));
+    console.error(
+      "Storage uploader not found. exports in ../../NewsfeedCRUD/api/storage:",
+      Object.keys(s)
+    );
     return null;
   }
   return fn;
@@ -196,12 +213,18 @@ async function uploadMediaUrisToPostsBucket(uris = []) {
   const uploader = getStorageUploader();
   for (const uri of uris || []) {
     if (!uri) continue;
-    if (typeof uri === "string" && (uri.startsWith("http://") || uri.startsWith("https://"))) {
+    if (
+      typeof uri === "string" &&
+      (uri.startsWith("http://") || uri.startsWith("https://"))
+    ) {
       uploadedUrls.push(uri);
       continue;
     }
     if (!uploader) {
-      console.error("uploadMediaUrisToPostsBucket: no uploader available, skipping upload for", uri);
+      console.error(
+        "uploadMediaUrisToPostsBucket: no uploader available, skipping upload for",
+        uri
+      );
       continue;
     }
     try {
@@ -226,12 +249,19 @@ async function uploadMediaUrisToPostsBucket(uris = []) {
       }
 
       if (url) {
-        if (typeof url === "string" && !/^https?:\/\//i.test(url) && url.includes("/")) {
+        if (
+          typeof url === "string" &&
+          !/^https?:\/\//i.test(url) &&
+          url.includes("/")
+        ) {
           try {
-            const base = StorageAPI?.supabaseUrl || StorageAPI?.supabase?.url || null;
+            const base =
+              StorageAPI?.supabaseUrl || StorageAPI?.supabase?.url || null;
             if (base && !/^https?:\/\//i.test(url)) {
               const baseClean = String(base).replace(/\/+$/, "");
-              const manual = `${baseClean}/storage/v1/object/public/posts/${encodeURIComponent(url.replace(/^\/+/, ''))}`;
+              const manual = `${baseClean}/storage/v1/object/public/posts/${encodeURIComponent(
+                url.replace(/^\/+/, "")
+              )}`;
               uploadedUrls.push(manual);
               continue;
             }
@@ -239,7 +269,10 @@ async function uploadMediaUrisToPostsBucket(uris = []) {
         }
         uploadedUrls.push(url);
       } else {
-        console.warn("uploadMediaUrisToPostsBucket: unexpected upload result", res);
+        console.warn(
+          "uploadMediaUrisToPostsBucket: unexpected upload result",
+          res
+        );
       }
     } catch (e) {
       console.error("uploadMediaUrisToPostsBucket upload failed for", uri, e);
@@ -251,18 +284,29 @@ async function uploadMediaUrisToPostsBucket(uris = []) {
 // ============ AVATAR COMPONENT ============
 const UserAvatar = React.memo(({ username, avatarUrl, size = 40, style }) => {
   const getInitial = (name) => {
-    if (!name) return '?';
+    if (!name) return "?";
     return name.charAt(0).toUpperCase();
   };
 
   const getBackgroundColor = (name) => {
-    if (!name) return '#FF1493';
-    const colors = ['#FF1493', '#9C27B0', '#3F51B5', '#2196F3', '#00BCD4', '#009688', '#4CAF50', '#FF9800', '#FF5722', '#E91E63'];
+    if (!name) return "#FF1493";
+    const colors = [
+      "#FF1493",
+      "#9C27B0",
+      "#3F51B5",
+      "#2196F3",
+      "#00BCD4",
+      "#009688",
+      "#4CAF50",
+      "#FF9800",
+      "#FF5722",
+      "#E91E63",
+    ];
     const index = name.charCodeAt(0) % colors.length;
     return colors[index];
   };
 
-  if (avatarUrl && !avatarUrl.includes('pravatar.cc')) {
+  if (avatarUrl && !avatarUrl.includes("pravatar.cc")) {
     return (
       <Image
         source={{ uri: avatarUrl }}
@@ -271,7 +315,7 @@ const UserAvatar = React.memo(({ username, avatarUrl, size = 40, style }) => {
             width: size,
             height: size,
             borderRadius: size / 2,
-            backgroundColor: '#f0f0f0',
+            backgroundColor: "#f0f0f0",
           },
           style,
         ]}
@@ -287,17 +331,17 @@ const UserAvatar = React.memo(({ username, avatarUrl, size = 40, style }) => {
           height: size,
           borderRadius: size / 2,
           backgroundColor: getBackgroundColor(username),
-          alignItems: 'center',
-          justifyContent: 'center',
+          alignItems: "center",
+          justifyContent: "center",
         },
         style,
       ]}
     >
       <Text
         style={{
-          color: '#FFFFFF',
+          color: "#FFFFFF",
           fontSize: size * 0.5,
-          fontWeight: 'bold',
+          fontWeight: "bold",
         }}
       >
         {getInitial(username)}
@@ -459,10 +503,14 @@ const PostCard = React.memo(
               pagingEnabled
               keyExtractor={(_, i) => `${post.id}_m_${i}`}
               renderItem={({ item }) => {
-                const itemIsVideo = post.media_type === "video" || isVideoUrl(item);
+                const itemIsVideo =
+                  post.media_type === "video" || isVideoUrl(item);
                 if (itemIsVideo) {
                   return (
-                    <TouchableOpacity activeOpacity={1} onPress={() => onViewMedia?.(item, true)}>
+                    <TouchableOpacity
+                      activeOpacity={1}
+                      onPress={() => onViewMedia?.(item, true)}
+                    >
                       <Video
                         source={{ uri: item }}
                         style={styles.postImage}
@@ -479,7 +527,10 @@ const PostCard = React.memo(
                   );
                 }
                 return (
-                  <TouchableOpacity activeOpacity={1} onPress={() => onViewMedia?.(item, false)}>
+                  <TouchableOpacity
+                    activeOpacity={1}
+                    onPress={() => onViewMedia?.(item, false)}
+                  >
                     <Image
                       source={{ uri: item }}
                       style={styles.postImage}
@@ -538,7 +589,11 @@ const PostCard = React.memo(
 
         {/* Likes Count - now clickable to ask parent to open likers list */}
         {post.likes && post.likes.length > 0 && (
-          <TouchableOpacity onPress={() => typeof onViewLikes === "function" && onViewLikes(post)}>
+          <TouchableOpacity
+            onPress={() =>
+              typeof onViewLikes === "function" && onViewLikes(post)
+            }
+          >
             <Text style={styles.likesCount}>
               {post.likes.length} {post.likes.length === 1 ? "like" : "likes"}
             </Text>
@@ -710,7 +765,8 @@ const LikesModal = ({ visible, likes, onClose }) => {
         if (!l) return { id: `l_${idx}`, username: String(l) };
         if (typeof l === "string") return { id: `l_${l}_${idx}`, username: l };
         if (typeof l === "object") {
-          const username = l.username || l.user || l.name || l.id || JSON.stringify(l);
+          const username =
+            l.username || l.user || l.name || l.id || JSON.stringify(l);
           const avatar = l.avatar || l.avatar_url || l.photo || null;
           return { id: `l_${username}_${idx}`, username, avatar };
         }
@@ -719,12 +775,20 @@ const LikesModal = ({ visible, likes, onClose }) => {
     : [];
 
   return (
-    <Modal isVisible={visible} onBackdropPress={onClose} style={styles.likesModal}>
+    <Modal
+      isVisible={visible}
+      onBackdropPress={onClose}
+      style={styles.likesModal}
+    >
       <View style={styles.likesContainer}>
         <View style={styles.likesHeader}>
           <Text style={styles.likesTitle}>Liked by</Text>
           <TouchableOpacity onPress={onClose}>
-            <MaterialCommunityIcons name="close" size={22} color={COLORS.text} />
+            <MaterialCommunityIcons
+              name="close"
+              size={22}
+              color={COLORS.text}
+            />
           </TouchableOpacity>
         </View>
 
@@ -733,7 +797,12 @@ const LikesModal = ({ visible, likes, onClose }) => {
           keyExtractor={(it) => it.id}
           renderItem={({ item }) => (
             <View style={styles.likeRow}>
-              <UserAvatar username={item.username} avatarUrl={item.avatar} size={36} style={styles.likeAvatar} />
+              <UserAvatar
+                username={item.username}
+                avatarUrl={item.avatar}
+                size={36}
+                style={styles.likeAvatar}
+              />
               <Text style={styles.likeName}>{item.username}</Text>
             </View>
           )}
@@ -941,11 +1010,14 @@ const Newsfeed = () => {
       const user = await supabaseAuth.getCurrentUser();
       if (user) {
         setCurrentUser(user);
-        const fullName = user.user_metadata?.full_name || user.email?.split('@')[0] || "current_user";
+        const fullName =
+          user.user_metadata?.full_name ||
+          user.email?.split("@")[0] ||
+          "current_user";
         setCurrentUsername(fullName);
       }
     } catch (error) {
-      console.error('Error loading current user:', error);
+      console.error("Error loading current user:", error);
     }
   };
 
@@ -1023,7 +1095,10 @@ const Newsfeed = () => {
 
       setPosts(
         normalized
-          .map((x) => ({ ...x, created_at: Number(x.created_at || Date.now()) }))
+          .map((x) => ({
+            ...x,
+            created_at: Number(x.created_at || Date.now()),
+          }))
           .sort((a, b) => b.created_at - a.created_at)
       );
     } catch (e) {
@@ -1073,7 +1148,10 @@ const Newsfeed = () => {
           q = q.filter((x) => x.id !== op.id);
           await setOpsQueue(q);
         } catch (err) {
-          console.error("processOpsQueue item failed, stop and retry later", err);
+          console.error(
+            "processOpsQueue item failed, stop and retry later",
+            err
+          );
           break;
         }
       }
@@ -1116,7 +1194,7 @@ const Newsfeed = () => {
             type: "like",
             postId,
             payload: {
-              likes: (posts.find((p) => p.id === postId)?.likes || []),
+              likes: posts.find((p) => p.id === postId)?.likes || [],
             },
           });
           return;
@@ -1162,7 +1240,9 @@ const Newsfeed = () => {
 
       setPosts((prev) =>
         prev.map((p) =>
-          p.id === postId ? { ...p, comments: [...(p.comments || []), comment] } : p
+          p.id === postId
+            ? { ...p, comments: [...(p.comments || []), comment] }
+            : p
         )
       );
 
@@ -1178,7 +1258,11 @@ const Newsfeed = () => {
             id: `op_${Date.now()}`,
             type: "comment",
             postId,
-            payload: { comments: (posts.find((p) => p.id === postId)?.comments || []).concat(comment) },
+            payload: {
+              comments: (
+                posts.find((p) => p.id === postId)?.comments || []
+              ).concat(comment),
+            },
           });
           return;
         }
@@ -1224,7 +1308,9 @@ const Newsfeed = () => {
                   p.id === postId
                     ? {
                         ...p,
-                        comments: (p.comments || []).filter((c) => c.id !== commentId),
+                        comments: (p.comments || []).filter(
+                          (c) => c.id !== commentId
+                        ),
                       }
                     : p
                 )
@@ -1234,7 +1320,9 @@ const Newsfeed = () => {
                 prev && prev.id === postId
                   ? {
                       ...prev,
-                      comments: (prev.comments || []).filter((c) => c.id !== commentId),
+                      comments: (prev.comments || []).filter(
+                        (c) => c.id !== commentId
+                      ),
                     }
                   : prev
               );
@@ -1246,7 +1334,11 @@ const Newsfeed = () => {
                     id: `op_${Date.now()}`,
                     type: "comment",
                     postId,
-                    payload: { comments: (target.comments || []).filter((c) => c.id !== commentId) },
+                    payload: {
+                      comments: (target.comments || []).filter(
+                        (c) => c.id !== commentId
+                      ),
+                    },
                   });
                   return;
                 }
@@ -1258,7 +1350,11 @@ const Newsfeed = () => {
                     id: `op_${Date.now()}`,
                     type: "comment",
                     postId,
-                    payload: { comments: (target.comments || []).filter((c) => c.id !== commentId) },
+                    payload: {
+                      comments: (target.comments || []).filter(
+                        (c) => c.id !== commentId
+                      ),
+                    },
                   });
                   return;
                 }
@@ -1295,7 +1391,9 @@ const Newsfeed = () => {
       setEditingPostId(postId);
       setPostContent(post.content || "");
       setPostType(
-        post.media_urls && post.media_urls.length ? post.media_type || "image" : "text"
+        post.media_urls && post.media_urls.length
+          ? post.media_type || "image"
+          : "text"
       );
       setMediaUris(post.media_urls || []);
       setModalVisible(true);
@@ -1332,7 +1430,12 @@ const Newsfeed = () => {
           setPosts((prev) =>
             prev.map((p) =>
               p.id === editingPostId
-                ? { ...p, content: postContent, media_urls: mediaUris, media_type: mediaUris.length ? postType : "none" }
+                ? {
+                    ...p,
+                    content: postContent,
+                    media_urls: mediaUris,
+                    media_type: mediaUris.length ? postType : "none",
+                  }
                 : p
             )
           );
@@ -1352,7 +1455,12 @@ const Newsfeed = () => {
             setPosts((prev) =>
               prev.map((p) =>
                 p.id === editingPostId
-                  ? { ...p, content: postContent, media_urls: mediaUris, media_type: mediaUris.length ? postType : "none" }
+                  ? {
+                      ...p,
+                      content: postContent,
+                      media_urls: mediaUris,
+                      media_type: mediaUris.length ? postType : "none",
+                    }
                   : p
               )
             );
@@ -1405,7 +1513,10 @@ const Newsfeed = () => {
             ...prev,
           ]);
 
-          Alert.alert("Saved offline", "Your post will be uploaded when network is available.");
+          Alert.alert(
+            "Saved offline",
+            "Your post will be uploaded when network is available."
+          );
           setModalVisible(false);
           setPostContent("");
           setMediaUris([]);
@@ -1438,9 +1549,10 @@ const Newsfeed = () => {
     } catch (e) {
       console.error("Post submission failed:", e);
 
-      const msg = (e && e.message) ? String(e.message) : "";
+      const msg = e && e.message ? String(e.message) : "";
       const isNetworkErr =
-        msg.toLowerCase().includes("network") || msg === "Network request failed";
+        msg.toLowerCase().includes("network") ||
+        msg === "Network request failed";
 
       if (isNetworkErr) {
         try {
@@ -1474,7 +1586,10 @@ const Newsfeed = () => {
             ...prev,
           ]);
 
-          Alert.alert("Saved offline", "Your post will be uploaded when network is available.");
+          Alert.alert(
+            "Saved offline",
+            "Your post will be uploaded when network is available."
+          );
           setModalVisible(false);
           setPostContent("");
           setMediaUris([]);
@@ -1487,7 +1602,15 @@ const Newsfeed = () => {
 
       Alert.alert("Error", "Failed to submit post");
     }
-  }, [postContent, mediaUris, editingPostId, postType, loadPosts, currentUsername, currentUser]);
+  }, [
+    postContent,
+    mediaUris,
+    editingPostId,
+    postType,
+    loadPosts,
+    currentUsername,
+    currentUser,
+  ]);
 
   const handleDeletePost = useCallback(async (postId) => {
     Alert.alert("Delete Post", "Are you sure you want to delete this post?", [
@@ -1511,7 +1634,10 @@ const Newsfeed = () => {
                 type: "delete",
                 postId,
               });
-              Alert.alert("Will delete when online", "The post will be deleted on the server when network is available.");
+              Alert.alert(
+                "Will delete when online",
+                "The post will be deleted on the server when network is available."
+              );
               return;
             }
 
@@ -1673,7 +1799,9 @@ const Newsfeed = () => {
 
   const renderPostItem = useCallback(
     ({ item }) => {
-      const shouldPlay = visiblePostIds.includes(item.id) && (item.media_urls || []).some(isVideoUrl);
+      const shouldPlay =
+        visiblePostIds.includes(item.id) &&
+        (item.media_urls || []).some(isVideoUrl);
       return (
         <PostCard
           post={item}
@@ -1805,9 +1933,18 @@ const Newsfeed = () => {
           {VoiceCallComponent ? (
             <VoiceCallComponent />
           ) : (
-            <View style={{flex:1,justifyContent:'center',alignItems:'center',padding:16}}>
-              <Text style={{textAlign:'center',color:COLORS.text}}>
-                Call feature unavailable in Expo Go. To enable it, install react-native-agora and run a custom dev client (EAS) or eject to the bare workflow and rebuild the app.
+            <View
+              style={{
+                flex: 1,
+                justifyContent: "center",
+                alignItems: "center",
+                padding: 16,
+              }}
+            >
+              <Text style={{ textAlign: "center", color: COLORS.text }}>
+                Call feature unavailable in Expo Go. To enable it, install
+                react-native-agora and run a custom dev client (EAS) or eject to
+                the bare workflow and rebuild the app.
               </Text>
             </View>
           )}
@@ -1944,12 +2081,28 @@ const Newsfeed = () => {
       />
 
       {/* NEW: Likes modal rendered here */}
-      <LikesModal visible={likesModalVisible} likes={likesForModal} onClose={closeLikesModal} />
+      <LikesModal
+        visible={likesModalVisible}
+        likes={likesForModal}
+        onClose={closeLikesModal}
+      />
 
-      <RNModal visible={mediaViewerVisible} transparent animationType="fade" onRequestClose={closeMediaViewer}>
+      <RNModal
+        visible={mediaViewerVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeMediaViewer}
+      >
         <View style={{ flex: 1, backgroundColor: "#000" }}>
-          <TouchableOpacity onPress={closeMediaViewer} style={{ position: "absolute", top: 40, right: 16, zIndex: 20 }}>
-            <MaterialCommunityIcons name="close-circle" size={36} color="#fff" />
+          <TouchableOpacity
+            onPress={closeMediaViewer}
+            style={{ position: "absolute", top: 40, right: 16, zIndex: 20 }}
+          >
+            <MaterialCommunityIcons
+              name="close-circle"
+              size={36}
+              color="#fff"
+            />
           </TouchableOpacity>
 
           {mediaViewerItem?.isVideo ? (
@@ -2012,11 +2165,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 12,
     // ensure header icon is not cut under status bar / notch on Android
-    paddingTop: Platform.OS === "android" ? (StatusBar.currentHeight || 0) + 8 : 12,
+    paddingTop:
+      Platform.OS === "android" ? (StatusBar.currentHeight || 0) + 8 : 12,
     paddingBottom: 10,
     backgroundColor: COLORS.cardBackground,
     // ensure header tall enough so content won't be cut
-    minHeight: Platform.OS === "android" ? (StatusBar.currentHeight || 24) + 56 : 64,
+    minHeight:
+      Platform.OS === "android" ? (StatusBar.currentHeight || 24) + 56 : 64,
     borderBottomWidth: 0.5,
     borderBottomColor: COLORS.border,
   },
@@ -2319,7 +2474,7 @@ const styles = StyleSheet.create({
   fab: {
     position: "absolute",
     right: 20,
-    bottom: Platform.OS === 'ios' ? 120 : 100,
+    bottom: Platform.OS === "ios" ? 120 : 100,
     backgroundColor: COLORS.accent,
   },
   commentsModal: {

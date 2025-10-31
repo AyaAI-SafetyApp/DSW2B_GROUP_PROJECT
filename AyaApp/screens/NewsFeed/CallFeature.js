@@ -1,5 +1,14 @@
 import React, { useEffect, useRef, useState } from "react";
-import { View, Button, Text, Platform, PermissionsAndroid, Alert } from "react-native";
+import {
+  View,
+  Text,
+  Platform,
+  PermissionsAndroid,
+  Alert,
+  TouchableOpacity,
+  FlatList,
+  StyleSheet,
+} from "react-native";
 import { createAgoraRtcEngine, ChannelProfileType } from "react-native-agora";
 
 const APP_ID = "a2291d57f2e94713b80d8f7b28de2fba";
@@ -11,70 +20,52 @@ export default function VoiceCall() {
   const [joined, setJoined] = useState(false);
   const [error, setError] = useState(null);
   const [isJoining, setIsJoining] = useState(false);
+  const [users, setUsers] = useState([]); // track joined users
 
   useEffect(() => {
     const init = async () => {
       try {
-        // Request microphone permission
         if (Platform.OS === "android") {
           const granted = await PermissionsAndroid.request(
             PermissionsAndroid.PERMISSIONS.RECORD_AUDIO
           );
-          console.log("Permission result:", granted);
           if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
             setError("Microphone permission denied");
             return;
           }
         }
 
-        console.log("Creating Agora engine...");
         const engine = createAgoraRtcEngine();
         engineRef.current = engine;
-
-        console.log("Initializing with APP_ID:", APP_ID);
-        engine.initialize({ 
-          appId: APP_ID,
-          logConfig: { level: 0x0001 } // Enable debug logs
-        });
-
-        console.log("Setting channel profile...");
-        engine.setChannelProfile(ChannelProfileType.ChannelProfileCommunication);
-        
-        console.log("Enabling audio...");
+        engine.initialize({ appId: APP_ID, logConfig: { level: 0x0001 } });
+        engine.setChannelProfile(
+          ChannelProfileType.ChannelProfileCommunication
+        );
         await engine.enableAudio();
 
-        console.log("Registering event handlers...");
         engine.registerEventHandler({
-          onJoinChannelSuccess: (connection, elapsed) => {
-            console.log("✅ JOIN SUCCESS!", connection, elapsed);
+          onJoinChannelSuccess: () => {
             setJoined(true);
             setError(null);
             setIsJoining(false);
           },
-          onLeaveChannel: (connection, stats) => {
-            console.log("👋 Left channel", stats);
+          onLeaveChannel: () => {
             setJoined(false);
             setIsJoining(false);
+            setUsers([]);
           },
-          onError: (err, msg) => {
-            console.log("❌ onError callback:", err, msg);
-            setError(`Agora error: ${msg || err}`);
+          onError: (_, msg) => {
+            setError(`Agora error: ${msg}`);
             setIsJoining(false);
           },
-          onConnectionStateChanged: (connection, state, reason) => {
-            console.log("🔌 Connection state changed:", state, "Reason:", reason);
+          onUserJoined: (_, remoteUid) => {
+            setUsers((prev) => [...prev, remoteUid]);
           },
-          onUserJoined: (connection, remoteUid, elapsed) => {
-            console.log("👤 User joined:", remoteUid);
-          },
-          onUserOffline: (connection, remoteUid, reason) => {
-            console.log("👤 User left:", remoteUid, reason);
+          onUserOffline: (_, remoteUid) => {
+            setUsers((prev) => prev.filter((u) => u !== remoteUid));
           },
         });
-        
-        console.log("✅ Agora engine initialized successfully");
       } catch (err) {
-        console.error("❌ Initialization error:", err);
         setError(`Init failed: ${err.message}`);
       }
     };
@@ -84,7 +75,6 @@ export default function VoiceCall() {
     return () => {
       const eng = engineRef.current;
       if (eng) {
-        console.log("Releasing engine...");
         eng.leaveChannel();
         eng.release();
       }
@@ -92,39 +82,12 @@ export default function VoiceCall() {
   }, []);
 
   const joinChannel = async () => {
-    console.log("=== JOIN CHANNEL ATTEMPT ===");
-    console.log("Engine exists:", !!engineRef.current);
-    console.log("Already joined:", joined);
-    console.log("Is joining:", isJoining);
-    
     const eng = engineRef.current;
-    if (!eng) {
-      console.log("❌ No engine!");
-      setError("Engine not initialized");
-      return;
-    }
-    
-    if (isJoining || joined) {
-      console.log("❌ Already joining or joined");
-      return;
-    }
-
+    if (!eng || joined || isJoining) return;
     setIsJoining(true);
-    
     try {
-      console.log("Calling joinChannel with:");
-      console.log("  TOKEN:", TOKEN || "(empty)");
-      console.log("  CHANNEL:", CHANNEL_NAME);
-      console.log("  UID: 0");
-      
-      const result = await eng.joinChannel(TOKEN, CHANNEL_NAME, 0, {
-        clientRoleType: 1, // Broadcaster
-      });
-      
-      console.log("joinChannel returned:", result);
+      await eng.joinChannel(TOKEN, CHANNEL_NAME, 0, { clientRoleType: 1 });
     } catch (err) {
-      console.error("❌ Join channel error:", err);
-      console.error("Error details:", JSON.stringify(err));
       setError(`Join failed: ${err.message}`);
       setIsJoining(false);
     }
@@ -133,44 +96,111 @@ export default function VoiceCall() {
   const leaveChannel = async () => {
     const eng = engineRef.current;
     if (!eng) return;
-    
     try {
-      console.log("Leaving channel...");
       await eng.leaveChannel();
     } catch (err) {
-      console.error("Leave error:", err);
+      console.error(err);
     }
   };
 
-  return (
-    <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 20 }}>
-      <Text style={{ fontSize: 18, marginBottom: 10 }}>
-        Status: {joined ? "🟢 Connected" : isJoining ? "🟡 Connecting..." : "⚫ Not connected"}
-      </Text>
-      
-      {error && (
-        <Text style={{ color: "red", marginBottom: 10, textAlign: "center" }}>
-          {error}
+  const renderUser = ({ item }) => (
+    <View style={styles.userItem}>
+      <View style={styles.avatar}>
+        <Text style={styles.avatarText}>
+          {String(item).slice(-2).toUpperCase()}
         </Text>
-      )}
-      
-      <View style={{ marginTop: 20 }}>
-        <Button 
-          title="Join Call" 
-          onPress={joinChannel} 
-          disabled={joined || isJoining} 
-        />
-        <View style={{ height: 10 }} />
-        <Button 
-          title="Leave Call" 
-          onPress={leaveChannel} 
-          disabled={!joined} 
-        />
       </View>
-      
-      <Text style={{ marginTop: 20, fontSize: 12, color: "#666" }}>
-        Channel: {CHANNEL_NAME}
+      <Text style={styles.username}>User {item}</Text>
+      <Text style={[styles.status, { color: "green" }]}>🟢 Online</Text>
+    </View>
+  );
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.statusText}>
+        Status:{" "}
+        {joined
+          ? "🟢 Connected"
+          : isJoining
+          ? "🟡 Connecting..."
+          : "⚫ Not connected"}
       </Text>
+
+      {error && <Text style={styles.errorText}>{error}</Text>}
+
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity
+          style={[
+            styles.button,
+            joined || isJoining ? styles.buttonDisabled : null,
+          ]}
+          onPress={joinChannel}
+          disabled={joined || isJoining}
+        >
+          <Text style={styles.buttonText}>Join Call</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.button, !joined ? styles.buttonDisabled : null]}
+          onPress={leaveChannel}
+          disabled={!joined}
+        >
+          <Text style={styles.buttonText}>Leave Call</Text>
+        </TouchableOpacity>
+      </View>
+
+      <Text style={styles.channelText}>Channel: {CHANNEL_NAME}</Text>
+
+      {joined && (
+        <FlatList
+          data={users}
+          keyExtractor={(item) => item.toString()}
+          renderItem={renderUser}
+          ListHeaderComponent={
+            <Text style={styles.participantsTitle}>Participants</Text>
+          }
+        />
+      )}
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  statusText: { fontSize: 18, marginBottom: 10 },
+  errorText: { color: "red", marginBottom: 10, textAlign: "center" },
+  buttonContainer: { flexDirection: "row", marginTop: 20 },
+  button: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    backgroundColor: "#007bff",
+    borderRadius: 8,
+    marginHorizontal: 10,
+  },
+  buttonDisabled: { backgroundColor: "#ccc" },
+  buttonText: { color: "#fff", fontWeight: "600" },
+  channelText: { marginTop: 20, fontSize: 12, color: "#666" },
+  participantsTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginTop: 20,
+    marginBottom: 10,
+  },
+  userItem: { flexDirection: "row", alignItems: "center", marginBottom: 10 },
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#eee",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 10,
+  },
+  avatarText: { fontWeight: "bold", color: "#333" },
+  username: { fontSize: 14, flex: 1 },
+  status: { fontSize: 12 },
+});

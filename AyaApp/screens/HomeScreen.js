@@ -43,6 +43,11 @@ import {
 const { width } = Dimensions.get("window");
 export const PRIMARY = "#D81B60";
 export const API_BASE_URL = "https://dsw2b-backend.onrender.com";
+const FEATURES = {
+  AI_SAFE_ROUTES: "AI_SAFE_ROUTES",
+  EMERGENCY_SOS: "EMERGENCY_SOS",
+  HEALTH_MONITORING: "HEALTH_MONITORING",
+};
 
 // ==================== ANIMATED COMPONENTS ====================
 const FadeView = ({ children, delay = 0, style }) => {
