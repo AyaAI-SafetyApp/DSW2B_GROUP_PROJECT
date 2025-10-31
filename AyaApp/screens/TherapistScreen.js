@@ -18,10 +18,15 @@ import { Audio } from "expo-av";
 import * as Speech from "expo-speech";
 import axios from "axios";
 import { Ionicons } from "@expo/vector-icons";
+import { hasFeatureAccess, showUpgradePrompt, FEATURES } from "../utils/subscriptionUtils";
+import { useNavigation } from "@react-navigation/native";
 
 const BACKEND_URL = "https://dsw2b-backend.onrender.com";
 
 export default function AyaTherapistScreen() {
+  const navigation = useNavigation();
+  const [hasAccess, setHasAccess] = useState(false);
+  const [checkingAccess, setCheckingAccess] = useState(true);
   const [listening, setListening] = useState(false);
   const [aiResponse, setAIResponse] = useState("");
   const [message, setMessage] = useState("");
@@ -94,6 +99,23 @@ export default function AyaTherapistScreen() {
       timestamp: "1 day ago",
     },
   ];
+
+  // Check feature access
+  useEffect(() => {
+    checkAccess();
+  }, []);
+
+  const checkAccess = async () => {
+    try {
+      const access = await hasFeatureAccess(FEATURES.THERAPIST_ACCESS);
+      setHasAccess(access);
+    } catch (error) {
+      console.error('Error checking access:', error);
+      setHasAccess(false);
+    } finally {
+      setCheckingAccess(false);
+    }
+  };
 
   // Reactive Lottie glow animation
   useEffect(() => {
@@ -230,6 +252,46 @@ export default function AyaTherapistScreen() {
       setLoading(false);
     }
   };
+
+  // Show loading or locked screen
+  if (checkingAccess) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.centerContent}>
+          <ActivityIndicator size="large" color="#de0973ff" />
+          <Text style={styles.loadingText}>Loading...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!hasAccess) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.lockedContainer}>
+          <Ionicons name="lock-closed" size={80} color="#de0973ff" />
+          <Text style={styles.lockedTitle}>Premium Feature</Text>
+          <Text style={styles.lockedDescription}>
+            Access to the AI Therapist requires a Personal Pro subscription (R99.99/month).
+            Get professional mental health support powered by AI.
+          </Text>
+          <TouchableOpacity
+            style={styles.upgradeButton}
+            onPress={() => showUpgradePrompt(navigation, 'AI Therapist')}
+          >
+            <Ionicons name="star" size={20} color="#FFFFFF" />
+            <Text style={styles.upgradeButtonText}>Upgrade to Personal Pro</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.backButtonText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -467,5 +529,59 @@ const styles = StyleSheet.create({
   timestamp: {
     fontSize: 12,
     color: "#999",
+  },
+  centerContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#666',
+  },
+  lockedContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 30,
+  },
+  lockedTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    marginTop: 24,
+    marginBottom: 12,
+  },
+  lockedDescription: {
+    fontSize: 16,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 32,
+  },
+  upgradeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#de0973ff',
+    paddingHorizontal: 32,
+    paddingVertical: 16,
+    borderRadius: 12,
+    gap: 8,
+    marginBottom: 16,
+  },
+  upgradeButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  backButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+  },
+  backButtonText: {
+    color: '#6B7280',
+    fontSize: 16,
+    fontWeight: '500',
   },
 });

@@ -145,7 +145,7 @@ export const saveUserProfile = async (profileData) => {
 /**
  * Get user profile from Supabase
  * @param {string} userId - User ID or email
- * @returns {Promise<Object>} - User profile data
+ * @returns {Promise<Object|null>} - User profile data or null if not found
  */
 export const getUserProfile = async (userId) => {
   try {
@@ -153,26 +153,42 @@ export const getUserProfile = async (userId) => {
       .from('user_profiles')
       .select('*')
       .or(`user_id.eq.${userId},email.eq.${userId}`)
-      .single();
+      .maybeSingle();
 
-    if (error) throw error;
-
-    // Cache profile locally
-    if (data) {
-      await AsyncStorage.setItem('@user_profile', JSON.stringify(data));
+    // If no profile found, return null (not an error)
+    if (error && error.code !== 'PGRST116') {
+      console.error('Error getting user profile:', error);
+      throw error;
     }
 
-    return data;
+    // Cache profile locally if found
+    if (data) {
+      await AsyncStorage.setItem('@user_profile', JSON.stringify(data));
+      return data;
+    }
+
+    // Try to get cached profile if no data from Supabase
+    const cachedProfile = await AsyncStorage.getItem('@user_profile');
+    if (cachedProfile) {
+      console.log('📦 Using cached profile');
+      return JSON.parse(cachedProfile);
+    }
+
+    // No profile found anywhere, return null
+    console.log('ℹ️ No profile found for user:', userId);
+    return null;
   } catch (error) {
     console.error('Error getting user profile:', error);
     
-    // Try to get cached profile
+    // Try to get cached profile as last resort
     const cachedProfile = await AsyncStorage.getItem('@user_profile');
     if (cachedProfile) {
+      console.log('📦 Using cached profile after error');
       return JSON.parse(cachedProfile);
     }
     
-    throw error;
+    // Return null instead of throwing error
+    return null;
   }
 };
 

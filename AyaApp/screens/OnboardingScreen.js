@@ -75,7 +75,6 @@ const ProgressDots = memo(({ total, current }) => {
   );
 });
 
-
 const OnboardingScreen = () => {
   const navigation = useNavigation();
   const scrollX = useRef(new Animated.Value(0)).current;
@@ -124,18 +123,17 @@ const OnboardingScreen = () => {
       });
 
       // Circular rotation + scale
-        const rotateY = scrollX.interpolate({
+      const rotateY = scrollX.interpolate({
         inputRange,
         outputRange: ["60deg", "0deg", "-60deg"],
         extrapolate: "clamp",
-        });
+      });
 
-        const scale = scrollX.interpolate({
+      const scale = scrollX.interpolate({
         inputRange,
-        outputRange: [0.5, 1.1, 0.5], 
+        outputRange: [0.5, 1.1, 0.5],
         extrapolate: "clamp",
-        });
-
+      });
 
       return (
         <View style={styles.screenContainer}>
@@ -144,7 +142,7 @@ const OnboardingScreen = () => {
               flex: 0.6,
               justifyContent: "center",
               transform: [
-                { perspective: 1000 }, 
+                { perspective: 1000 },
                 { rotateY },
                 { scale },
                 { translateY: imageBounce },
@@ -213,7 +211,7 @@ const OnboardingScreen = () => {
               Haptics.notificationAsync(
                 Haptics.NotificationFeedbackType.Success
               );
-              navigation.replace("Login");
+              navigation.replace("Signup");
             }}
             style={[styles.nextButton, { backgroundColor: "#d63384" }]}
           >

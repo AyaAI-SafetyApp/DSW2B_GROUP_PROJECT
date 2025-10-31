@@ -15,8 +15,8 @@ import {
 } from "react-native";
 import * as Location from "expo-location";
 import { Accelerometer } from "expo-sensors";
+import { WebView } from "react-native-webview";
 import { Ionicons, MaterialIcons, FontAwesome } from "@expo/vector-icons";
-import WakewordDetection from "../components/WakewordDetection";
 
 const FALL_THRESHOLD = 2.5;
 const SOS_COUNTDOWN = 5;
@@ -30,6 +30,7 @@ export default function AyaEmergencyApp() {
   const [sosCountdown, setSosCountdown] = useState(0);
   const [newContact, setNewContact] = useState("");
   const countdownRef = useRef(null);
+  const webview = useRef(null);
   const progressAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -101,6 +102,27 @@ export default function AyaEmergencyApp() {
     return () => clearInterval(interval);
   }, [offlineQueue]);
 
+  const webviewHtml = `
+    <!DOCTYPE html>
+    <html>
+      <body>
+        <script>
+          const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+          recognition.continuous = true;
+          recognition.interimResults = false;
+          recognition.lang = 'en-US';
+          recognition.onresult = (event) => {
+            const transcript = event.results[event.results.length - 1][0].transcript.toLowerCase();
+            if(transcript.includes("aya")){
+              window.ReactNativeWebView.postMessage("aya detected");
+            }
+          };
+          recognition.start();
+        </script>
+      </body>
+    </html>
+  `;
+
   const addContact = () => {
     if (
       newContact &&
@@ -165,16 +187,18 @@ export default function AyaEmergencyApp() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <ScrollView>
+      <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      
-      {/* Wakeword Detection Component - "Hello Aya" triggers SOS */}
-      <WakewordDetection
-        onWakewordDetected={triggerSOS}
-        enabled={fallDetectionEnabled}
+      <WebView
+        ref={webview}
+        originWhitelist={["*"]}
+        source={{ html: webviewHtml }}
+        onMessage={() => triggerSOS()}
+        javaScriptEnabled
+        style={{ flex: 0, height: 0 }}
       />
-      
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+
       <View style={styles.topContainer}>
         <View style={styles.alertContainer}>
           <Text style={styles.alertText}>{status}</Text>
@@ -211,22 +235,27 @@ export default function AyaEmergencyApp() {
             <FontAwesome name="phone" size={40} color="#FFFFFF" />
           )}
         </TouchableOpacity>
-        <Text style={styles.sosInstruction}>Press or say "Hello Aya"</Text>
+        <Text style={styles.sosInstruction}>Press or say "Aya"</Text>
       </View>
 
       <View style={styles.contactsContainer}>
         <Text style={styles.contactsHeader}>Emergency Contacts</Text>
-        {contacts.map((item) => (
-          <View key={item} style={styles.contactRow}>
-            <Text style={styles.contactNumber}>{item}</Text>
-            <TouchableOpacity
-              onPress={() => removeContact(item)}
-              style={styles.contactRemove}
-            >
-              <Ionicons name="close-circle" size={24} color="#FF3B30" />
-            </TouchableOpacity>
-          </View>
-        ))}
+        <FlatList
+          data={contacts}
+          keyExtractor={(item) => item}
+          style={styles.contactsList}
+          renderItem={({ item }) => (
+            <View style={styles.contactRow}>
+              <Text style={styles.contactNumber}>{item}</Text>
+              <TouchableOpacity
+                onPress={() => removeContact(item)}
+                style={styles.contactRemove}
+              >
+                <Ionicons name="close-circle" size={24} color="#FF3B30" />
+              </TouchableOpacity>
+            </View>
+          )}
+        />
         <View style={styles.addContactContainer}>
           <TextInput
             placeholder="+27..."
@@ -252,14 +281,13 @@ export default function AyaEmergencyApp() {
           </TouchableOpacity>
         </View>
       </View>
-      </ScrollView>
     </SafeAreaView>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F9F9F9" },
-  scrollContent: { flexGrow: 1 },
   topContainer: { paddingHorizontal: 20, paddingTop: 20 },
   alertContainer: {
     paddingVertical: 12,
@@ -307,6 +335,7 @@ const styles = StyleSheet.create({
     color: "#1C1C1E",
     marginBottom: 12,
   },
+  contactsList: { maxHeight: 180 },
   contactRow: {
     flexDirection: "row",
     justifyContent: "space-between",

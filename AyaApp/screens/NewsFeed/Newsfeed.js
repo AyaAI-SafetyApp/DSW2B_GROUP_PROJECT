@@ -1,4 +1,3 @@
-// ...existing code...
 import React, {
   useState,
   useCallback,
@@ -8,7 +7,7 @@ import React, {
 } from "react";
 import {
   SafeAreaView,
-  FlatList,
+  FlatList as RNFlatList, // <-- NEW
   View,
   Text,
   StyleSheet,
@@ -30,11 +29,9 @@ import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityI
 import Modal from "react-native-modal";
 import { Button, FAB } from "react-native-paper";
 import { Video } from "expo-av";
-
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from "@react-native-community/netinfo";
 import { supabaseAuth } from "../../lib/supabaseClient";
-
 import {
   fetchPosts,
   createPost,
@@ -42,12 +39,29 @@ import {
   deletePost,
 } from "../../NewsfeedCRUD/api/posts";
 import { pickMedia } from "../../NewsfeedCRUD/api/media";
-
-import { enqueuePost, startAutoSync } from "../../NewsfeedCRUD/api/offlineQueue";
-// changed: import entire storage module namespace and resolve uploader at runtime
+import {
+  enqueuePost,
+  startAutoSync,
+} from "../../NewsfeedCRUD/api/offlineQueue";
 import * as StorageAPI from "../../NewsfeedCRUD/api/storage";
 
+let VoiceCallComponent = null;
+try {
+  VoiceCallComponent = require("./CallFeature").default;
+} catch (err) {
+  VoiceCallComponent = null;
+  console.warn(
+    "CallFeature not loaded (react-native-agora missing or native module not available).",
+    err && err.message ? err.message : err
+  );
+}
+
 const { width, height } = Dimensions.get("window");
+
+// ---------------------------------------------------------------
+// ANIMATED FLATLIST (needed for scrollY)
+// ---------------------------------------------------------------
+const AnimatedFlatList = Animated.createAnimatedComponent(RNFlatList);
 
 const COLORS = {
   background: "#FAFAFA",
@@ -62,9 +76,8 @@ const COLORS = {
 
 const STORY_DURATION = 5000;
 const STORY_PROGRESS_INTERVAL = 50;
-
-const OFFLINE_POST_QUEUE_KEY = "OFFLINE_POST_QUEUE"; // used by offlineQueue.js
-const OFFLINE_CRUD_QUEUE_KEY = "OFFLINE_CRUD_QUEUE"; // local ops (delete/like/comment/update)
+const OFFLINE_POST_QUEUE_KEY = "OFFLINE_POST_QUEUE";
+const OFFLINE_CRUD_QUEUE_KEY = "OFFLINE_CRUD_QUEUE";
 
 const DUMMY_STORIES = [
   {
@@ -75,7 +88,6 @@ const DUMMY_STORIES = [
     isAddStory: true,
     likedByMe: false,
   },
-  
   {
     id: "s2",
     username: "katlego_m",
@@ -110,13 +122,17 @@ const isVideoUrl = (uri) => {
   if (!uri) return false;
   try {
     const u = String(uri);
-    return /\.(mp4|mov|webm|mkv|3gp)(?:\?.*)?$/i.test(u) || u.includes("/video/") || u.includes("content-type=video");
+    return (
+      /\.(mp4|mov|webm|mkv|3gp)(?:\?.*)?$/i.test(u) ||
+      u.includes("/video/") ||
+      u.includes("content-type=video")
+    );
   } catch {
     return false;
   }
 };
 
-// ============ small helpers for offline CRUD queue ============
+// ============ OFFLINE QUEUE HELPERS ============
 async function getOpsQueue() {
   try {
     const raw = await AsyncStorage.getItem(OFFLINE_CRUD_QUEUE_KEY);
@@ -145,12 +161,19 @@ async function removeQueuedCreateByLocalId(localId) {
     const queue = JSON.parse(raw);
     const filtered = (queue || []).filter((i) => {
       try {
-        return !(i.payload && i.payload.localId && i.payload.localId === localId);
+        return !(
+          i.payload &&
+          i.payload.localId &&
+          i.payload.localId === localId
+        );
       } catch {
         return true;
       }
     });
-    await AsyncStorage.setItem(OFFLINE_POST_QUEUE_KEY, JSON.stringify(filtered));
+    await AsyncStorage.setItem(
+      OFFLINE_POST_QUEUE_KEY,
+      JSON.stringify(filtered)
+    );
   } catch (e) {
     console.error("removeQueuedCreateByLocalId", e);
   }
@@ -166,9 +189,12 @@ function getStorageUploader() {
     s.default && s.default.uploadFile,
     s.default && s.default.upload,
   ];
-  const fn = candidates.find((c) => typeof c === 'function');
+  const fn = candidates.find((c) => typeof c === "function");
   if (!fn) {
-    console.error("Storage uploader not found. exports in ../../NewsfeedCRUD/api/storage:", Object.keys(s));
+    console.error(
+      "Storage uploader not found. exports in ../../NewsfeedCRUD/api/storage:",
+      Object.keys(s)
+    );
     return null;
   }
   return fn;
@@ -179,12 +205,18 @@ async function uploadMediaUrisToPostsBucket(uris = []) {
   const uploader = getStorageUploader();
   for (const uri of uris || []) {
     if (!uri) continue;
-    if (typeof uri === "string" && (uri.startsWith("http://") || uri.startsWith("https://"))) {
+    if (
+      typeof uri === "string" &&
+      (uri.startsWith("http://") || uri.startsWith("https://"))
+    ) {
       uploadedUrls.push(uri);
       continue;
     }
     if (!uploader) {
-      console.error("uploadMediaUrisToPostsBucket: no uploader available, skipping upload for", uri);
+      console.error(
+        "uploadMediaUrisToPostsBucket: no uploader available, skipping upload for",
+        uri
+      );
       continue;
     }
     try {
@@ -207,14 +239,20 @@ async function uploadMediaUrisToPostsBucket(uris = []) {
       } else {
         url = String(res);
       }
-
       if (url) {
-        if (typeof url === "string" && !/^https?:\/\//i.test(url) && url.includes("/")) {
+        if (
+          typeof url === "string" &&
+          !/^https?:\/\//i.test(url) &&
+          url.includes("/")
+        ) {
           try {
-            const base = StorageAPI?.supabaseUrl || StorageAPI?.supabase?.url || null;
+            const base =
+              StorageAPI?.supabaseUrl || StorageAPI?.supabase?.url || null;
             if (base && !/^https?:\/\//i.test(url)) {
               const baseClean = String(base).replace(/\/+$/, "");
-              const manual = `${baseClean}/storage/v1/object/public/posts/${encodeURIComponent(url.replace(/^\/+/, ''))}`;
+              const manual = `${baseClean}/storage/v1/object/public/posts/${encodeURIComponent(
+                url.replace(/^\/+/, "")
+              )}`;
               uploadedUrls.push(manual);
               continue;
             }
@@ -222,7 +260,10 @@ async function uploadMediaUrisToPostsBucket(uris = []) {
         }
         uploadedUrls.push(url);
       } else {
-        console.warn("uploadMediaUrisToPostsBucket: unexpected upload result", res);
+        console.warn(
+          "uploadMediaUrisToPostsBucket: unexpected upload result",
+          res
+        );
       }
     } catch (e) {
       console.error("uploadMediaUrisToPostsBucket upload failed for", uri, e);
@@ -234,18 +275,27 @@ async function uploadMediaUrisToPostsBucket(uris = []) {
 // ============ AVATAR COMPONENT ============
 const UserAvatar = React.memo(({ username, avatarUrl, size = 40, style }) => {
   const getInitial = (name) => {
-    if (!name) return '?';
+    if (!name) return "?";
     return name.charAt(0).toUpperCase();
   };
-
   const getBackgroundColor = (name) => {
-    if (!name) return '#FF1493';
-    const colors = ['#FF1493', '#9C27B0', '#3F51B5', '#2196F3', '#00BCD4', '#009688', '#4CAF50', '#FF9800', '#FF5722', '#E91E63'];
+    if (!name) return "#FF1493";
+    const colors = [
+      "#FF1493",
+      "#9C27B0",
+      "#3F51B5",
+      "#2196F3",
+      "#00BCD4",
+      "#009688",
+      "#4CAF50",
+      "#FF9800",
+      "#FF5722",
+      "#E91E63",
+    ];
     const index = name.charCodeAt(0) % colors.length;
     return colors[index];
   };
-
-  if (avatarUrl && !avatarUrl.includes('pravatar.cc')) {
+  if (avatarUrl && !avatarUrl.includes("pravatar.cc")) {
     return (
       <Image
         source={{ uri: avatarUrl }}
@@ -254,14 +304,13 @@ const UserAvatar = React.memo(({ username, avatarUrl, size = 40, style }) => {
             width: size,
             height: size,
             borderRadius: size / 2,
-            backgroundColor: '#f0f0f0',
+            backgroundColor: "#f0f0f0",
           },
           style,
         ]}
       />
     );
   }
-
   return (
     <View
       style={[
@@ -270,17 +319,17 @@ const UserAvatar = React.memo(({ username, avatarUrl, size = 40, style }) => {
           height: size,
           borderRadius: size / 2,
           backgroundColor: getBackgroundColor(username),
-          alignItems: 'center',
-          justifyContent: 'center',
+          alignItems: "center",
+          justifyContent: "center",
         },
         style,
       ]}
     >
       <Text
         style={{
-          color: '#FFFFFF',
+          color: "#FFFFFF",
           fontSize: size * 0.5,
-          fontWeight: 'bold',
+          fontWeight: "bold",
         }}
       >
         {getInitial(username)}
@@ -289,13 +338,14 @@ const UserAvatar = React.memo(({ username, avatarUrl, size = 40, style }) => {
   );
 });
 
-// ============ STORY ITEM COMPONENT ============
 const StoryItem = React.memo(({ story, index, onPress }) => {
+  const handlePress = () => onPress(story, index);
+
   if (story.isAddStory) {
     return (
       <TouchableOpacity
         style={styles.storyItem}
-        onPress={() => onPress(story, index)}
+        onPress={handlePress}
         activeOpacity={0.7}
       >
         <View style={styles.addStoryBorder}>
@@ -314,7 +364,7 @@ const StoryItem = React.memo(({ story, index, onPress }) => {
   return (
     <TouchableOpacity
       style={styles.storyItem}
-      onPress={() => onPress(story, index)}
+      onPress={handlePress}
       activeOpacity={0.7}
     >
       <View
@@ -333,7 +383,6 @@ const StoryItem = React.memo(({ story, index, onPress }) => {
 });
 
 // ============ POST CARD COMPONENT ============
-// NOTE: added `shouldPlay` and `onViewMedia` props so parent (FlatList) can control autoplay on visibility
 const PostCard = React.memo(
   ({
     post,
@@ -344,21 +393,18 @@ const PostCard = React.memo(
     onViewComments,
     currentUsername,
     shouldPlay,
-    onViewMedia, // new
-    onViewLikes, // NEW: receive handler from parent to show likers
+    onViewMedia,
+    onViewLikes,
   }) => {
     const [imageLoading, setImageLoading] = useState(true);
     const isLiked = post.likes && post.likes.includes(currentUsername);
     const isOwnPost = post.username === currentUsername;
-
     const handleDoubleTap = useCallback(() => {
       if (!isLiked) {
         onLike(post.id);
       }
     }, [isLiked, onLike, post.id]);
-
     const lastTapRef = useRef(null);
-
     const currentMediaIndexRef = useRef(0);
     const mediaViewabilityConfig = useRef({
       itemVisiblePercentThreshold: 50,
@@ -369,7 +415,6 @@ const PostCard = React.memo(
         currentMediaIndexRef.current = viewableItems[0].index || 0;
       }
     }).current;
-
     const handleSingleOrDoubleTap = () => {
       const now = Date.now();
       if (lastTapRef.current && now - lastTapRef.current < 300) {
@@ -392,7 +437,6 @@ const PostCard = React.memo(
         }
       }, 300);
     };
-
     return (
       <View style={styles.postCard}>
         <View style={styles.postHeader}>
@@ -429,7 +473,6 @@ const PostCard = React.memo(
             </TouchableOpacity>
           )}
         </View>
-
         {post.media_urls && post.media_urls.length > 0 && (
           <TouchableOpacity activeOpacity={1} onPress={handleSingleOrDoubleTap}>
             {imageLoading && (
@@ -437,16 +480,20 @@ const PostCard = React.memo(
                 <ActivityIndicator size="small" color={COLORS.accent} />
               </View>
             )}
-            <FlatList
+            <AnimatedFlatList
               data={post.media_urls}
               horizontal
               pagingEnabled
               keyExtractor={(_, i) => `${post.id}_m_${i}`}
               renderItem={({ item }) => {
-                const itemIsVideo = post.media_type === "video" || isVideoUrl(item);
+                const itemIsVideo =
+                  post.media_type === "video" || isVideoUrl(item);
                 if (itemIsVideo) {
                   return (
-                    <TouchableOpacity activeOpacity={1} onPress={() => onViewMedia?.(item, true)}>
+                    <TouchableOpacity
+                      activeOpacity={1}
+                      onPress={() => onViewMedia?.(item, true)}
+                    >
                       <Video
                         source={{ uri: item }}
                         style={styles.postImage}
@@ -463,7 +510,10 @@ const PostCard = React.memo(
                   );
                 }
                 return (
-                  <TouchableOpacity activeOpacity={1} onPress={() => onViewMedia?.(item, false)}>
+                  <TouchableOpacity
+                    activeOpacity={1}
+                    onPress={() => onViewMedia?.(item, false)}
+                  >
                     <Image
                       source={{ uri: item }}
                       style={styles.postImage}
@@ -480,7 +530,6 @@ const PostCard = React.memo(
             />
           </TouchableOpacity>
         )}
-
         <View style={styles.postActions}>
           <View style={styles.postActionsLeft}>
             <TouchableOpacity
@@ -519,16 +568,17 @@ const PostCard = React.memo(
             />
           </TouchableOpacity>
         </View>
-
-        {/* Likes Count - now clickable to ask parent to open likers list */}
         {post.likes && post.likes.length > 0 && (
-          <TouchableOpacity onPress={() => typeof onViewLikes === "function" && onViewLikes(post)}>
+          <TouchableOpacity
+            onPress={() =>
+              typeof onViewLikes === "function" && onViewLikes(post)
+            }
+          >
             <Text style={styles.likesCount}>
               {post.likes.length} {post.likes.length === 1 ? "like" : "likes"}
             </Text>
           </TouchableOpacity>
         )}
-
         {post.content && (
           <View style={styles.postContentContainer}>
             <Text style={styles.postContent}>
@@ -537,7 +587,6 @@ const PostCard = React.memo(
             </Text>
           </View>
         )}
-
         {post.comments && post.comments.length > 0 && (
           <TouchableOpacity onPress={() => onViewComments(post)}>
             <Text style={styles.viewComments}>
@@ -545,7 +594,6 @@ const PostCard = React.memo(
             </Text>
           </TouchableOpacity>
         )}
-
         <Text style={styles.postTime}>{getTimeAgo(post.created_at)}</Text>
       </View>
     );
@@ -564,7 +612,6 @@ const CommentsModal = ({
 }) => {
   const [commentText, setCommentText] = useState("");
   const flatListRef = useRef(null);
-
   useEffect(() => {
     if (visible && post?.comments?.length > 0) {
       setTimeout(() => {
@@ -572,16 +619,13 @@ const CommentsModal = ({
       }, 100);
     }
   }, [visible, post?.comments?.length]);
-
   const handleSubmit = () => {
     if (commentText.trim()) {
       onAddComment(post.id, commentText.trim());
       setCommentText("");
     }
   };
-
   if (!post) return null;
-
   return (
     <Modal
       isVisible={visible}
@@ -601,8 +645,7 @@ const CommentsModal = ({
             />
           </TouchableOpacity>
         </View>
-
-        <FlatList
+        <AnimatedFlatList
           ref={flatListRef}
           data={post.comments || []}
           keyExtractor={(c) => c.id}
@@ -651,7 +694,6 @@ const CommentsModal = ({
             </View>
           }
         />
-
         <View style={styles.commentInputContainer}>
           <UserAvatar
             username={currentUsername}
@@ -694,30 +736,42 @@ const LikesModal = ({ visible, likes, onClose }) => {
         if (!l) return { id: `l_${idx}`, username: String(l) };
         if (typeof l === "string") return { id: `l_${l}_${idx}`, username: l };
         if (typeof l === "object") {
-          const username = l.username || l.user || l.name || l.id || JSON.stringify(l);
+          const username =
+            l.username || l.user || l.name || l.id || JSON.stringify(l);
           const avatar = l.avatar || l.avatar_url || l.photo || null;
           return { id: `l_${username}_${idx}`, username, avatar };
         }
         return { id: `l_${idx}`, username: String(l) };
       })
     : [];
-
   return (
-    <Modal isVisible={visible} onBackdropPress={onClose} style={styles.likesModal}>
+    <Modal
+      isVisible={visible}
+      onBackdropPress={onClose}
+      style={styles.likesModal}
+    >
       <View style={styles.likesContainer}>
         <View style={styles.likesHeader}>
           <Text style={styles.likesTitle}>Liked by</Text>
           <TouchableOpacity onPress={onClose}>
-            <MaterialCommunityIcons name="close" size={22} color={COLORS.text} />
+            <MaterialCommunityIcons
+              name="close"
+              size={22}
+              color={COLORS.text}
+            />
           </TouchableOpacity>
         </View>
-
-        <FlatList
+        <AnimatedFlatList
           data={items}
           keyExtractor={(it) => it.id}
           renderItem={({ item }) => (
             <View style={styles.likeRow}>
-              <UserAvatar username={item.username} avatarUrl={item.avatar} size={36} style={styles.likeAvatar} />
+              <UserAvatar
+                username={item.username}
+                avatarUrl={item.avatar}
+                size={36}
+                style={styles.likeAvatar}
+              />
               <Text style={styles.likeName}>{item.username}</Text>
             </View>
           )}
@@ -733,7 +787,6 @@ const LikesModal = ({ visible, likes, onClose }) => {
 };
 
 // ============ STORY VIEWER ============
-// ...existing code...
 const StoryViewer = ({
   visible,
   stories,
@@ -747,7 +800,6 @@ const StoryViewer = ({
 }) => {
   const [paused, setPaused] = useState(false);
   const pan = useRef(new Animated.ValueXY()).current;
-
   const panResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_, gestureState) => {
@@ -767,11 +819,8 @@ const StoryViewer = ({
       },
     })
   ).current;
-
   const currentStory = stories[activeIndex];
-
   if (!visible || !currentStory) return null;
-
   return (
     <RNModal
       visible={visible}
@@ -799,7 +848,6 @@ const StoryViewer = ({
             </View>
           ))}
         </View>
-
         <View style={styles.storyTopBar}>
           <View style={styles.storyUserInfo}>
             <Image
@@ -817,7 +865,6 @@ const StoryViewer = ({
             <MaterialCommunityIcons name="close" size={28} color="#fff" />
           </TouchableOpacity>
         </View>
-
         <TouchableOpacity
           style={styles.storyViewerContent}
           activeOpacity={1}
@@ -831,7 +878,6 @@ const StoryViewer = ({
             resizeMode="cover"
           />
         </TouchableOpacity>
-
         <View style={styles.storyBottomBar}>
           <View style={styles.storyReplyContainer}>
             <RNTextInput
@@ -868,14 +914,12 @@ const getTimeAgo = (timestamp) => {
     ts = undefined;
   }
   if (!ts || isNaN(ts)) ts = Date.now();
-
   const now = Date.now();
   const diff = now - ts;
   const seconds = Math.floor(diff / 1000);
   const minutes = Math.floor(seconds / 60);
   const hours = Math.floor(minutes / 60);
   const days = Math.floor(hours / 24);
-
   if (days > 7) return new Date(ts).toLocaleDateString();
   if (days > 0) return `${days}d ago`;
   if (hours > 0) return `${hours}h ago`;
@@ -884,7 +928,12 @@ const getTimeAgo = (timestamp) => {
 };
 
 // ============ MAIN COMPONENT ============
-const Newsfeed = () => {
+const Newsfeed = ({ scrollY: externalScrollY }) => {
+  // -----------------------------------------------------------------
+  // scrollY – shared with AnimatedTabBar
+  // -----------------------------------------------------------------
+  const scrollY = externalScrollY || useRef(new Animated.Value(0)).current;
+
   const [posts, setPosts] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -904,13 +953,10 @@ const Newsfeed = () => {
   const [currentUsername, setCurrentUsername] = useState("current_user");
   const storyTimerRef = useRef(null);
   const progressIntervalRef = useRef(null);
-
+  const [callModalVisible, setCallModalVisible] = useState(false);
   const [visiblePostIds, setVisiblePostIds] = useState([]);
-
   const [mediaViewerVisible, setMediaViewerVisible] = useState(false);
   const [mediaViewerItem, setMediaViewerItem] = useState(null);
-
-  // NEW: likes modal state
   const [likesModalVisible, setLikesModalVisible] = useState(false);
   const [likesForModal, setLikesForModal] = useState([]);
 
@@ -923,11 +969,14 @@ const Newsfeed = () => {
       const user = await supabaseAuth.getCurrentUser();
       if (user) {
         setCurrentUser(user);
-        const fullName = user.user_metadata?.full_name || user.email?.split('@')[0] || "current_user";
+        const fullName =
+          user.user_metadata?.full_name ||
+          user.email?.split("@")[0] ||
+          "current_user";
         setCurrentUsername(fullName);
       }
     } catch (error) {
-      console.error('Error loading current user:', error);
+      console.error("Error loading current user:", error);
     }
   };
 
@@ -941,7 +990,6 @@ const Newsfeed = () => {
     setMediaViewerItem(null);
   }, []);
 
-  // NEW: open/close likes modal handlers
   const openLikesModal = useCallback((post) => {
     if (!post) return;
     setLikesForModal(post.likes || []);
@@ -957,7 +1005,6 @@ const Newsfeed = () => {
     setLoading(true);
     try {
       const data = await fetchPosts();
-
       const normalized = (data || []).map((p) => {
         const rawCreated = p.created_at ?? p.createdAt ?? Date.now();
         const created_at =
@@ -968,7 +1015,6 @@ const Newsfeed = () => {
               ? rawCreated * 1000
               : rawCreated
             : Date.now();
-
         const comments = Array.isArray(p.comments)
           ? p.comments.map((c) => {
               const rawC = c.created_at ?? c.createdAt ?? Date.now();
@@ -983,7 +1029,6 @@ const Newsfeed = () => {
               return { ...c, created_at: created_at_c };
             })
           : [];
-
         return {
           id: p.id,
           username: p.username || "unknown",
@@ -1002,10 +1047,12 @@ const Newsfeed = () => {
           created_at,
         };
       });
-
       setPosts(
         normalized
-          .map((x) => ({ ...x, created_at: Number(x.created_at || Date.now()) }))
+          .map((x) => ({
+            ...x,
+            created_at: Number(x.created_at || Date.now()),
+          }))
           .sort((a, b) => b.created_at - a.created_at)
       );
     } catch (e) {
@@ -1036,13 +1083,11 @@ const Newsfeed = () => {
       if (!state.isConnected) return;
       let q = await getOpsQueue();
       if (!q || q.length === 0) return;
-
       for (const op of q.slice()) {
         try {
           if (String(op.postId || "").startsWith("local_")) {
             continue;
           }
-
           if (op.type === "delete") {
             await deletePost(op.postId);
           } else if (op.type === "update") {
@@ -1055,7 +1100,10 @@ const Newsfeed = () => {
           q = q.filter((x) => x.id !== op.id);
           await setOpsQueue(q);
         } catch (err) {
-          console.error("processOpsQueue item failed, stop and retry later", err);
+          console.error(
+            "processOpsQueue item failed, stop and retry later",
+            err
+          );
           break;
         }
       }
@@ -1091,19 +1139,17 @@ const Newsfeed = () => {
             return { ...p, likes };
           })
         );
-
         if (String(postId).startsWith("local_")) {
           await enqueueOp({
             id: `op_${Date.now()}`,
             type: "like",
             postId,
             payload: {
-              likes: (posts.find((p) => p.id === postId)?.likes || []),
+              likes: posts.find((p) => p.id === postId)?.likes || [],
             },
           });
           return;
         }
-
         const state = await NetInfo.fetch();
         const target = posts.find((p) => p.id === postId);
         if (!target) return;
@@ -1111,7 +1157,6 @@ const Newsfeed = () => {
         const likes = already
           ? (target.likes || []).filter((l) => l !== currentUsername)
           : [...(target.likes || []), currentUsername];
-
         if (!state.isConnected) {
           await enqueueOp({
             id: `op_${Date.now()}`,
@@ -1121,7 +1166,6 @@ const Newsfeed = () => {
           });
           return;
         }
-
         await updatePost(postId, { likes });
       } catch (e) {
         console.error("Like failed:", e);
@@ -1133,7 +1177,6 @@ const Newsfeed = () => {
   const addCommentToPost = useCallback(
     async (postId, text) => {
       if (!text.trim()) return;
-
       const comment = {
         id: `c_${Date.now()}_${Math.random()}`,
         user: currentUsername,
@@ -1141,30 +1184,32 @@ const Newsfeed = () => {
         text: text.trim(),
         created_at: Date.now(),
       };
-
       setPosts((prev) =>
         prev.map((p) =>
-          p.id === postId ? { ...p, comments: [...(p.comments || []), comment] } : p
+          p.id === postId
+            ? { ...p, comments: [...(p.comments || []), comment] }
+            : p
         )
       );
-
       setSelectedPost((prev) =>
         prev && prev.id === postId
           ? { ...prev, comments: [...(prev.comments || []), comment] }
           : prev
       );
-
       try {
         if (String(postId).startsWith("local_")) {
           await enqueueOp({
             id: `op_${Date.now()}`,
             type: "comment",
             postId,
-            payload: { comments: (posts.find((p) => p.id === postId)?.comments || []).concat(comment) },
+            payload: {
+              comments: (
+                posts.find((p) => p.id === postId)?.comments || []
+              ).concat(comment),
+            },
           });
           return;
         }
-
         const state = await NetInfo.fetch();
         if (!state.isConnected) {
           const target = posts.find((p) => p.id === postId) || {};
@@ -1176,7 +1221,6 @@ const Newsfeed = () => {
           });
           return;
         }
-
         const target = posts.find((p) => p.id === postId);
         if (target) {
           await updatePost(postId, {
@@ -1206,21 +1250,23 @@ const Newsfeed = () => {
                   p.id === postId
                     ? {
                         ...p,
-                        comments: (p.comments || []).filter((c) => c.id !== commentId),
+                        comments: (p.comments || []).filter(
+                          (c) => c.id !== commentId
+                        ),
                       }
                     : p
                 )
               );
-
               setSelectedPost((prev) =>
                 prev && prev.id === postId
                   ? {
                       ...prev,
-                      comments: (prev.comments || []).filter((c) => c.id !== commentId),
+                      comments: (prev.comments || []).filter(
+                        (c) => c.id !== commentId
+                      ),
                     }
                   : prev
               );
-
               try {
                 if (String(postId).startsWith("local_")) {
                   const target = posts.find((p) => p.id === postId) || {};
@@ -1228,11 +1274,14 @@ const Newsfeed = () => {
                     id: `op_${Date.now()}`,
                     type: "comment",
                     postId,
-                    payload: { comments: (target.comments || []).filter((c) => c.id !== commentId) },
+                    payload: {
+                      comments: (target.comments || []).filter(
+                        (c) => c.id !== commentId
+                      ),
+                    },
                   });
                   return;
                 }
-
                 const state = await NetInfo.fetch();
                 if (!state.isConnected) {
                   const target = posts.find((p) => p.id === postId) || {};
@@ -1240,11 +1289,14 @@ const Newsfeed = () => {
                     id: `op_${Date.now()}`,
                     type: "comment",
                     postId,
-                    payload: { comments: (target.comments || []).filter((c) => c.id !== commentId) },
+                    payload: {
+                      comments: (target.comments || []).filter(
+                        (c) => c.id !== commentId
+                      ),
+                    },
                   });
                   return;
                 }
-
                 const target = posts.find((p) => p.id === postId);
                 if (target) {
                   await updatePost(postId, {
@@ -1277,7 +1329,9 @@ const Newsfeed = () => {
       setEditingPostId(postId);
       setPostContent(post.content || "");
       setPostType(
-        post.media_urls && post.media_urls.length ? post.media_type || "image" : "text"
+        post.media_urls && post.media_urls.length
+          ? post.media_type || "image"
+          : "text"
       );
       setMediaUris(post.media_urls || []);
       setModalVisible(true);
@@ -1301,20 +1355,23 @@ const Newsfeed = () => {
     setMediaUris((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
-  // Submit post (unchanged) ...
   const handleSubmitPost = useCallback(async () => {
     if (!postContent.trim() && mediaUris.length === 0) {
       Alert.alert("Validation", "Please enter text or select media.");
       return;
     }
-
     try {
       if (editingPostId) {
         if (String(editingPostId).startsWith("local_")) {
           setPosts((prev) =>
             prev.map((p) =>
               p.id === editingPostId
-                ? { ...p, content: postContent, media_urls: mediaUris, media_type: mediaUris.length ? postType : "none" }
+                ? {
+                    ...p,
+                    content: postContent,
+                    media_urls: mediaUris,
+                    media_type: mediaUris.length ? postType : "none",
+                  }
                 : p
             )
           );
@@ -1334,7 +1391,12 @@ const Newsfeed = () => {
             setPosts((prev) =>
               prev.map((p) =>
                 p.id === editingPostId
-                  ? { ...p, content: postContent, media_urls: mediaUris, media_type: mediaUris.length ? postType : "none" }
+                  ? {
+                      ...p,
+                      content: postContent,
+                      media_urls: mediaUris,
+                      media_type: mediaUris.length ? postType : "none",
+                    }
                   : p
               )
             );
@@ -1345,7 +1407,6 @@ const Newsfeed = () => {
             } catch (uploadErr) {
               console.error("Failed to upload media while editing:", uploadErr);
             }
-
             await updatePost(editingPostId, {
               content: postContent,
               media_type: finalMediaUrls.length ? postType : "none",
@@ -1370,7 +1431,6 @@ const Newsfeed = () => {
             created_at: createdAtIso,
             bucket: "posts",
           });
-
           setPosts((prev) => [
             {
               id: localId,
@@ -1386,20 +1446,20 @@ const Newsfeed = () => {
             },
             ...prev,
           ]);
-
-          Alert.alert("Saved offline", "Your post will be uploaded when network is available.");
+          Alert.alert(
+            "Saved offline",
+            "Your post will be uploaded when network is available."
+          );
           setModalVisible(false);
           setPostContent("");
           setMediaUris([]);
           setEditingPostId(null);
           return;
         }
-
         let uploadedUrls = [];
         if (mediaUris.length > 0) {
           uploadedUrls = await uploadMediaUrisToPostsBucket(mediaUris);
         }
-
         await createPost({
           username: currentUsername,
           avatar: currentUser?.user_metadata?.avatar_url || null,
@@ -1411,7 +1471,6 @@ const Newsfeed = () => {
           created_at: new Date().toISOString(),
         });
       }
-
       setModalVisible(false);
       setPostContent("");
       setMediaUris([]);
@@ -1419,11 +1478,10 @@ const Newsfeed = () => {
       await loadPosts();
     } catch (e) {
       console.error("Post submission failed:", e);
-
-      const msg = (e && e.message) ? String(e.message) : "";
+      const msg = e && e.message ? String(e.message) : "";
       const isNetworkErr =
-        msg.toLowerCase().includes("network") || msg === "Network request failed";
-
+        msg.toLowerCase().includes("network") ||
+        msg === "Network request failed";
       if (isNetworkErr) {
         try {
           const localId = `local_${Date.now()}`;
@@ -1439,7 +1497,6 @@ const Newsfeed = () => {
             created_at: new Date().toISOString(),
             bucket: "posts",
           });
-
           setPosts((prev) => [
             {
               id: localId,
@@ -1455,8 +1512,10 @@ const Newsfeed = () => {
             },
             ...prev,
           ]);
-
-          Alert.alert("Saved offline", "Your post will be uploaded when network is available.");
+          Alert.alert(
+            "Saved offline",
+            "Your post will be uploaded when network is available."
+          );
           setModalVisible(false);
           setPostContent("");
           setMediaUris([]);
@@ -1466,10 +1525,17 @@ const Newsfeed = () => {
           console.error("Failed to enqueue post:", qErr);
         }
       }
-
       Alert.alert("Error", "Failed to submit post");
     }
-  }, [postContent, mediaUris, editingPostId, postType, loadPosts, currentUsername, currentUser]);
+  }, [
+    postContent,
+    mediaUris,
+    editingPostId,
+    postType,
+    loadPosts,
+    currentUsername,
+    currentUser,
+  ]);
 
   const handleDeletePost = useCallback(async (postId) => {
     Alert.alert("Delete Post", "Are you sure you want to delete this post?", [
@@ -1484,7 +1550,6 @@ const Newsfeed = () => {
               await removeQueuedCreateByLocalId(postId);
               return;
             }
-
             const state = await NetInfo.fetch();
             if (!state.isConnected) {
               setPosts((prev) => prev.filter((p) => p.id !== postId));
@@ -1493,10 +1558,12 @@ const Newsfeed = () => {
                 type: "delete",
                 postId,
               });
-              Alert.alert("Will delete when online", "The post will be deleted on the server when network is available.");
+              Alert.alert(
+                "Will delete when online",
+                "The post will be deleted on the server when network is available."
+              );
               return;
             }
-
             await deletePost(postId);
             setPosts((prev) => prev.filter((p) => p.id !== postId));
           } catch (e) {
@@ -1529,7 +1596,6 @@ const Newsfeed = () => {
     setActiveStoryImageIndex(0);
     setStoryProgress(0);
     setStoryViewerVisible(true);
-
     setStories((prev) =>
       prev.map((s, i) => (i === index ? { ...s, viewed: true } : s))
     );
@@ -1544,15 +1610,12 @@ const Newsfeed = () => {
   const advanceStory = useCallback(() => {
     const story = stories[activeStoryIndex];
     if (!story) return;
-
     const atLastImage = activeStoryImageIndex >= story.images.length - 1;
-
     if (!atLastImage) {
       setActiveStoryImageIndex((s) => s + 1);
       setStoryProgress(0);
       return;
     }
-
     const atLastStory = activeStoryIndex >= stories.length - 1;
     if (!atLastStory) {
       setActiveStoryIndex((s) => s + 1);
@@ -1560,7 +1623,6 @@ const Newsfeed = () => {
       setStoryProgress(0);
       return;
     }
-
     closeStoryViewer();
   }, [stories, activeStoryIndex, activeStoryImageIndex, closeStoryViewer]);
 
@@ -1603,9 +1665,7 @@ const Newsfeed = () => {
         clearInterval(progressIntervalRef.current);
       return;
     }
-
     setStoryProgress(0);
-
     let currentProgress = 0;
     progressIntervalRef.current = setInterval(() => {
       currentProgress += (STORY_PROGRESS_INTERVAL / STORY_DURATION) * 100;
@@ -1615,11 +1675,9 @@ const Newsfeed = () => {
       }
       setStoryProgress(currentProgress);
     }, STORY_PROGRESS_INTERVAL);
-
     storyTimerRef.current = setTimeout(() => {
       advanceStory();
     }, STORY_DURATION);
-
     return () => {
       if (storyTimerRef.current) clearTimeout(storyTimerRef.current);
       if (progressIntervalRef.current)
@@ -1636,7 +1694,6 @@ const Newsfeed = () => {
     itemVisiblePercentThreshold: 60,
     minimumViewTime: 200,
   }).current;
-
   const onViewableItemsChanged = useRef(({ viewableItems }) => {
     try {
       const ids = (viewableItems || []).map((v) => v.item?.id).filter(Boolean);
@@ -1655,7 +1712,9 @@ const Newsfeed = () => {
 
   const renderPostItem = useCallback(
     ({ item }) => {
-      const shouldPlay = visiblePostIds.includes(item.id) && (item.media_urls || []).some(isVideoUrl);
+      const shouldPlay =
+        visiblePostIds.includes(item.id) &&
+        (item.media_urls || []).some(isVideoUrl);
       return (
         <PostCard
           post={item}
@@ -1666,8 +1725,8 @@ const Newsfeed = () => {
           onViewComments={handleViewComments}
           currentUsername={currentUsername}
           shouldPlay={shouldPlay}
-          onViewMedia={openMediaViewer} // pass viewer handler
-          onViewLikes={openLikesModal} // PASS handler so PostCard can open likes modal
+          onViewMedia={openMediaViewer}
+          onViewLikes={openLikesModal}
         />
       );
     },
@@ -1689,7 +1748,7 @@ const Newsfeed = () => {
   const ListHeaderComponent = useMemo(
     () => (
       <View style={styles.storiesContainer}>
-        <FlatList
+        <AnimatedFlatList
           data={stories}
           renderItem={renderStoryItem}
           keyExtractor={(s) => s.id}
@@ -1708,8 +1767,23 @@ const Newsfeed = () => {
         barStyle="dark-content"
         backgroundColor={COLORS.cardBackground}
       />
-
-      <View style={styles.header}></View>
+      {/* header with centered app name and call icon */}
+      <View style={styles.header}>
+        <View style={styles.headerLeft} />
+        <View style={styles.headerTitleContainer}>
+          <Text style={styles.headerTitlePrimary}>Aya</Text>
+          <Text style={styles.headerTitleSecondary}>Social</Text>
+        </View>
+        <View style={styles.headerRight}>
+          <TouchableOpacity
+            onPress={() => setCallModalVisible(true)}
+            style={styles.iconCircle}
+            accessibilityLabel="Voice call"
+          >
+            <MaterialCommunityIcons name="phone" size={18} color="#fff" />
+          </TouchableOpacity>
+        </View>
+      </View>
 
       {loading ? (
         <View style={styles.centerFill}>
@@ -1726,7 +1800,7 @@ const Newsfeed = () => {
           <Text style={styles.noPostsSubtext}>Start sharing your moments!</Text>
         </View>
       ) : (
-        <FlatList
+        <AnimatedFlatList
           data={posts}
           keyExtractor={keyExtractor}
           renderItem={renderPostItem}
@@ -1747,6 +1821,14 @@ const Newsfeed = () => {
           removeClippedSubviews={Platform.OS === "android"}
           onViewableItemsChanged={onViewableItemsChanged}
           viewabilityConfig={viewabilityConfig}
+          // -------------------------------------------------
+          // SCROLL → TAB BAR HIDE / SHOW
+          // -------------------------------------------------
+          scrollEventThrottle={16}
+          onScroll={Animated.event(
+            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+            { useNativeDriver: false }
+          )}
         />
       )}
 
@@ -1757,6 +1839,36 @@ const Newsfeed = () => {
         onPress={handleAddPost}
         small
       />
+
+      {/* Call modal */}
+      <Modal
+        isVisible={callModalVisible}
+        onBackdropPress={() => setCallModalVisible(false)}
+        style={styles.callModal}
+        animationIn="slideInUp"
+        animationOut="slideOutDown"
+      >
+        <View style={styles.callModalContent}>
+          {VoiceCallComponent ? (
+            <VoiceCallComponent />
+          ) : (
+            <View
+              style={{
+                flex: 1,
+                justifyContent: "center",
+                alignItems: "center",
+                padding: 16,
+              }}
+            >
+              <Text style={{ textAlign: "center", color: COLORS.text }}>
+                Call feature unavailable in Expo Go. To enable it, install
+                react-native-agora and run a custom dev client (EAS) or eject to
+                the bare workflow and rebuild the app.
+              </Text>
+            </View>
+          )}
+        </View>
+      </Modal>
 
       <Modal
         isVisible={modalVisible}
@@ -1787,7 +1899,6 @@ const Newsfeed = () => {
                 </Text>
               </TouchableOpacity>
             </View>
-
             <View style={styles.modalBody}>
               <View style={styles.modalUserInfo}>
                 <UserAvatar
@@ -1798,7 +1909,6 @@ const Newsfeed = () => {
                 />
                 <Text style={styles.modalUsername}>{currentUsername}</Text>
               </View>
-
               <RNTextInput
                 placeholder="What's on your mind?"
                 value={postContent}
@@ -1808,9 +1918,8 @@ const Newsfeed = () => {
                 maxLength={2200}
                 autoFocus
               />
-
               {mediaUris.length > 0 && (
-                <FlatList
+                <AnimatedFlatList
                   data={mediaUris}
                   horizontal
                   keyExtractor={(_, i) => String(i)}
@@ -1846,7 +1955,6 @@ const Newsfeed = () => {
                   )}
                 />
               )}
-
               <View style={styles.modalActions}>
                 <TouchableOpacity
                   style={styles.modalActionBtn}
@@ -1887,19 +1995,33 @@ const Newsfeed = () => {
         currentUser={currentUser}
       />
 
-      {/* NEW: Likes modal rendered here */}
-      <LikesModal visible={likesModalVisible} likes={likesForModal} onClose={closeLikesModal} />
+      <LikesModal
+        visible={likesModalVisible}
+        likes={likesForModal}
+        onClose={closeLikesModal}
+      />
 
-      <RNModal visible={mediaViewerVisible} transparent animationType="fade" onRequestClose={closeMediaViewer}>
+      <RNModal
+        visible={mediaViewerVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeMediaViewer}
+      >
         <View style={{ flex: 1, backgroundColor: "#000" }}>
-          <TouchableOpacity onPress={closeMediaViewer} style={{ position: "absolute", top: 40, right: 16, zIndex: 20 }}>
-            <MaterialCommunityIcons name="close-circle" size={36} color="#fff" />
+          <TouchableOpacity
+            onPress={closeMediaViewer}
+            style={{ position: "absolute", top: 40, right: 16, zIndex: 20 }}
+          >
+            <MaterialCommunityIcons
+              name="close-circle"
+              size={36}
+              color="#fff"
+            />
           </TouchableOpacity>
-
           {mediaViewerItem?.isVideo ? (
             <Video
               source={{ uri: mediaViewerItem.uri }}
-              style={{ width: width, height: height, backgroundColor: "#000" }}
+              style={{ width, height, backgroundColor: "#000" }}
               useNativeControls
               resizeMode="contain"
               shouldPlay
@@ -1953,11 +2075,77 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: 12,
+    // ensure header icon is not cut under status bar / notch on Android
+    paddingTop:
+      Platform.OS === "android" ? (StatusBar.currentHeight || 0) + 8 : 12,
+    paddingBottom: 10,
     backgroundColor: COLORS.cardBackground,
+    // ensure header tall enough so content won't be cut
+    minHeight:
+      Platform.OS === "android" ? (StatusBar.currentHeight || 24) + 56 : 64,
+    borderBottomWidth: 0.5,
+    borderBottomColor: COLORS.border,
+  },
+  headerLeft: {
+    // placeholder to balance the right icon so title stays centered
+    width: 44,
+    height: 44,
+  },
+  /* header title container - updated styling for nicer app name */
+  headerTitleContainer: {
+    flex: 1,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  headerTitlePrimary: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: COLORS.accent,
+    letterSpacing: 0.6,
+    textShadowColor: "rgba(0,0,0,0.08)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  headerTitleSecondary: {
+    marginLeft: 8,
+    fontSize: 13,
+    fontWeight: "700",
+    color: COLORS.text,
+    textTransform: "capitalize",
+    backgroundColor: COLORS.cardBackground,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: COLORS.accent,
+    overflow: "hidden",
+    elevation: 1,
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 2,
+  },
+  headerRight: {
+    width: 44,
+    height: 44,
+    justifyContent: "center",
+    alignItems: "flex-end",
+  },
+  iconCircle: {
+    backgroundColor: COLORS.accent,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
   },
 
   storiesContainer: {
@@ -2198,8 +2386,8 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: "absolute",
-    right: 16,
-    bottom: 80,
+    right: 20,
+    bottom: Platform.OS === "ios" ? 120 : 100,
     backgroundColor: COLORS.accent,
   },
   commentsModal: {
@@ -2448,7 +2636,20 @@ const styles = StyleSheet.create({
   emptyLikesText: {
     color: COLORS.textSecondary,
   },
+
+  /* Call modal styles */
+  callModal: {
+    margin: 0,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  callModalContent: {
+    width: "92%",
+    height: "78%",
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    overflow: "hidden",
+  },
 });
 
 export default Newsfeed;
-// ...existing code...

@@ -1,5 +1,12 @@
 import React from "react";
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert } from "react-native";
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+} from "react-native";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import { Ionicons } from "@expo/vector-icons";
@@ -72,59 +79,63 @@ export default function PrivacyScreen() {
           <Ionicons name="arrow-back" size={24} color="#FF1493" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Privacy Policy</Text>
-        <View style={{ width: 24 }} /> 
+        <View style={{ width: 24 }} />
       </View>
 
       <ScrollView style={styles.container}>
         <Text style={styles.title}>AyaAi Privacy Policy</Text>
         <Text style={styles.paragraph}>
-          At AyaAi, we value your privacy and are committed to protecting your personal information. 
-          Below you can review our full Privacy Policy. You may also download a PDF copy for your records.
+          At AyaAi, we value your privacy and are committed to protecting your
+          personal information. Below you can review our full Privacy Policy.
+          You may also download a PDF copy for your records.
         </Text>
 
         <Text style={styles.sectionTitle}>Information We Collect:</Text>
         <Text style={styles.paragraph}>
-          - Contact Information: Name, email address, and other contact details.{"\n"}
-          - Device Information: IP address, browser/device information.{"\n"}
-          - Usage Data: Data related to your interactions with our services.
+          - Contact Information: Name, email address, and other contact details.
+          {"\n"}- Device Information: IP address, browser/device information.
+          {"\n"}- Usage Data: Data related to your interactions with our
+          services.
         </Text>
 
         <Text style={styles.sectionTitle}>How We Use Your Data:</Text>
         <Text style={styles.paragraph}>
-          - Responding to your inquiries.{"\n"}
-          - Providing and maintaining our website and services.{"\n"}
-          - Improving site performance and user experience.{"\n"}
-          - Complying with legal and regulatory obligations.
+          - Responding to your inquiries.{"\n"}- Providing and maintaining our
+          website and services.{"\n"}- Improving site performance and user
+          experience.{"\n"}- Complying with legal and regulatory obligations.
         </Text>
 
         <Text style={styles.sectionTitle}>Data Sharing:</Text>
         <Text style={styles.paragraph}>
-          We do not sell or lease your personal data to third parties. We may share your data with 
-          trusted service providers who assist us in operating our website and services, subject to 
-          data protection agreements.
+          We do not sell or lease your personal data to third parties. We may
+          share your data with trusted service providers who assist us in
+          operating our website and services, subject to data protection
+          agreements.
         </Text>
 
         <Text style={styles.sectionTitle}>Data Retention:</Text>
         <Text style={styles.paragraph}>
-          We retain personal data only for as long as necessary to fulfill the purposes for which 
-          it was collected, including to comply with legal obligations.
+          We retain personal data only for as long as necessary to fulfill the
+          purposes for which it was collected, including to comply with legal
+          obligations.
         </Text>
 
         <Text style={styles.sectionTitle}>Your Rights:</Text>
         <Text style={styles.paragraph}>
-          You have the right to access, correct, or delete your data, withdraw consent, and object 
-          to processing under applicable laws.
+          You have the right to access, correct, or delete your data, withdraw
+          consent, and object to processing under applicable laws.
         </Text>
 
         <Text style={styles.sectionTitle}>Data Security:</Text>
         <Text style={styles.paragraph}>
-          We implement technical and organizational measures to protect your data from unauthorized 
-          access, alteration, disclosure, or destruction.
+          We implement technical and organizational measures to protect your
+          data from unauthorized access, alteration, disclosure, or destruction.
         </Text>
 
         <Text style={styles.sectionTitle}>Changes to This Policy:</Text>
         <Text style={styles.paragraph}>
-          We may update this Privacy Policy from time to time. All updates will be posted on this page.
+          We may update this Privacy Policy from time to time. All updates will
+          be posted on this page.
         </Text>
 
         <Text style={styles.sectionTitle}>Contact Us:</Text>
@@ -159,31 +170,31 @@ const styles = StyleSheet.create({
     color: "#FF1493",
   },
 
-  container: { 
-    flex: 1, 
-    padding: 20, 
-    backgroundColor: "#fff"
- },
-  title: { 
-    fontSize: 22, 
-    fontWeight: "bold", 
-    marginBottom: 15, 
-    color: "#FF1493" 
-},
-  sectionTitle: { 
-    fontSize: 18, 
-    fontWeight: "bold", 
-    marginTop: 15, 
-    color: "black"
-},
-  paragraph: { 
-    fontSize: 16, 
-    marginBottom: 10, 
-    lineHeight: 22, 
-    color: "#333" 
-},
+  container: {
+    flex: 1,
+    padding: 20,
+    backgroundColor: "#fff",
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: "bold",
+    marginBottom: 15,
+    color: "#FF1493",
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginTop: 15,
+    color: "black",
+  },
+  paragraph: {
+    fontSize: 16,
+    marginBottom: 10,
+    lineHeight: 22,
+    color: "#333",
+  },
   button: {
-    backgroundColor: "#FF1493", 
+    backgroundColor: "#FF1493",
     padding: 14,
     borderRadius: 8,
     alignItems: "center",
