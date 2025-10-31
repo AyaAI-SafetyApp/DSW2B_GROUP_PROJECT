@@ -1,4 +1,3 @@
-// ...existing code...
 import React, {
   useState,
   useCallback,
@@ -8,7 +7,7 @@ import React, {
 } from "react";
 import {
   SafeAreaView,
-  FlatList,
+  FlatList as RNFlatList, // <-- NEW
   View,
   Text,
   StyleSheet,
@@ -30,11 +29,9 @@ import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityI
 import Modal from "react-native-modal";
 import { Button, FAB } from "react-native-paper";
 import { Video } from "expo-av";
-
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from "@react-native-community/netinfo";
 import { supabaseAuth } from "../../lib/supabaseClient";
-
 import {
   fetchPosts,
   createPost,
@@ -42,25 +39,17 @@ import {
   deletePost,
 } from "../../NewsfeedCRUD/api/posts";
 import { pickMedia } from "../../NewsfeedCRUD/api/media";
-
 import {
   enqueuePost,
   startAutoSync,
 } from "../../NewsfeedCRUD/api/offlineQueue";
-// changed: import entire storage module namespace and resolve uploader at runtime
 import * as StorageAPI from "../../NewsfeedCRUD/api/storage";
 
-// NOTE: removed static import of CallFeature that triggers native-module require in Expo Go
-// Use runtime-safe require below so Expo Go doesn't crash if react-native-agora is not linked.
 let VoiceCallComponent = null;
 try {
-  // eslint-disable-next-line global-require
   VoiceCallComponent = require("./CallFeature").default;
 } catch (err) {
   VoiceCallComponent = null;
-  // keep a warning for debugging in development
-  // (this avoids the red screen in Expo Go when native module is missing)
-  // eslint-disable-next-line no-console
   console.warn(
     "CallFeature not loaded (react-native-agora missing or native module not available).",
     err && err.message ? err.message : err
@@ -68,6 +57,11 @@ try {
 }
 
 const { width, height } = Dimensions.get("window");
+
+// ---------------------------------------------------------------
+// ANIMATED FLATLIST (needed for scrollY)
+// ---------------------------------------------------------------
+const AnimatedFlatList = Animated.createAnimatedComponent(RNFlatList);
 
 const COLORS = {
   background: "#FAFAFA",
@@ -82,9 +76,8 @@ const COLORS = {
 
 const STORY_DURATION = 5000;
 const STORY_PROGRESS_INTERVAL = 50;
-
-const OFFLINE_POST_QUEUE_KEY = "OFFLINE_POST_QUEUE"; // used by offlineQueue.js
-const OFFLINE_CRUD_QUEUE_KEY = "OFFLINE_CRUD_QUEUE"; // local ops (delete/like/comment/update)
+const OFFLINE_POST_QUEUE_KEY = "OFFLINE_POST_QUEUE";
+const OFFLINE_CRUD_QUEUE_KEY = "OFFLINE_CRUD_QUEUE";
 
 const DUMMY_STORIES = [
   {
@@ -95,7 +88,6 @@ const DUMMY_STORIES = [
     isAddStory: true,
     likedByMe: false,
   },
-
   {
     id: "s2",
     username: "katlego_m",
@@ -140,7 +132,7 @@ const isVideoUrl = (uri) => {
   }
 };
 
-// ============ small helpers for offline CRUD queue ============
+// ============ OFFLINE QUEUE HELPERS ============
 async function getOpsQueue() {
   try {
     const raw = await AsyncStorage.getItem(OFFLINE_CRUD_QUEUE_KEY);
@@ -247,7 +239,6 @@ async function uploadMediaUrisToPostsBucket(uris = []) {
       } else {
         url = String(res);
       }
-
       if (url) {
         if (
           typeof url === "string" &&
@@ -287,7 +278,6 @@ const UserAvatar = React.memo(({ username, avatarUrl, size = 40, style }) => {
     if (!name) return "?";
     return name.charAt(0).toUpperCase();
   };
-
   const getBackgroundColor = (name) => {
     if (!name) return "#FF1493";
     const colors = [
@@ -305,7 +295,6 @@ const UserAvatar = React.memo(({ username, avatarUrl, size = 40, style }) => {
     const index = name.charCodeAt(0) % colors.length;
     return colors[index];
   };
-
   if (avatarUrl && !avatarUrl.includes("pravatar.cc")) {
     return (
       <Image
@@ -322,7 +311,6 @@ const UserAvatar = React.memo(({ username, avatarUrl, size = 40, style }) => {
       />
     );
   }
-
   return (
     <View
       style={[
@@ -350,13 +338,14 @@ const UserAvatar = React.memo(({ username, avatarUrl, size = 40, style }) => {
   );
 });
 
-// ============ STORY ITEM COMPONENT ============
 const StoryItem = React.memo(({ story, index, onPress }) => {
+  const handlePress = () => onPress(story, index);
+
   if (story.isAddStory) {
     return (
       <TouchableOpacity
         style={styles.storyItem}
-        onPress={() => onPress(story, index)}
+        onPress={handlePress}
         activeOpacity={0.7}
       >
         <View style={styles.addStoryBorder}>
@@ -375,7 +364,7 @@ const StoryItem = React.memo(({ story, index, onPress }) => {
   return (
     <TouchableOpacity
       style={styles.storyItem}
-      onPress={() => onPress(story, index)}
+      onPress={handlePress}
       activeOpacity={0.7}
     >
       <View
@@ -410,15 +399,12 @@ const PostCard = React.memo(
     const [imageLoading, setImageLoading] = useState(true);
     const isLiked = post.likes && post.likes.includes(currentUsername);
     const isOwnPost = post.username === currentUsername;
-
     const handleDoubleTap = useCallback(() => {
       if (!isLiked) {
         onLike(post.id);
       }
     }, [isLiked, onLike, post.id]);
-
     const lastTapRef = useRef(null);
-
     const currentMediaIndexRef = useRef(0);
     const mediaViewabilityConfig = useRef({
       itemVisiblePercentThreshold: 50,
@@ -429,7 +415,6 @@ const PostCard = React.memo(
         currentMediaIndexRef.current = viewableItems[0].index || 0;
       }
     }).current;
-
     const handleSingleOrDoubleTap = () => {
       const now = Date.now();
       if (lastTapRef.current && now - lastTapRef.current < 300) {
@@ -452,7 +437,6 @@ const PostCard = React.memo(
         }
       }, 300);
     };
-
     return (
       <View style={styles.postCard}>
         <View style={styles.postHeader}>
@@ -489,7 +473,6 @@ const PostCard = React.memo(
             </TouchableOpacity>
           )}
         </View>
-
         {post.media_urls && post.media_urls.length > 0 && (
           <TouchableOpacity activeOpacity={1} onPress={handleSingleOrDoubleTap}>
             {imageLoading && (
@@ -497,7 +480,7 @@ const PostCard = React.memo(
                 <ActivityIndicator size="small" color={COLORS.accent} />
               </View>
             )}
-            <FlatList
+            <AnimatedFlatList
               data={post.media_urls}
               horizontal
               pagingEnabled
@@ -547,7 +530,6 @@ const PostCard = React.memo(
             />
           </TouchableOpacity>
         )}
-
         <View style={styles.postActions}>
           <View style={styles.postActionsLeft}>
             <TouchableOpacity
@@ -586,8 +568,6 @@ const PostCard = React.memo(
             />
           </TouchableOpacity>
         </View>
-
-        {/* Likes Count - now clickable to ask parent to open likers list */}
         {post.likes && post.likes.length > 0 && (
           <TouchableOpacity
             onPress={() =>
@@ -599,7 +579,6 @@ const PostCard = React.memo(
             </Text>
           </TouchableOpacity>
         )}
-
         {post.content && (
           <View style={styles.postContentContainer}>
             <Text style={styles.postContent}>
@@ -608,7 +587,6 @@ const PostCard = React.memo(
             </Text>
           </View>
         )}
-
         {post.comments && post.comments.length > 0 && (
           <TouchableOpacity onPress={() => onViewComments(post)}>
             <Text style={styles.viewComments}>
@@ -616,7 +594,6 @@ const PostCard = React.memo(
             </Text>
           </TouchableOpacity>
         )}
-
         <Text style={styles.postTime}>{getTimeAgo(post.created_at)}</Text>
       </View>
     );
@@ -635,7 +612,6 @@ const CommentsModal = ({
 }) => {
   const [commentText, setCommentText] = useState("");
   const flatListRef = useRef(null);
-
   useEffect(() => {
     if (visible && post?.comments?.length > 0) {
       setTimeout(() => {
@@ -643,16 +619,13 @@ const CommentsModal = ({
       }, 100);
     }
   }, [visible, post?.comments?.length]);
-
   const handleSubmit = () => {
     if (commentText.trim()) {
       onAddComment(post.id, commentText.trim());
       setCommentText("");
     }
   };
-
   if (!post) return null;
-
   return (
     <Modal
       isVisible={visible}
@@ -672,8 +645,7 @@ const CommentsModal = ({
             />
           </TouchableOpacity>
         </View>
-
-        <FlatList
+        <AnimatedFlatList
           ref={flatListRef}
           data={post.comments || []}
           keyExtractor={(c) => c.id}
@@ -722,7 +694,6 @@ const CommentsModal = ({
             </View>
           }
         />
-
         <View style={styles.commentInputContainer}>
           <UserAvatar
             username={currentUsername}
@@ -773,7 +744,6 @@ const LikesModal = ({ visible, likes, onClose }) => {
         return { id: `l_${idx}`, username: String(l) };
       })
     : [];
-
   return (
     <Modal
       isVisible={visible}
@@ -791,8 +761,7 @@ const LikesModal = ({ visible, likes, onClose }) => {
             />
           </TouchableOpacity>
         </View>
-
-        <FlatList
+        <AnimatedFlatList
           data={items}
           keyExtractor={(it) => it.id}
           renderItem={({ item }) => (
@@ -831,7 +800,6 @@ const StoryViewer = ({
 }) => {
   const [paused, setPaused] = useState(false);
   const pan = useRef(new Animated.ValueXY()).current;
-
   const panResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_, gestureState) => {
@@ -851,11 +819,8 @@ const StoryViewer = ({
       },
     })
   ).current;
-
   const currentStory = stories[activeIndex];
-
   if (!visible || !currentStory) return null;
-
   return (
     <RNModal
       visible={visible}
@@ -883,7 +848,6 @@ const StoryViewer = ({
             </View>
           ))}
         </View>
-
         <View style={styles.storyTopBar}>
           <View style={styles.storyUserInfo}>
             <Image
@@ -901,7 +865,6 @@ const StoryViewer = ({
             <MaterialCommunityIcons name="close" size={28} color="#fff" />
           </TouchableOpacity>
         </View>
-
         <TouchableOpacity
           style={styles.storyViewerContent}
           activeOpacity={1}
@@ -915,7 +878,6 @@ const StoryViewer = ({
             resizeMode="cover"
           />
         </TouchableOpacity>
-
         <View style={styles.storyBottomBar}>
           <View style={styles.storyReplyContainer}>
             <RNTextInput
@@ -952,14 +914,12 @@ const getTimeAgo = (timestamp) => {
     ts = undefined;
   }
   if (!ts || isNaN(ts)) ts = Date.now();
-
   const now = Date.now();
   const diff = now - ts;
   const seconds = Math.floor(diff / 1000);
   const minutes = Math.floor(seconds / 60);
   const hours = Math.floor(minutes / 60);
   const days = Math.floor(hours / 24);
-
   if (days > 7) return new Date(ts).toLocaleDateString();
   if (days > 0) return `${days}d ago`;
   if (hours > 0) return `${hours}h ago`;
@@ -968,7 +928,12 @@ const getTimeAgo = (timestamp) => {
 };
 
 // ============ MAIN COMPONENT ============
-const Newsfeed = () => {
+const Newsfeed = ({ scrollY: externalScrollY }) => {
+  // -----------------------------------------------------------------
+  // scrollY – shared with AnimatedTabBar
+  // -----------------------------------------------------------------
+  const scrollY = externalScrollY || useRef(new Animated.Value(0)).current;
+
   const [posts, setPosts] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -988,16 +953,10 @@ const Newsfeed = () => {
   const [currentUsername, setCurrentUsername] = useState("current_user");
   const storyTimerRef = useRef(null);
   const progressIntervalRef = useRef(null);
-
-  // NEW: call modal visibility
   const [callModalVisible, setCallModalVisible] = useState(false);
-
   const [visiblePostIds, setVisiblePostIds] = useState([]);
-
   const [mediaViewerVisible, setMediaViewerVisible] = useState(false);
   const [mediaViewerItem, setMediaViewerItem] = useState(null);
-
-  // NEW: likes modal state
   const [likesModalVisible, setLikesModalVisible] = useState(false);
   const [likesForModal, setLikesForModal] = useState([]);
 
@@ -1031,7 +990,6 @@ const Newsfeed = () => {
     setMediaViewerItem(null);
   }, []);
 
-  // NEW: open/close likes modal handlers
   const openLikesModal = useCallback((post) => {
     if (!post) return;
     setLikesForModal(post.likes || []);
@@ -1047,7 +1005,6 @@ const Newsfeed = () => {
     setLoading(true);
     try {
       const data = await fetchPosts();
-
       const normalized = (data || []).map((p) => {
         const rawCreated = p.created_at ?? p.createdAt ?? Date.now();
         const created_at =
@@ -1058,7 +1015,6 @@ const Newsfeed = () => {
               ? rawCreated * 1000
               : rawCreated
             : Date.now();
-
         const comments = Array.isArray(p.comments)
           ? p.comments.map((c) => {
               const rawC = c.created_at ?? c.createdAt ?? Date.now();
@@ -1073,7 +1029,6 @@ const Newsfeed = () => {
               return { ...c, created_at: created_at_c };
             })
           : [];
-
         return {
           id: p.id,
           username: p.username || "unknown",
@@ -1092,7 +1047,6 @@ const Newsfeed = () => {
           created_at,
         };
       });
-
       setPosts(
         normalized
           .map((x) => ({
@@ -1129,13 +1083,11 @@ const Newsfeed = () => {
       if (!state.isConnected) return;
       let q = await getOpsQueue();
       if (!q || q.length === 0) return;
-
       for (const op of q.slice()) {
         try {
           if (String(op.postId || "").startsWith("local_")) {
             continue;
           }
-
           if (op.type === "delete") {
             await deletePost(op.postId);
           } else if (op.type === "update") {
@@ -1187,7 +1139,6 @@ const Newsfeed = () => {
             return { ...p, likes };
           })
         );
-
         if (String(postId).startsWith("local_")) {
           await enqueueOp({
             id: `op_${Date.now()}`,
@@ -1199,7 +1150,6 @@ const Newsfeed = () => {
           });
           return;
         }
-
         const state = await NetInfo.fetch();
         const target = posts.find((p) => p.id === postId);
         if (!target) return;
@@ -1207,7 +1157,6 @@ const Newsfeed = () => {
         const likes = already
           ? (target.likes || []).filter((l) => l !== currentUsername)
           : [...(target.likes || []), currentUsername];
-
         if (!state.isConnected) {
           await enqueueOp({
             id: `op_${Date.now()}`,
@@ -1217,7 +1166,6 @@ const Newsfeed = () => {
           });
           return;
         }
-
         await updatePost(postId, { likes });
       } catch (e) {
         console.error("Like failed:", e);
@@ -1229,7 +1177,6 @@ const Newsfeed = () => {
   const addCommentToPost = useCallback(
     async (postId, text) => {
       if (!text.trim()) return;
-
       const comment = {
         id: `c_${Date.now()}_${Math.random()}`,
         user: currentUsername,
@@ -1237,7 +1184,6 @@ const Newsfeed = () => {
         text: text.trim(),
         created_at: Date.now(),
       };
-
       setPosts((prev) =>
         prev.map((p) =>
           p.id === postId
@@ -1245,13 +1191,11 @@ const Newsfeed = () => {
             : p
         )
       );
-
       setSelectedPost((prev) =>
         prev && prev.id === postId
           ? { ...prev, comments: [...(prev.comments || []), comment] }
           : prev
       );
-
       try {
         if (String(postId).startsWith("local_")) {
           await enqueueOp({
@@ -1266,7 +1210,6 @@ const Newsfeed = () => {
           });
           return;
         }
-
         const state = await NetInfo.fetch();
         if (!state.isConnected) {
           const target = posts.find((p) => p.id === postId) || {};
@@ -1278,7 +1221,6 @@ const Newsfeed = () => {
           });
           return;
         }
-
         const target = posts.find((p) => p.id === postId);
         if (target) {
           await updatePost(postId, {
@@ -1315,7 +1257,6 @@ const Newsfeed = () => {
                     : p
                 )
               );
-
               setSelectedPost((prev) =>
                 prev && prev.id === postId
                   ? {
@@ -1326,7 +1267,6 @@ const Newsfeed = () => {
                     }
                   : prev
               );
-
               try {
                 if (String(postId).startsWith("local_")) {
                   const target = posts.find((p) => p.id === postId) || {};
@@ -1342,7 +1282,6 @@ const Newsfeed = () => {
                   });
                   return;
                 }
-
                 const state = await NetInfo.fetch();
                 if (!state.isConnected) {
                   const target = posts.find((p) => p.id === postId) || {};
@@ -1358,7 +1297,6 @@ const Newsfeed = () => {
                   });
                   return;
                 }
-
                 const target = posts.find((p) => p.id === postId);
                 if (target) {
                   await updatePost(postId, {
@@ -1417,13 +1355,11 @@ const Newsfeed = () => {
     setMediaUris((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
-  // Submit post (unchanged) ...
   const handleSubmitPost = useCallback(async () => {
     if (!postContent.trim() && mediaUris.length === 0) {
       Alert.alert("Validation", "Please enter text or select media.");
       return;
     }
-
     try {
       if (editingPostId) {
         if (String(editingPostId).startsWith("local_")) {
@@ -1471,7 +1407,6 @@ const Newsfeed = () => {
             } catch (uploadErr) {
               console.error("Failed to upload media while editing:", uploadErr);
             }
-
             await updatePost(editingPostId, {
               content: postContent,
               media_type: finalMediaUrls.length ? postType : "none",
@@ -1496,7 +1431,6 @@ const Newsfeed = () => {
             created_at: createdAtIso,
             bucket: "posts",
           });
-
           setPosts((prev) => [
             {
               id: localId,
@@ -1512,7 +1446,6 @@ const Newsfeed = () => {
             },
             ...prev,
           ]);
-
           Alert.alert(
             "Saved offline",
             "Your post will be uploaded when network is available."
@@ -1523,12 +1456,10 @@ const Newsfeed = () => {
           setEditingPostId(null);
           return;
         }
-
         let uploadedUrls = [];
         if (mediaUris.length > 0) {
           uploadedUrls = await uploadMediaUrisToPostsBucket(mediaUris);
         }
-
         await createPost({
           username: currentUsername,
           avatar: currentUser?.user_metadata?.avatar_url || null,
@@ -1540,7 +1471,6 @@ const Newsfeed = () => {
           created_at: new Date().toISOString(),
         });
       }
-
       setModalVisible(false);
       setPostContent("");
       setMediaUris([]);
@@ -1548,12 +1478,10 @@ const Newsfeed = () => {
       await loadPosts();
     } catch (e) {
       console.error("Post submission failed:", e);
-
       const msg = e && e.message ? String(e.message) : "";
       const isNetworkErr =
         msg.toLowerCase().includes("network") ||
         msg === "Network request failed";
-
       if (isNetworkErr) {
         try {
           const localId = `local_${Date.now()}`;
@@ -1569,7 +1497,6 @@ const Newsfeed = () => {
             created_at: new Date().toISOString(),
             bucket: "posts",
           });
-
           setPosts((prev) => [
             {
               id: localId,
@@ -1585,7 +1512,6 @@ const Newsfeed = () => {
             },
             ...prev,
           ]);
-
           Alert.alert(
             "Saved offline",
             "Your post will be uploaded when network is available."
@@ -1599,7 +1525,6 @@ const Newsfeed = () => {
           console.error("Failed to enqueue post:", qErr);
         }
       }
-
       Alert.alert("Error", "Failed to submit post");
     }
   }, [
@@ -1625,7 +1550,6 @@ const Newsfeed = () => {
               await removeQueuedCreateByLocalId(postId);
               return;
             }
-
             const state = await NetInfo.fetch();
             if (!state.isConnected) {
               setPosts((prev) => prev.filter((p) => p.id !== postId));
@@ -1640,7 +1564,6 @@ const Newsfeed = () => {
               );
               return;
             }
-
             await deletePost(postId);
             setPosts((prev) => prev.filter((p) => p.id !== postId));
           } catch (e) {
@@ -1673,7 +1596,6 @@ const Newsfeed = () => {
     setActiveStoryImageIndex(0);
     setStoryProgress(0);
     setStoryViewerVisible(true);
-
     setStories((prev) =>
       prev.map((s, i) => (i === index ? { ...s, viewed: true } : s))
     );
@@ -1688,15 +1610,12 @@ const Newsfeed = () => {
   const advanceStory = useCallback(() => {
     const story = stories[activeStoryIndex];
     if (!story) return;
-
     const atLastImage = activeStoryImageIndex >= story.images.length - 1;
-
     if (!atLastImage) {
       setActiveStoryImageIndex((s) => s + 1);
       setStoryProgress(0);
       return;
     }
-
     const atLastStory = activeStoryIndex >= stories.length - 1;
     if (!atLastStory) {
       setActiveStoryIndex((s) => s + 1);
@@ -1704,7 +1623,6 @@ const Newsfeed = () => {
       setStoryProgress(0);
       return;
     }
-
     closeStoryViewer();
   }, [stories, activeStoryIndex, activeStoryImageIndex, closeStoryViewer]);
 
@@ -1747,9 +1665,7 @@ const Newsfeed = () => {
         clearInterval(progressIntervalRef.current);
       return;
     }
-
     setStoryProgress(0);
-
     let currentProgress = 0;
     progressIntervalRef.current = setInterval(() => {
       currentProgress += (STORY_PROGRESS_INTERVAL / STORY_DURATION) * 100;
@@ -1759,11 +1675,9 @@ const Newsfeed = () => {
       }
       setStoryProgress(currentProgress);
     }, STORY_PROGRESS_INTERVAL);
-
     storyTimerRef.current = setTimeout(() => {
       advanceStory();
     }, STORY_DURATION);
-
     return () => {
       if (storyTimerRef.current) clearTimeout(storyTimerRef.current);
       if (progressIntervalRef.current)
@@ -1780,7 +1694,6 @@ const Newsfeed = () => {
     itemVisiblePercentThreshold: 60,
     minimumViewTime: 200,
   }).current;
-
   const onViewableItemsChanged = useRef(({ viewableItems }) => {
     try {
       const ids = (viewableItems || []).map((v) => v.item?.id).filter(Boolean);
@@ -1835,7 +1748,7 @@ const Newsfeed = () => {
   const ListHeaderComponent = useMemo(
     () => (
       <View style={styles.storiesContainer}>
-        <FlatList
+        <AnimatedFlatList
           data={stories}
           renderItem={renderStoryItem}
           keyExtractor={(s) => s.id}
@@ -1854,11 +1767,9 @@ const Newsfeed = () => {
         barStyle="dark-content"
         backgroundColor={COLORS.cardBackground}
       />
-
       {/* header with centered app name and call icon */}
       <View style={styles.header}>
         <View style={styles.headerLeft} />
-        {/* updated: styled app name with app colors */}
         <View style={styles.headerTitleContainer}>
           <Text style={styles.headerTitlePrimary}>Aya</Text>
           <Text style={styles.headerTitleSecondary}>Social</Text>
@@ -1889,7 +1800,7 @@ const Newsfeed = () => {
           <Text style={styles.noPostsSubtext}>Start sharing your moments!</Text>
         </View>
       ) : (
-        <FlatList
+        <AnimatedFlatList
           data={posts}
           keyExtractor={keyExtractor}
           renderItem={renderPostItem}
@@ -1910,6 +1821,14 @@ const Newsfeed = () => {
           removeClippedSubviews={Platform.OS === "android"}
           onViewableItemsChanged={onViewableItemsChanged}
           viewabilityConfig={viewabilityConfig}
+          // -------------------------------------------------
+          // SCROLL → TAB BAR HIDE / SHOW
+          // -------------------------------------------------
+          scrollEventThrottle={16}
+          onScroll={Animated.event(
+            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+            { useNativeDriver: false }
+          )}
         />
       )}
 
@@ -1980,7 +1899,6 @@ const Newsfeed = () => {
                 </Text>
               </TouchableOpacity>
             </View>
-
             <View style={styles.modalBody}>
               <View style={styles.modalUserInfo}>
                 <UserAvatar
@@ -1991,7 +1909,6 @@ const Newsfeed = () => {
                 />
                 <Text style={styles.modalUsername}>{currentUsername}</Text>
               </View>
-
               <RNTextInput
                 placeholder="What's on your mind?"
                 value={postContent}
@@ -2001,9 +1918,8 @@ const Newsfeed = () => {
                 maxLength={2200}
                 autoFocus
               />
-
               {mediaUris.length > 0 && (
-                <FlatList
+                <AnimatedFlatList
                   data={mediaUris}
                   horizontal
                   keyExtractor={(_, i) => String(i)}
@@ -2039,7 +1955,6 @@ const Newsfeed = () => {
                   )}
                 />
               )}
-
               <View style={styles.modalActions}>
                 <TouchableOpacity
                   style={styles.modalActionBtn}
@@ -2080,7 +1995,6 @@ const Newsfeed = () => {
         currentUser={currentUser}
       />
 
-      {/* NEW: Likes modal rendered here */}
       <LikesModal
         visible={likesModalVisible}
         likes={likesForModal}
@@ -2104,11 +2018,10 @@ const Newsfeed = () => {
               color="#fff"
             />
           </TouchableOpacity>
-
           {mediaViewerItem?.isVideo ? (
             <Video
               source={{ uri: mediaViewerItem.uri }}
-              style={{ width: width, height: height, backgroundColor: "#000" }}
+              style={{ width, height, backgroundColor: "#000" }}
               useNativeControls
               resizeMode="contain"
               shouldPlay
@@ -2740,4 +2653,3 @@ const styles = StyleSheet.create({
 });
 
 export default Newsfeed;
-// ...existing code...

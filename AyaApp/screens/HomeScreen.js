@@ -48,7 +48,6 @@ const FEATURES = {
   EMERGENCY_SOS: "EMERGENCY_SOS",
   HEALTH_MONITORING: "HEALTH_MONITORING",
 };
-
 // ==================== ANIMATED COMPONENTS ====================
 const FadeView = ({ children, delay = 0, style }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -182,7 +181,7 @@ const QuickActions = ({ navigation }) => {
       isPremium: true,
     },
   ];
-  
+
   const handleActionPress = async (action) => {
     if (action.requiresFeature) {
       const hasAccess = await hasFeatureAccess(action.requiresFeature);
@@ -191,11 +190,11 @@ const QuickActions = ({ navigation }) => {
         return;
       }
     }
-    
+
     Haptics.selectionAsync();
     navigation.navigate(action.route);
   };
-  
+
   return (
     <FadeView style={styles.quickActions} delay={300}>
       {actions.map((a, i) => (

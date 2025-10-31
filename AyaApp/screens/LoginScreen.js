@@ -1,11 +1,24 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, TextInput, TouchableOpacity, Image, StyleSheet, Alert, ActivityIndicator } from "react-native";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  Image,
+  StyleSheet,
+  Alert,
+  ActivityIndicator,
+} from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { AntDesign, FontAwesome, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import {
+  AntDesign,
+  FontAwesome,
+  Ionicons,
+  MaterialCommunityIcons,
+} from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as LocalAuthentication from "expo-local-authentication";
-import { supabaseAuth } from "../lib/supabaseClient";
-import { supabase } from "../lib/supabaseClient";
+import { supabaseAuth, supabase } from "../lib/supabaseClient";
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState("");
@@ -14,39 +27,32 @@ export default function LoginScreen({ navigation }) {
   const [hasPasskey, setHasPasskey] = useState(false);
   const [savedEmail, setSavedEmail] = useState("");
 
-  // Check if user has a saved passkey on component mount
   useEffect(() => {
     checkForPasskey();
   }, []);
 
   const checkForPasskey = async () => {
     try {
-      // Check if biometric is available
       const compatible = await LocalAuthentication.hasHardwareAsync();
       const enrolled = await LocalAuthentication.isEnrolledAsync();
-      
-      if (!compatible || !enrolled) {
-        return;
-      }
+      if (!compatible || !enrolled) return;
 
-      // Check last logged in user
       const lastSession = await AsyncStorage.getItem("@user_session");
-      if (lastSession) {
-        const userData = JSON.parse(lastSession);
-        const userEmail = userData.email;
-        
-        // Check if this user has a passkey saved
-        const { data: passkeys } = await supabase
-          .from('passkeys')
-          .select('*')
-          .eq('user_id', userEmail)
-          .limit(1);
-        
-        if (passkeys && passkeys.length > 0) {
-          setHasPasskey(true);
-          setSavedEmail(userEmail);
-          setEmail(userEmail);
-        }
+      if (!lastSession) return;
+
+      const userData = JSON.parse(lastSession);
+      const userEmail = userData.email;
+
+      const { data: passkeys } = await supabase
+        .from("passkeys")
+        .select("*")
+        .eq("user_id", userEmail)
+        .limit(1);
+
+      if (passkeys?.length > 0) {
+        setHasPasskey(true);
+        setSavedEmail(userEmail);
+        setEmail(userEmail);
       }
     } catch (error) {
       console.log("Passkey check error:", error);
@@ -56,84 +62,52 @@ export default function LoginScreen({ navigation }) {
   const handlePasskeyLogin = async () => {
     try {
       setLoading(true);
-      
-      // Authenticate with biometrics
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: "Login with your passkey",
         fallbackLabel: "Use password instead",
-        cancelLabel: "Cancel",
       });
 
       if (!result.success) {
-        Alert.alert("Authentication Failed", "Biometric authentication was cancelled or failed");
+        Alert.alert(
+          "Authentication Failed",
+          "Biometric authentication was cancelled or failed"
+        );
         return;
       }
 
-      // Biometric authentication successful - load user session
       const userEmail = savedEmail || email;
-      
-      // Load full user profile from Supabase
-      const { getUserProfile } = require('../lib/profileService');
-      console.log('🔍 Loading profile for passkey user:', userEmail);
-      
+      const { getUserProfile } = require("../lib/profileService");
       const userProfile = await getUserProfile(userEmail);
-      
-      if (!userProfile) {
-        throw new Error("User profile not found");
-      }
-      
-      // Check if account is deactivated and reactivate it
+      if (!userProfile) throw new Error("User profile not found");
+
       if (userProfile.is_active === false) {
-        console.log('🔄 Reactivating deactivated account...');
-        const { error: reactivateError } = await supabase
-          .from('user_profiles')
-          .update({ 
+        await supabase
+          .from("user_profiles")
+          .update({
             is_active: true,
             deactivated_at: null,
-            last_login_at: new Date().toISOString()
+            last_login_at: new Date().toISOString(),
           })
-          .eq('email', userEmail);
-        
-        if (reactivateError) {
-          console.error('⚠️ Reactivation error:', reactivateError);
-        } else {
-          console.log('✅ Account reactivated successfully');
-          userProfile.is_active = true;
-          userProfile.deactivated_at = null;
-        }
+          .eq("email", userEmail);
       }
-      
-      // Create comprehensive user session data
+
       const userData = {
         email: userEmail,
         userId: userProfile.user_id,
         name: userProfile.full_name || userEmail.split("@")[0],
-        provider: 'passkey',
+        provider: "passkey",
         loginTime: new Date().toISOString(),
-        fullName: userProfile.full_name,
-        phone: userProfile.phone,
-        location: userProfile.location,
-        age: userProfile.age,
-        gender: userProfile.gender,
-        profilePicture: userProfile.profile_picture_url,
-        username: userProfile.username,
       };
-      
-      // Store user session
-      console.log('💾 Saving passkey session data:', userData);
+
       await AsyncStorage.setItem("@user_session", JSON.stringify(userData));
-      
-      // Navigate to main app
-      navigation.reset({
-        index: 0,
-        routes: [{ name: "MainTabs" }],
-      });
-      
-      Alert.alert("Success", "Login successful with passkey! 🔐");
-      
+      navigation.reset({ index: 0, routes: [{ name: "MainTabs" }] });
+      Alert.alert("Success", "Login successful with passkey");
     } catch (error) {
-      console.error("❌ Passkey login error:", error);
-      Alert.alert("Login Failed", error.message || "Failed to login with passkey");
+      console.error("Passkey login error:", error);
+      Alert.alert(
+        "Login Failed",
+        error.message || "Failed to login with passkey"
+      );
     } finally {
       setLoading(false);
     }
@@ -147,105 +121,30 @@ export default function LoginScreen({ navigation }) {
 
     setLoading(true);
     try {
-      console.log("🔐 Attempting login for:", email);
       const data = await supabaseAuth.signIn(email, password);
-      
-      console.log("✅ Login response:", data);
-      
       if (!data.session) {
         Alert.alert(
           "Email Not Verified",
-          "Please check your email and click the verification link before logging in.",
-          [{ text: "OK" }]
+          "Please verify your email before logging in."
         );
         return;
       }
 
-      if (!data.user) {
-        throw new Error("No user data returned");
-      }
-      
-      // Load full user profile from Supabase
-      const { getUserProfile } = require('../lib/profileService');
-      console.log('🔍 Loading profile for user:', email);
-      
-      let userProfile = null;
-      try {
-        userProfile = await getUserProfile(email);
-        console.log('📊 Profile loaded:', userProfile);
-        
-        // Check if account is deactivated and reactivate it
-        if (userProfile && userProfile.is_active === false) {
-          console.log('🔄 Reactivating deactivated account...');
-          const { error: reactivateError } = await supabase
-            .from('user_profiles')
-            .update({ 
-              is_active: true,
-              deactivated_at: null,
-              last_login_at: new Date().toISOString()
-            })
-            .eq('email', email);
-          
-          if (reactivateError) {
-            console.error('⚠️ Reactivation error:', reactivateError);
-          } else {
-            console.log('✅ Account reactivated successfully');
-            userProfile.is_active = true;
-            userProfile.deactivated_at = null;
-          }
-        }
-      } catch (profileError) {
-        console.warn('⚠️ Could not load profile:', profileError);
-      }
-      
-      // Create comprehensive user session data
+      const { getUserProfile } = require("../lib/profileService");
+      const userProfile = await getUserProfile(email);
+
       const userData = {
-        email: email,
+        email,
         userId: data.user.id,
         name: userProfile?.full_name || email.split("@")[0],
-        provider: 'email',
+        provider: "email",
         loginTime: new Date().toISOString(),
-        fullName: userProfile?.full_name,
-        phone: userProfile?.phone,
-        location: userProfile?.location,
-        age: userProfile?.age,
-        gender: userProfile?.gender,
-        profilePicture: userProfile?.profile_picture_url,
-        username: userProfile?.username,
       };
-      
-      // Store user session with correct key
-      console.log('💾 Saving session data:', userData);
+
       await AsyncStorage.setItem("@user_session", JSON.stringify(userData));
-      
-      // Verify session was saved
-      const savedSession = await AsyncStorage.getItem("@user_session");
-      console.log('✅ Session verified:', savedSession ? 'Saved successfully' : 'Failed to save');
-      
-      console.log("💾 Session stored for user:", data.user.id);
-      
-      // Navigate to main app
-      navigation.reset({
-        index: 0,
-        routes: [{ name: "MainTabs" }],
-      });
-      
-      Alert.alert("Success", "Login successful!");
+      navigation.reset({ index: 0, routes: [{ name: "MainTabs" }] });
     } catch (error) {
-      console.error("❌ Login error:", error);
-      console.error("Error details:", JSON.stringify(error, null, 2));
-      
-      // Check if it's an email verification error
-      const errorMsg = error.message || "";
-      if (errorMsg.toLowerCase().includes("email") && errorMsg.toLowerCase().includes("confirm")) {
-        Alert.alert(
-          "Email Not Verified",
-          "Please check your email and click the verification link before logging in.",
-          [{ text: "OK" }]
-        );
-      } else {
-        Alert.alert("Login Failed", error.message || "Invalid email or password");
-      }
+      Alert.alert("Login Failed", error.message || "Invalid email or password");
     } finally {
       setLoading(false);
     }
@@ -253,20 +152,19 @@ export default function LoginScreen({ navigation }) {
 
   const handleForgotPassword = async () => {
     if (!email) {
-      Alert.alert("Error", "Please enter your email address first");
+      Alert.alert("Error", "Enter your email address first");
       return;
     }
-
     try {
       await supabaseAuth.resetPassword(email);
-      Alert.alert("Success", "Password reset email sent! Check your inbox.");
+      Alert.alert("Success", "Password reset email sent. Check your inbox.");
     } catch (error) {
       Alert.alert("Error", error.message || "Failed to send reset email");
     }
   };
 
   return (
-    <LinearGradient colors={["#d9c9ff", "#f6d5ef"]} style={styles.container}>
+    <LinearGradient colors={["#f9f9f9", "#ececec"]} style={styles.container}>
       <View style={styles.content}>
         <Image
           source={require("../assets/Logos/Aya_AI_Logo.png")}
@@ -275,27 +173,28 @@ export default function LoginScreen({ navigation }) {
 
         <View style={styles.inputContainer}>
           <TextInput
-            placeholder="Enter your email"
+            placeholder="Email"
             value={email}
             onChangeText={setEmail}
-            style={[styles.input, { color: 'black' }]} 
-            placeholderTextColor="gray"
+            style={styles.input}
+            placeholderTextColor="#888"
             keyboardType="email-address"
           />
           <TextInput
-            placeholder="Enter your password"
+            placeholder="Password"
             value={password}
             onChangeText={setPassword}
-            style={[styles.input, { color: 'black' }]} 
-            placeholderTextColor="gray"
+            style={styles.input}
+            placeholderTextColor="#888"
             secureTextEntry
           />
+
           <TouchableOpacity onPress={handleForgotPassword}>
             <Text style={styles.forgotText}>Forgot Password?</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={[styles.signInButton, loading && styles.disabledButton]} 
+          <TouchableOpacity
+            style={[styles.signInButton, loading && styles.disabledButton]}
             onPress={handleLogin}
             disabled={loading}
           >
@@ -309,12 +208,17 @@ export default function LoginScreen({ navigation }) {
           {hasPasskey && (
             <>
               <Text style={styles.orText}>or</Text>
-              <TouchableOpacity 
-                style={[styles.passkeyButton, loading && styles.disabledButton]} 
+              <TouchableOpacity
+                style={[styles.passkeyButton, loading && styles.disabledButton]}
                 onPress={handlePasskeyLogin}
                 disabled={loading}
               >
-                <MaterialCommunityIcons name="fingerprint" size={24} color="#fff" style={styles.passkeyIcon} />
+                <MaterialCommunityIcons
+                  name="fingerprint"
+                  size={24}
+                  color="#fff"
+                  style={styles.passkeyIcon}
+                />
                 <Text style={styles.passkeyText}>Login with Passkey</Text>
               </TouchableOpacity>
             </>
@@ -336,7 +240,10 @@ export default function LoginScreen({ navigation }) {
 
           <Text style={styles.footerText}>
             Don’t have an account?{" "}
-            <Text style={styles.link} onPress={() => navigation.navigate("Signup")}>
+            <Text
+              style={styles.link}
+              onPress={() => navigation.navigate("Signup")}
+            >
               Sign Up
             </Text>
           </Text>
@@ -348,31 +255,43 @@ export default function LoginScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { flex: 1, justifyContent: "center", alignItems: "center", padding: 20 },
-  logo: { width: 80, height: 80, resizeMode: "contain" },
-  title: { fontSize: 28, fontWeight: "bold", color: "#e91e63", marginBottom: 24 },
-  inputContainer: { width: "100%", backgroundColor: "#fff", borderRadius: 16, padding: 20 },
+  content: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  logo: { width: 80, height: 80, resizeMode: "contain", marginBottom: 16 },
+  inputContainer: {
+    width: "100%",
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
   input: {
-    backgroundColor: "#f9f9f9",
+    backgroundColor: "#f2f2f2",
     borderRadius: 8,
     padding: 12,
     marginVertical: 8,
     borderWidth: 1,
-    borderColor: "#eee",
+    borderColor: "#ddd",
+    color: "#000",
   },
-  forgotText: { textAlign: "right", color: "#e91e63", marginTop: 4 },
+  forgotText: { textAlign: "right", color: "#333", marginTop: 6, fontSize: 13 },
   signInButton: {
-    backgroundColor: "#e91e63",
+    backgroundColor: "#333",
     borderRadius: 8,
     paddingVertical: 14,
     marginTop: 20,
   },
-  disabledButton: {
-    opacity: 0.6,
-  },
+  disabledButton: { opacity: 0.5 },
   signInText: { color: "#fff", fontWeight: "600", textAlign: "center" },
   passkeyButton: {
-    backgroundColor: "#4CAF50",
+    backgroundColor: "#4a90e2",
     borderRadius: 8,
     paddingVertical: 14,
     marginTop: 12,
@@ -380,24 +299,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  passkeyIcon: {
-    marginRight: 8,
-  },
-  passkeyText: { 
-    color: "#fff", 
-    fontWeight: "600", 
-    textAlign: "center",
-    fontSize: 16,
-  },
-  orText: { textAlign: "center", color: "#999", marginTop: 20 },
+  passkeyIcon: { marginRight: 8 },
+  passkeyText: { color: "#fff", fontWeight: "600", fontSize: 16 },
+  orText: { textAlign: "center", color: "#777", marginTop: 20, fontSize: 13 },
   socialRow: { flexDirection: "row", justifyContent: "center", marginTop: 12 },
   socialButton: {
     backgroundColor: "#fff",
     borderRadius: 8,
     padding: 10,
     marginHorizontal: 6,
-    elevation: 1,
+    borderWidth: 1,
+    borderColor: "#eee",
   },
   footerText: { textAlign: "center", marginTop: 20, color: "#555" },
-  link: { color: "#e91e63", fontWeight: "600" },
+  link: { color: "#333", fontWeight: "600" },
 });
