@@ -183,12 +183,13 @@ export default function App() {
     <NavigationContainer>
       <Stack.Navigator
         screenOptions={{ headerShown: false }}
-        initialRouteName="OnboardingScreen"
+        initialRouteName="MainTabs"
       >
         <Stack.Screen name="OnboardingScreen" component={OnboardingScreen} />
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Signup" component={SignupScreen} />
         <Stack.Screen name="subscription" component={subscription} />
+        <Stack.Screen name="SubscriptionScreen" component={subscription} />
         <Stack.Screen name="MainTabs" component={TabsNavigator} />
         <Stack.Screen name="Health" component={HealthScreen} />
         <Stack.Screen name="ReactionGame" component={ReactionGame} />

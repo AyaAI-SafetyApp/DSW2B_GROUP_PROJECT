@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,17 +6,18 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  Alert,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Animated,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
-import { supabaseAuth } from "../../lib/supabaseClient";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { supabase } from "../../lib/supabaseClient";
 
 export default function EditProfileScreen() {
   const navigation = useNavigation();
-
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
@@ -25,204 +26,213 @@ export default function EditProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    loadUserData();
-  }, []);
+  const shimmerAnim = useState(new Animated.Value(0))[0];
 
-  const loadUserData = async () => {
+  const startShimmer = useCallback(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmerAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(shimmerAnim, {
+          toValue: 0,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, [shimmerAnim]);
+
+  const loadUserData = useCallback(async () => {
     try {
       setLoading(true);
-      
-      // Get current user from Supabase
-      const user = await supabaseAuth.getCurrentUser();
-      
-      if (user && user.email) {
-        setEmail(user.email);
-        // Get full name from user metadata or default to email username
-        const fullName = user.user_metadata?.full_name || user.email.split('@')[0];
-        setName(fullName);
+      startShimmer();
+      const { data, error } = await supabase.auth.getUser();
+      if (error) throw error;
+      if (data?.user) {
+        setEmail(data.user.email);
+        setName(
+          data.user.user_metadata?.full_name || data.user.email.split("@")[0]
+        );
       }
-    } catch (error) {
-      console.error('Error loading user data:', error);
-      Alert.alert("Error", "Failed to load user data");
+    } catch (err) {
+      Alert.alert("Error", err.message || "Failed to load user data.");
     } finally {
       setLoading(false);
     }
+  }, [startShimmer]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadUserData();
+    }, [loadUserData])
+  );
+
+  const storeUserLocally = async (name) => {
+    const sessionData = await AsyncStorage.getItem("userSession");
+    if (sessionData) {
+      const session = JSON.parse(sessionData);
+      session.user.user_metadata.full_name = name;
+      await AsyncStorage.setItem("userSession", JSON.stringify(session));
+    }
   };
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     if (!name || !email) {
-      Alert.alert("Error", "Name and Email cannot be empty.");
+      Alert.alert("Error", "Name and Email are required.");
       return;
     }
 
-    // Validate password fields if any are filled
-    if (currentPassword || newPassword || confirmPassword) {
+    if (newPassword || confirmPassword || currentPassword) {
       if (!currentPassword || !newPassword || !confirmPassword) {
-        Alert.alert("Error", "Please fill all password fields.");
+        Alert.alert("Error", "All password fields are required.");
         return;
       }
-
       if (newPassword !== confirmPassword) {
-        Alert.alert("Error", "New password and confirmation do not match.");
+        Alert.alert("Error", "Passwords do not match.");
         return;
       }
-
-      if (currentPassword === newPassword) {
+      if (
+        newPassword.length < 8 ||
+        !/[A-Z]/.test(newPassword) ||
+        !/[0-9]/.test(newPassword)
+      ) {
         Alert.alert(
           "Error",
-          "New password cannot be the same as your current password."
+          "Password must be ≥8 chars, include a number and uppercase."
         );
-        return;
-      }
-
-      if (newPassword.length < 6) {
-        Alert.alert("Error", "New password must be at least 6 characters.");
         return;
       }
     }
 
     try {
       setSaving(true);
-      console.log("💾 Starting profile update...");
+      const { error: metaErr } = await supabase.auth.updateUser({
+        data: { full_name: name },
+      });
+      if (metaErr) throw metaErr;
 
-      // Prepare update data
-      const updateData = {
-        data: {
-          full_name: name,
-        }
-      };
-
-      // Add password if changing
       if (newPassword) {
-        updateData.password = newPassword;
+        const { error: passErr } = await supabase.auth.updateUser({
+          password: newPassword,
+        });
+        if (passErr) throw passErr;
       }
 
-      // Update user in Supabase
-      const result = await supabaseAuth.updateUser(updateData);
-      console.log("✅ Profile updated in Supabase:", result);
+      await storeUserLocally(name);
 
-      // Update AsyncStorage with new name
-      const userSession = await AsyncStorage.getItem("userSession");
-      if (userSession) {
-        const session = JSON.parse(userSession);
-        session.user = {
-          ...session.user,
-          user_metadata: {
-            ...session.user.user_metadata,
-            full_name: name,
-          }
-        };
-        await AsyncStorage.setItem("userSession", JSON.stringify(session));
-        console.log("✅ AsyncStorage updated");
-      }
-
-      // Clear password fields on success
-      if (newPassword) {
-        setCurrentPassword("");
-        setNewPassword("");
-        setConfirmPassword("");
-        Alert.alert("Success", "Profile and password updated successfully!");
-      } else {
-        Alert.alert("Success", "Profile updated successfully!");
-      }
-
-      // Navigate back after a short delay
-      setTimeout(() => {
-        navigation.goBack();
-      }, 1000);
-
-    } catch (error) {
-      console.error("❌ Error updating profile:", error);
-      
-      // Handle specific error cases
-      if (error.message?.includes("password")) {
-        Alert.alert("Error", "Current password is incorrect.");
-      } else {
-        Alert.alert("Error", error.message || "Failed to update profile. Please try again.");
-      }
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      Alert.alert("Success", "Profile updated.");
+      navigation.goBack();
+    } catch (err) {
+      Alert.alert("Error", err.message || "Update failed.");
     } finally {
       setSaving(false);
     }
-  };
+  }, [name, email, currentPassword, newPassword, confirmPassword]);
+
+  if (loading)
+    return (
+      <View style={styles.loadingContainer}>
+        {[...Array(4)].map((_, i) => (
+          <Animated.View
+            key={i}
+            style={[
+              styles.skeleton,
+              {
+                opacity: shimmerAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0.3, 1],
+                }),
+              },
+            ]}
+          />
+        ))}
+      </View>
+    );
 
   return (
-    <View style={styles.screen}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      style={styles.screen}
+    >
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#FF1493" />
+          <Ionicons name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Edit Profile</Text>
         <View style={{ width: 24 }} />
       </View>
 
-      {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#FF1493" />
-          <Text style={styles.loadingText}>Loading profile...</Text>
-        </View>
-      ) : (
-        <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 30 }}>
-          <Text style={styles.sectionTitle}>Personal Info</Text>
-          <TextInput
-            style={styles.input}
-            value={name}
-            onChangeText={setName}
-            placeholder="Full Name"
-          />
-          <TextInput
-            style={[styles.input, styles.disabledInput]}
-            value={email}
-            placeholder="Email"
-            keyboardType="email-address"
-            editable={false}
-          />
+      <ScrollView
+        style={styles.container}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ paddingBottom: 50 }}
+      >
+        <Text style={styles.sectionTitle}>Personal Info</Text>
+        <TextInput
+          style={styles.input}
+          value={name}
+          onChangeText={setName}
+          placeholder="Full Name"
+          placeholderTextColor="#999"
+        />
+        <TextInput
+          style={[styles.input, styles.disabledInput]}
+          value={email}
+          editable={false}
+          placeholder="Email"
+          placeholderTextColor="#999"
+        />
 
-          <Text style={styles.sectionTitle}>Change Password</Text>
-          <TextInput
-            style={styles.input}
-            value={currentPassword}
-            onChangeText={setCurrentPassword}
-            placeholder="Current Password"
-            secureTextEntry
-          />
-          <TextInput
-            style={styles.input}
-            value={newPassword}
-            onChangeText={setNewPassword}
-            placeholder="New Password"
-            secureTextEntry
-          />
-          <TextInput
-            style={styles.input}
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            placeholder="Confirm New Password"
-            secureTextEntry
-          />
+        <Text style={styles.sectionTitle}>Change Password</Text>
+        <TextInput
+          style={styles.input}
+          value={currentPassword}
+          onChangeText={setCurrentPassword}
+          placeholder="Current Password"
+          placeholderTextColor="#999"
+          secureTextEntry
+        />
+        <TextInput
+          style={styles.input}
+          value={newPassword}
+          onChangeText={setNewPassword}
+          placeholder="New Password"
+          placeholderTextColor="#999"
+          secureTextEntry
+        />
+        <TextInput
+          style={styles.input}
+          value={confirmPassword}
+          onChangeText={setConfirmPassword}
+          placeholder="Confirm New Password"
+          placeholderTextColor="#999"
+          secureTextEntry
+        />
 
-          <TouchableOpacity 
-            style={[styles.button, saving && styles.buttonDisabled]} 
-            onPress={handleSave}
-            disabled={saving}
-          >
-            {saving ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Text style={styles.buttonText}>Save Changes</Text>
-            )}
-          </TouchableOpacity>
-        </ScrollView>
-      )}
-    </View>
+        <TouchableOpacity
+          style={[styles.button, saving && styles.buttonDisabled]}
+          onPress={handleSave}
+          disabled={saving}
+        >
+          {saving ? (
+            <ActivityIndicator size="small" color="#000" />
+          ) : (
+            <Text style={styles.buttonText}>Save Changes</Text>
+          )}
+        </TouchableOpacity>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: "#fff",
-  },
+  screen: { flex: 1, backgroundColor: "#fff" },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -231,62 +241,47 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginTop: 50,
     borderBottomWidth: 1,
-    borderBottomColor: "#eee",
+    borderBottomColor: "#e5e5e5",
   },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#FF1493",
-  },
-  container: {
-    flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-  },
+  headerTitle: { fontSize: 20, fontWeight: "600", color: "#000" },
+  container: { flex: 1, paddingHorizontal: 20, paddingTop: 20 },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "black",
-    marginBottom: 10,
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#111",
     marginTop: 20,
+    marginBottom: 8,
   },
   input: {
     borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
+    borderColor: "#dcdcdc",
+    borderRadius: 10,
     padding: 12,
-    marginTop: 5,
-    fontSize: 16,
+    marginTop: 6,
+    fontSize: 15,
+    color: "#111",
+    backgroundColor: "#fafafa",
   },
-  disabledInput: {
-    backgroundColor: "#f5f5f5",
-    color: "#999",
+  disabledInput: { backgroundColor: "#f0f0f0", color: "#777" },
+  button: {
+    backgroundColor: "#e5e5e5",
+    padding: 14,
+    borderRadius: 10,
+    alignItems: "center",
+    marginTop: 30,
   },
+  buttonDisabled: { opacity: 0.6 },
+  buttonText: { color: "#000", fontSize: 15, fontWeight: "600" },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 60,
+    backgroundColor: "#fff",
+    justifyContent: "center",
+    paddingHorizontal: 30,
   },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: '#FF1493',
-  },
-  button: {
-    backgroundColor: "#FF1493",
-    padding: 15,
+  skeleton: {
+    height: 45,
+    backgroundColor: "#e0e0e0",
     borderRadius: 8,
-    alignItems: "center",
-    marginTop: 25,
-  },
-  buttonDisabled: {
-    backgroundColor: "#FFB3D9",
-    opacity: 0.7,
-  },
-  buttonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "bold",
+    marginBottom: 15,
   },
 });
