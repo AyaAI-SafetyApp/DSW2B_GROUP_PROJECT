@@ -17,6 +17,8 @@ import * as Location from "expo-location";
 import { Accelerometer } from "expo-sensors";
 import { WebView } from "react-native-webview";
 import { Ionicons, MaterialIcons, FontAwesome } from "@expo/vector-icons";
+// added: contacts service to persist emergency contacts to Supabase
+import * as contactsService from "../SosCRUD/contactsService";
 
 const FALL_THRESHOLD = 2.5;
 const SOS_COUNTDOWN = 5;
@@ -42,6 +44,22 @@ export default function AyaEmergencyApp() {
       }
       const loc = await Location.getCurrentPositionAsync({});
       setLocation(loc);
+    })();
+  }, []);
+
+  // load contacts from database on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const dbContacts = await contactsService.fetchContacts();
+        // if DB has contacts use them, otherwise keep existing default
+        if (Array.isArray(dbContacts) && dbContacts.length > 0) {
+          setContacts(dbContacts);
+        }
+      } catch (e) {
+        // non-fatal: leave local contacts intact
+        // console.warn("Failed to load contacts from DB", e);
+      }
     })();
   }, []);
 
@@ -123,25 +141,50 @@ export default function AyaEmergencyApp() {
     </html>
   `;
 
-  const addContact = () => {
+  // updated: persist new contact to Supabase via contactsService
+  const addContact = async () => {
     if (
       newContact &&
       !contacts.includes(newContact) &&
       newContact.match(/^\+?\d{10,15}$/)
     ) {
-      setContacts([...contacts, newContact]);
-      setNewContact("");
+      try {
+        const updated = await contactsService.addContact(null, newContact);
+        if (Array.isArray(updated) && updated.length > 0) {
+          setContacts(updated);
+        } else {
+          // if service returns empty array, still update locally to provide UX
+          setContacts((prev) => [...prev, newContact]);
+        }
+        setNewContact("");
+      } catch (e) {
+        const msg = (e && e.message) ? e.message : "Failed to add contact";
+        Alert.alert("Error", msg);
+      }
     } else if (newContact)
       Alert.alert("Invalid Number", "Please enter a valid phone number");
   };
 
+  // updated: remove contact from Supabase via contactsService (keeps confirmation)
   const removeContact = (contact) => {
     Alert.alert("Remove Contact", `Remove ${contact}?`, [
       { text: "Cancel", style: "cancel" },
       {
         text: "Remove",
         style: "destructive",
-        onPress: () => setContacts(contacts.filter((c) => c !== contact)),
+        onPress: async () => {
+          try {
+            const updated = await contactsService.removeContact(null, contact);
+            if (Array.isArray(updated)) {
+              setContacts(updated);
+            } else {
+              setContacts((prev) => prev.filter((c) => c !== contact));
+            }
+          } catch (e) {
+            const msg = (e && e.message) ? e.message : "Failed to remove contact";
+            Alert.alert("Error", msg);
+          }
+        },
       },
     ]);
   };
@@ -189,99 +232,99 @@ export default function AyaEmergencyApp() {
   return (
     <ScrollView>
       <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      <WebView
-        ref={webview}
-        originWhitelist={["*"]}
-        source={{ html: webviewHtml }}
-        onMessage={() => triggerSOS()}
-        javaScriptEnabled
-        style={{ flex: 0, height: 0 }}
-      />
+        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+        <WebView
+          ref={webview}
+          originWhitelist={["*"]}
+          source={{ html: webviewHtml }}
+          onMessage={() => triggerSOS()}
+          javaScriptEnabled
+          style={{ flex: 0, height: 0 }}
+        />
 
-      <View style={styles.topContainer}>
-        <View style={styles.alertContainer}>
-          <Text style={styles.alertText}>{status}</Text>
+        <View style={styles.topContainer}>
+          <View style={styles.alertContainer}>
+            <Text style={styles.alertText}>{status}</Text>
+          </View>
+
+          <View style={styles.switchContainer}>
+            <Text style={styles.switchLabel}>Alerts</Text>
+            <Switch
+              value={fallDetectionEnabled}
+              onValueChange={(v) => {
+                setFallDetectionEnabled(v);
+                setStatus(v ? "⚠️ Alerts active" : "⚠️ Alerts inactive");
+              }}
+              trackColor={{ false: "#E5E5EA", true: "#34C75950" }}
+              thumbColor={fallDetectionEnabled ? "#34C759" : "#FFFFFF"}
+            />
+          </View>
         </View>
 
-        <View style={styles.switchContainer}>
-          <Text style={styles.switchLabel}>Alerts</Text>
-          <Switch
-            value={fallDetectionEnabled}
-            onValueChange={(v) => {
-              setFallDetectionEnabled(v);
-              setStatus(v ? "⚠️ Alerts active" : "⚠️ Alerts inactive");
-            }}
-            trackColor={{ false: "#E5E5EA", true: "#34C75950" }}
-            thumbColor={fallDetectionEnabled ? "#34C759" : "#FFFFFF"}
-          />
-        </View>
-      </View>
-
-      <View style={styles.sosWrapper}>
-        <Animated.View
-          style={[
-            styles.progressRing,
-            { transform: [{ scale: progressAnim }] },
-          ]}
-        />
-        <TouchableOpacity
-          style={[styles.sosButton, sosCountdown > 0 && styles.sosButtonActive]}
-          onPress={startSOSCountdown}
-        >
-          {sosCountdown > 0 ? (
-            <Text style={styles.sosCountdownText}>{sosCountdown}</Text>
-          ) : (
-            <FontAwesome name="phone" size={40} color="#FFFFFF" />
-          )}
-        </TouchableOpacity>
-        <Text style={styles.sosInstruction}>Press or say "Aya"</Text>
-      </View>
-
-      <View style={styles.contactsContainer}>
-        <Text style={styles.contactsHeader}>Emergency Contacts</Text>
-        <FlatList
-          data={contacts}
-          keyExtractor={(item) => item}
-          style={styles.contactsList}
-          renderItem={({ item }) => (
-            <View style={styles.contactRow}>
-              <Text style={styles.contactNumber}>{item}</Text>
-              <TouchableOpacity
-                onPress={() => removeContact(item)}
-                style={styles.contactRemove}
-              >
-                <Ionicons name="close-circle" size={24} color="#FF3B30" />
-              </TouchableOpacity>
-            </View>
-          )}
-        />
-        <View style={styles.addContactContainer}>
-          <TextInput
-            placeholder="+27..."
-            style={styles.input}
-            value={newContact}
-            onChangeText={setNewContact}
-            keyboardType="phone-pad"
-            onSubmitEditing={addContact}
+        <View style={styles.sosWrapper}>
+          <Animated.View
+            style={[
+              styles.progressRing,
+              { transform: [{ scale: progressAnim }] },
+            ]}
           />
           <TouchableOpacity
-            onPress={addContact}
-            style={[
-              styles.addButton,
-              !newContact && { backgroundColor: "#E5E5EA" },
-            ]}
-            disabled={!newContact}
+            style={[styles.sosButton, sosCountdown > 0 && styles.sosButtonActive]}
+            onPress={startSOSCountdown}
           >
-            <Ionicons
-              name="add"
-              size={24}
-              color={newContact ? "#FFFFFF" : "#999"}
-            />
+            {sosCountdown > 0 ? (
+              <Text style={styles.sosCountdownText}>{sosCountdown}</Text>
+            ) : (
+              <FontAwesome name="phone" size={40} color="#FFFFFF" />
+            )}
           </TouchableOpacity>
+          <Text style={styles.sosInstruction}>Press or say "Aya"</Text>
         </View>
-      </View>
-    </SafeAreaView>
+
+        <View style={styles.contactsContainer}>
+          <Text style={styles.contactsHeader}>Emergency Contacts</Text>
+          <FlatList
+            data={contacts}
+            keyExtractor={(item) => item}
+            style={styles.contactsList}
+            renderItem={({ item }) => (
+              <View style={styles.contactRow}>
+                <Text style={styles.contactNumber}>{item}</Text>
+                <TouchableOpacity
+                  onPress={() => removeContact(item)}
+                  style={styles.contactRemove}
+                >
+                  <Ionicons name="close-circle" size={24} color="#FF3B30" />
+                </TouchableOpacity>
+              </View>
+            )}
+          />
+          <View style={styles.addContactContainer}>
+            <TextInput
+              placeholder="+27..."
+              style={styles.input}
+              value={newContact}
+              onChangeText={setNewContact}
+              keyboardType="phone-pad"
+              onSubmitEditing={addContact}
+            />
+            <TouchableOpacity
+              onPress={addContact}
+              style={[
+                styles.addButton,
+                !newContact && { backgroundColor: "#E5E5EA" },
+              ]}
+              disabled={!newContact}
+            >
+              <Ionicons
+                name="add"
+                size={24}
+                color={newContact ? "#FFFFFF" : "#999"}
+              />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </SafeAreaView>
     </ScrollView>
   );
 }
