@@ -17,11 +17,17 @@ import * as Location from "expo-location";
 import { Accelerometer } from "expo-sensors";
 import { WebView } from "react-native-webview";
 import { Ionicons, MaterialIcons, FontAwesome } from "@expo/vector-icons";
-// added: contacts service to persist emergency contacts to Supabase
+// persist contacts to Supabase
 import * as contactsService from "../SosCRUD/contactsService";
+import { supabase } from "../SosCRUD/supabaseClient";
 
 const FALL_THRESHOLD = 2.5;
 const SOS_COUNTDOWN = 5;
+
+// DEV: test credentials for automatic sign-in (create this user in Supabase for local testing)
+// Remove or replace for production and use a real auth flow.
+const DEV_EMAIL = "dev@local";
+const DEV_PASSWORD = "DevPass123!";
 
 export default function AyaEmergencyApp() {
   const [location, setLocation] = useState(null);
@@ -35,6 +41,59 @@ export default function AyaEmergencyApp() {
   const webview = useRef(null);
   const progressAnim = useRef(new Animated.Value(0)).current;
 
+  // helper to ensure a session exists (DEV convenience)
+  // Updated: if sign-in fails, attempt sign-up (dev only). Returns true if session exists.
+  const ensureDevSignedIn = async () => {
+    try {
+      const { data: current } = await supabase.auth.getUser();
+      if (current?.user) return true;
+
+      // try sign-in
+      const { data: signInData, error: signInError } =
+        await supabase.auth.signInWithPassword({
+          email: DEV_EMAIL,
+          password: DEV_PASSWORD,
+        });
+
+      if (!signInError && signInData?.user) {
+        return true;
+      }
+
+      // sign-in failed — attempt sign-up (DEV convenience)
+      // NOTE: signUp may require email confirmation depending on your Supabase settings.
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp(
+        {
+          email: DEV_EMAIL,
+          password: DEV_PASSWORD,
+        }
+      );
+
+      if (signUpError) {
+        console.warn("Dev sign-up failed", signUpError);
+        return false;
+      }
+
+      // If signUp returns a user, try signing in again
+      const { data: signInAfter, error: signInAfterErr } =
+        await supabase.auth.signInWithPassword({
+          email: DEV_EMAIL,
+          password: DEV_PASSWORD,
+        });
+
+      if (signInAfterErr) {
+        console.warn("Dev sign-in after sign-up failed", signInAfterErr);
+        // If your Supabase requires email confirmation, the session won't be active yet.
+        // Return false so caller can show a helpful message.
+        return false;
+      }
+
+      return !!signInAfter?.user;
+    } catch (e) {
+      console.warn("ensureDevSignedIn error", e);
+      return false;
+    }
+  };
+
   useEffect(() => {
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -47,18 +106,20 @@ export default function AyaEmergencyApp() {
     })();
   }, []);
 
-  // load contacts from database on mount
+  // load contacts from database on mount (with optional DEV auto sign-in)
   useEffect(() => {
     (async () => {
       try {
+        // attempt to have a session (DEV)
+        await ensureDevSignedIn();
+
         const dbContacts = await contactsService.fetchContacts();
-        // if DB has contacts use them, otherwise keep existing default
         if (Array.isArray(dbContacts) && dbContacts.length > 0) {
           setContacts(dbContacts);
         }
       } catch (e) {
-        // non-fatal: leave local contacts intact
-        // console.warn("Failed to load contacts from DB", e);
+        // non-fatal: keep local contacts
+        Alert.alert("Error", e?.message || "Failed to load contacts");
       }
     })();
   }, []);
@@ -141,7 +202,7 @@ export default function AyaEmergencyApp() {
     </html>
   `;
 
-  // updated: persist new contact to Supabase via contactsService
+  // persist new contact to Supabase via contactsService
   const addContact = async () => {
     if (
       newContact &&
@@ -149,11 +210,13 @@ export default function AyaEmergencyApp() {
       newContact.match(/^\+?\d{10,15}$/)
     ) {
       try {
+        const signed = await ensureDevSignedIn();
+        if (!signed) throw new Error("Not authenticated (create test user or enable auth)");
+
         const updated = await contactsService.addContact(null, newContact);
         if (Array.isArray(updated) && updated.length > 0) {
           setContacts(updated);
         } else {
-          // if service returns empty array, still update locally to provide UX
           setContacts((prev) => [...prev, newContact]);
         }
         setNewContact("");
@@ -165,7 +228,7 @@ export default function AyaEmergencyApp() {
       Alert.alert("Invalid Number", "Please enter a valid phone number");
   };
 
-  // updated: remove contact from Supabase via contactsService (keeps confirmation)
+  // remove contact from Supabase via contactsService
   const removeContact = (contact) => {
     Alert.alert("Remove Contact", `Remove ${contact}?`, [
       { text: "Cancel", style: "cancel" },
@@ -174,6 +237,9 @@ export default function AyaEmergencyApp() {
         style: "destructive",
         onPress: async () => {
           try {
+            const signed = await ensureDevSignedIn();
+            if (!signed) throw new Error("Not authenticated (create test user or enable auth)");
+
             const updated = await contactsService.removeContact(null, contact);
             if (Array.isArray(updated)) {
               setContacts(updated);
@@ -312,7 +378,7 @@ export default function AyaEmergencyApp() {
               onPress={addContact}
               style={[
                 styles.addButton,
-                !newContact && { backgroundColor: "#E5E5EA" },
+                !newContact && { backgroundColor: "#E5EEA" },
               ]}
               disabled={!newContact}
             >
