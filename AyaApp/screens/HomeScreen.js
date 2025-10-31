@@ -22,7 +22,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import * as Location from "expo-location";
 import { Ionicons } from "@expo/vector-icons";
 import Svg, { Circle } from "react-native-svg";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, CommonActions } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
 import * as Speech from "expo-speech";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -30,14 +30,20 @@ import LottieView from "lottie-react-native";
 import { supabaseAuth } from "../lib/supabaseClient";
 import { fetchNews } from "./GBVNews/newsService";
 import NotificationModal from "../components/NotificationModal";
-import * as NotificationService from "../components/NotificationService";
 import {
+  initializeAllNotificationServices,
   registerForPushNotifications,
   sendTokenToBackend,
-  loadAndNotifyTimeTip,
-  fetchNotificationsFromBackend,
   setupNotificationListeners,
   clearAllNotifications,
+  getStoredNotifications,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+  getUnreadCount,
+  saveNotification,
+  storeLastKnownLocation,
+  manualBackgroundTask,
+  getBackgroundTaskStatus,
 } from "../components/NotificationService";
 
 const { width } = Dimensions.get("window");
@@ -48,6 +54,7 @@ const FEATURES = {
   EMERGENCY_SOS: "EMERGENCY_SOS",
   HEALTH_MONITORING: "HEALTH_MONITORING",
 };
+
 // ==================== ANIMATED COMPONENTS ====================
 const FadeView = ({ children, delay = 0, style }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -94,7 +101,7 @@ const Header = ({
         {notificationsCount > 0 && (
           <View style={styles.notificationBadge}>
             <Text style={styles.notificationBadgeText}>
-              {notificationsCount}
+              {notificationsCount > 99 ? "99+" : notificationsCount}
             </Text>
           </View>
         )}
@@ -183,14 +190,7 @@ const QuickActions = ({ navigation }) => {
   ];
 
   const handleActionPress = async (action) => {
-    if (action.requiresFeature) {
-      const hasAccess = await hasFeatureAccess(action.requiresFeature);
-      if (!hasAccess) {
-        showUpgradePrompt(navigation, action.text);
-        return;
-      }
-    }
-
+    // Implement feature access check
     Haptics.selectionAsync();
     navigation.navigate(action.route);
   };
@@ -267,6 +267,16 @@ const NewsFeed = ({ data, onOpenNews, navigation }) => (
   </FadeView>
 );
 
+// ==================== DEBUG COMPONENT (Optional) ====================
+const DebugNotificationButton = ({ onPress }) => (
+  <TouchableOpacity
+    style={styles.debugButton}
+    onPress={onPress}
+  >
+    <Text style={styles.debugButtonText}>Test Notifications</Text>
+  </TouchableOpacity>
+);
+
 // ==================== MAIN HOME SCREEN COMPONENT ====================
 export default function HomeScreen() {
   const navigation = useNavigation();
@@ -277,85 +287,146 @@ export default function HomeScreen() {
   const [safetyData, setSafetyData] = useState(null);
   const [loadingSafety, setLoadingSafety] = useState(true);
   const [showLottie, setShowLottie] = useState(true);
+  const [currentCoords, setCurrentCoords] = useState(null);
 
   // ========== News State ==========
   const [newsArticles, setNewsArticles] = useState([]);
   const [loadingNews, setLoadingNews] = useState(true);
 
   // ========== Notification State ==========
-  const [notifications, setNotifications] = useState([
-    {
-      id: "welcome",
-      message: "Welcome to AyaAI!",
-      timestamp: new Date().toISOString(),
-      isRead: false,
-      priority: "normal",
-    },
-    {
-      id: "intro",
-      message: "Stay safe with real-time alerts.",
-      timestamp: new Date(Date.now() - 60000).toISOString(), // 1 min ago
-      isRead: false,
-      priority: "normal",
-    },
-  ]);
+  const [notifications, setNotifications] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [backgroundTaskStatus, setBackgroundTaskStatus] = useState("Unknown");
 
   // ========== UI State ==========
   const [refreshing, setRefreshing] = useState(false);
 
-  // ==================== SETUP PUSH NOTIFICATIONS ====================
-  useEffect(() => {
-    const initializeNotifications = async () => {
-      try {
-        // Register for push notifications
-        const token = await registerForPushNotifications();
-        if (token) {
-          await sendTokenToBackend(token);
-        }
+  // ==================== NOTIFICATION MANAGEMENT ====================
+  // Load notifications from storage
+  const loadNotifications = async () => {
+    setLoadingNotifications(true);
+    try {
+      const stored = await getStoredNotifications();
+      setNotifications(stored);
+      const count = await getUnreadCount();
+      setUnreadCount(count);
+    } catch (error) {
+      console.error("Error loading notifications:", error);
+    } finally {
+      setLoadingNotifications(false);
+    }
+  };
 
-        // Load time-based safety tip
-        const tipNotification = await loadAndNotifyTimeTip();
-        if (tipNotification) {
-          setNotifications((prev) => [tipNotification, ...prev]);
-        }
+  // Handle new notification received
+  const handleNotificationReceived = async (notification) => {
+    console.log("📬 New notification received:", notification);
+    await loadNotifications(); // Refresh the list
+  };
+
+  // Handle notification tapped
+  const handleNotificationResponse = async (response) => {
+    console.log("👆 Notification tapped:", response);
+    await loadNotifications(); // Refresh to show read state
+  };
+
+  // Mark single notification as read
+  const handleMarkAsRead = async (notificationId) => {
+    try {
+      const updated = await markNotificationAsRead(notificationId);
+      setNotifications(updated);
+      const count = await getUnreadCount();
+      setUnreadCount(count);
+    } catch (error) {
+      console.error("Error marking as read:", error);
+    }
+  };
+
+  // Mark all as read
+  const handleMarkAllAsRead = async () => {
+    try {
+      const updated = await markAllNotificationsAsRead();
+      setNotifications(updated);
+      setUnreadCount(0);
+    } catch (error) {
+      console.error("Error marking all as read:", error);
+    }
+  };
+
+  // Clear all notifications
+  const handleClearAll = async () => {
+    try {
+      await clearAllNotifications();
+      setNotifications([]);
+      setUnreadCount(0);
+    } catch (error) {
+      console.error("Error clearing notifications:", error);
+    }
+  };
+
+  // Open modal and refresh notifications
+  const handleOpenNotifications = async () => {
+    setModalVisible(true);
+    await loadNotifications();
+  };
+
+  // Test background task manually
+  const handleTestNotifications = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    console.log("🧪 Testing background task...");
+    
+    const success = await manualBackgroundTask();
+    if (success) {
+      alert("Background task triggered successfully! Check notifications.");
+    } else {
+      alert("Background task not available. Make sure it's registered.");
+    }
+    
+    // Update status
+    const status = await getBackgroundTaskStatus();
+    setBackgroundTaskStatus(status.status);
+  };
+
+  // ==================== INITIALIZE AUTOMATIC NOTIFICATION SYSTEM ====================
+  useEffect(() => {
+    let cleanupListeners;
+
+    const initializeAllServices = async () => {
+      try {
+        console.log("🚀 Initializing all services...");
+
+        // 1. Initialize automatic notification system (6-hour intervals)
+        await initializeAllNotificationServices();
+
+        // 2. Load initial notifications
+        await loadNotifications();
+
+        // 3. Setup notification listeners
+        cleanupListeners = setupNotificationListeners(
+          handleNotificationReceived,
+          handleNotificationResponse
+        );
+
+        // 4. Check background task status
+        const status = await getBackgroundTaskStatus();
+        setBackgroundTaskStatus(status.status);
+        console.log("📊 Background task status:", status);
+
+        console.log("✅ All services initialized successfully");
+
       } catch (error) {
-        console.error("Error initializing notifications:", error);
+        console.error("❌ Error initializing services:", error);
       }
     };
 
-    initializeNotifications();
+    initializeAllServices();
 
-    // Setup notification listeners
-    const cleanup = setupNotificationListeners(
-      (notification) => {
-        // When notification is received
-        const content = notification.request.content;
-        const newNotification = {
-          id: notification.request.identifier,
-          message: content.body || content.title || "New notification",
-          timestamp: content.data?.timestamp || new Date().toISOString(),
-          isRead: false,
-          priority: content.data?.priority || "normal",
-        };
-        setNotifications((prev) => [newNotification, ...prev]);
-      },
-      (response) => {
-        // When notification is tapped
-        console.log("Notification tapped:", response);
-        // Mark as read
-        const notificationId = response.notification.request.identifier;
-        setNotifications((prev) =>
-          prev.map((n) =>
-            n.id === notificationId ? { ...n, isRead: true } : n
-          )
-        );
-        // You can navigate to specific screens based on notification data
+    return () => {
+      if (cleanupListeners) {
+        cleanupListeners();
       }
-    );
-
-    return cleanup;
+    };
   }, []);
 
   // ==================== LOAD CACHED SAFETY DATA ====================
@@ -432,6 +503,13 @@ export default function HomeScreen() {
         const loc = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.Highest,
         });
+        
+        // Store coordinates for location-based notifications
+        setCurrentCoords(loc.coords);
+        
+        // Store last known location for automatic notifications
+        await storeLastKnownLocation(loc.coords.latitude, loc.coords.longitude);
+        
         const addresses = await Location.reverseGeocodeAsync(loc.coords);
         if (!mounted) return;
         const city =
@@ -473,7 +551,7 @@ export default function HomeScreen() {
     [crimeProbability]
   );
 
-  // ==================== UPDATE CRIME PROBABILITY & SPEAK ====================
+  // ==================== UPDATE CRIME PROBABILITY ====================
   useEffect(() => {
     const target = safetyData?.Danger_Percentage ?? 65;
     setCrimeProbability(target);
@@ -523,61 +601,24 @@ export default function HomeScreen() {
       const loc = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
+      
+      // Update stored location
+      await storeLastKnownLocation(loc.coords.latitude, loc.coords.longitude);
+      
       await fetchSafetyData(
         currentLocation,
         loc.coords.latitude,
         loc.coords.longitude
       );
+      
+      // Trigger background task to check for new alerts
+      await manualBackgroundTask();
+      
     } catch {
       await fetchSafetyData(currentLocation || "Johannesburg");
     }
     setRefreshing(false);
   }, [currentLocation]);
-
-  // ==================== NOTIFICATION HANDLERS ====================
-  const handleOpenNotifications = useCallback(async () => {
-    try {
-      setLoadingNotifications(true);
-      setModalVisible(true);
-
-      const backendNotifications = await fetchNotificationsFromBackend();
-
-      if (backendNotifications.length > 0) {
-        setNotifications((prev) => {
-          // Create a map of existing notification IDs
-          const existingIds = new Set(prev.map((n) => n.id));
-
-          // Filter out duplicates and add new ones
-          const newNotifications = backendNotifications.filter(
-            (n) => !existingIds.has(n.id)
-          );
-
-          return [...newNotifications, ...prev];
-        });
-      }
-    } catch (error) {
-      console.warn("Error opening notifications:", error);
-    } finally {
-      setLoadingNotifications(false);
-    }
-  }, []);
-
-  const handleClearAll = useCallback(async () => {
-    await clearAllNotifications();
-    setNotifications([]);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-  }, []);
-
-  const handleMarkAsRead = useCallback((notificationId) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === notificationId ? { ...n, isRead: true } : n))
-    );
-  }, []);
-
-  const handleMarkAllAsRead = useCallback(() => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-  }, []);
 
   // ==================== LOGOUT HANDLER ====================
   const handleLogout = useCallback(async () => {
@@ -615,7 +656,7 @@ export default function HomeScreen() {
 
       {/* Header */}
       <Header
-        notificationsCount={notifications.length}
+        notificationsCount={unreadCount}
         onOpenNotifications={handleOpenNotifications}
         onProfilePress={() => navigation.navigate("ProfileScreen")}
         riskColor={riskColor}
@@ -628,6 +669,8 @@ export default function HomeScreen() {
         loading={loadingNotifications}
         onClose={() => setModalVisible(false)}
         onClearAll={handleClearAll}
+        onMarkAsRead={handleMarkAsRead}
+        onMarkAllAsRead={handleMarkAllAsRead}
       />
 
       {/* Main Content */}
@@ -694,6 +737,20 @@ export default function HomeScreen() {
           />
         )}
 
+        {/* Debug Section (Remove in production) */}
+        {__DEV__ && (
+          <FadeView style={styles.debugSection} delay={500}>
+            <Text style={styles.debugTitle}>Notification System</Text>
+            <Text style={styles.debugText}>
+              Background Task: {backgroundTaskStatus}
+            </Text>
+            <Text style={styles.debugText}>
+              Unread Notifications: {unreadCount}
+            </Text>
+            <DebugNotificationButton onPress={handleTestNotifications} />
+          </FadeView>
+        )}
+
         {/* Footer Animation */}
         <FadeView
           style={{ alignItems: "center", marginTop: 0, marginBottom: 80 }}
@@ -707,6 +764,9 @@ export default function HomeScreen() {
           />
           <Text style={{ color: "#6B7280", marginTop: 4 }}>
             AyaAI keeps you informed quietly and clearly
+          </Text>
+          <Text style={styles.autoNotificationText}>
+            Automatic safety alerts every 6 hours
           </Text>
         </FadeView>
       </ScrollView>
@@ -907,4 +967,44 @@ const styles = StyleSheet.create({
   newsMeta: { flexDirection: "row", alignItems: "center" },
   newsSource: { fontSize: 13, color: "#8E8E93", fontWeight: "500" },
   newsTime: { fontSize: 13, color: "#8E8E93", marginLeft: 8 },
+  // Debug styles
+  debugSection: {
+    backgroundColor: "#F3F4F6",
+    marginHorizontal: 20,
+    marginTop: 20,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  debugTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#1F2937",
+    marginBottom: 8,
+  },
+  debugText: {
+    fontSize: 14,
+    color: "#4B5563",
+    marginBottom: 4,
+  },
+  debugButton: {
+    backgroundColor: PRIMARY,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: "center",
+    marginTop: 12,
+  },
+  debugButtonText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  autoNotificationText: {
+    fontSize: 12,
+    color: "#9CA3AF",
+    marginTop: 8,
+    fontStyle: "italic",
+  },
 });
