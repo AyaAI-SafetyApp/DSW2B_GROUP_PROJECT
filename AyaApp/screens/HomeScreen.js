@@ -44,7 +44,6 @@ const { width } = Dimensions.get("window");
 export const PRIMARY = "#D81B60";
 export const API_BASE_URL = "https://dsw2b-backend.onrender.com";
 
-
 // ==================== ANIMATED COMPONENTS ====================
 const FadeView = ({ children, delay = 0, style }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -76,10 +75,6 @@ const Header = ({
         source={require("../assets/Logos/Aya_AI_Logo.png")}
         style={styles.logoImage}
         accessibilityIgnoresInvertColors
-      />
-      <View
-        style={[styles.statusDot, { backgroundColor: riskColor }]}
-        accessibilityLabel={`Safety color ${riskColor}`}
       />
     </View>
     <View style={styles.headerRight}>
@@ -271,18 +266,18 @@ const NewsFeed = ({ data, onOpenNews, navigation }) => (
 // ==================== MAIN HOME SCREEN COMPONENT ====================
 export default function HomeScreen() {
   const navigation = useNavigation();
-  
+
   // ========== Location & Safety State ==========
   const [currentLocation, setCurrentLocation] = useState("Loading...");
   const [crimeProbability, setCrimeProbability] = useState(0);
   const [safetyData, setSafetyData] = useState(null);
   const [loadingSafety, setLoadingSafety] = useState(true);
   const [showLottie, setShowLottie] = useState(true);
-  
+
   // ========== News State ==========
   const [newsArticles, setNewsArticles] = useState([]);
   const [loadingNews, setLoadingNews] = useState(true);
-  
+
   // ========== Notification State ==========
   const [notifications, setNotifications] = useState([
     {
@@ -302,7 +297,7 @@ export default function HomeScreen() {
   ]);
   const [modalVisible, setModalVisible] = useState(false);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
-  
+
   // ========== UI State ==========
   const [refreshing, setRefreshing] = useState(false);
 
@@ -378,11 +373,11 @@ export default function HomeScreen() {
     try {
       setLoadingNews(true);
       const articles = await fetchNews("");
-      
+
       const formattedNews = articles.slice(0, 2).map((article, index) => {
         const timeAgo = getTimeAgo(article.published_at);
         const sourceName = article.source || "News Source";
-        
+
         return {
           id: index.toString(),
           title: article.title || "Untitled",
@@ -393,7 +388,7 @@ export default function HomeScreen() {
           url: article.url,
         };
       });
-      
+
       setNewsArticles(formattedNews);
     } catch (error) {
       console.error("Error loading news:", error);
@@ -405,14 +400,14 @@ export default function HomeScreen() {
 
   const getTimeAgo = (dateString) => {
     if (!dateString) return "Recently";
-    
+
     const now = new Date();
     const published = new Date(dateString);
     const diffMs = now - published;
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
-    
+
     if (diffMins < 60) return `${diffMins}m`;
     if (diffHours < 24) return `${diffHours}h`;
     return `${diffDays}d`;
@@ -463,7 +458,7 @@ export default function HomeScreen() {
         : "#FF3B30",
     [crimeProbability]
   );
-  
+
   const riskLabel = useMemo(
     () =>
       crimeProbability < 40
@@ -478,44 +473,44 @@ export default function HomeScreen() {
   useEffect(() => {
     const target = safetyData?.Danger_Percentage ?? 65;
     setCrimeProbability(target);
-    
-    if (Platform.OS !== "web") {
-      Speech.speak(`${Math.round(target)} percent. ${riskLabel}.`, { rate: 1 });
-    }
   }, [safetyData, riskLabel]);
 
   // ==================== FETCH SAFETY DATA FROM API ====================
-  const fetchSafetyData = useCallback(async (area = "Johannesburg", lat = null, lon = null) => {
-    setLoadingSafety(true);
-    setShowLottie(true);
-    try {
-      const endpoint = lat && lon 
-        ? `${API_BASE_URL}/api/safety-status/location/${lat}/${lon}`
-        : `${API_BASE_URL}/api/safety-status/${encodeURIComponent(area)}`;
-      
-      const res = await fetch(endpoint);
-      const data = res.ok
-        ? await res.json()
-        : {
-            Danger_Percentage: 50,
-            safetyTips: ["Data unavailable. Stay alert."],
-          };
-      setSafetyData(data);
-      await AsyncStorage.setItem("@safety_last", JSON.stringify(data));
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } catch {
-      setSafetyData(
-        (prev) =>
-          prev || {
-            Danger_Percentage: 65,
-            safetyTips: ["Data unavailable. Stay alert."],
-          }
-      );
-    } finally {
-      setLoadingSafety(false);
-      setTimeout(() => setShowLottie(false), 2000);
-    }
-  }, []);
+  const fetchSafetyData = useCallback(
+    async (area = "Johannesburg", lat = null, lon = null) => {
+      setLoadingSafety(true);
+      setShowLottie(true);
+      try {
+        const endpoint =
+          lat && lon
+            ? `${API_BASE_URL}/api/safety-status/location/${lat}/${lon}`
+            : `${API_BASE_URL}/api/safety-status/${encodeURIComponent(area)}`;
+
+        const res = await fetch(endpoint);
+        const data = res.ok
+          ? await res.json()
+          : {
+              Danger_Percentage: 50,
+              safetyTips: ["Data unavailable. Stay alert."],
+            };
+        setSafetyData(data);
+        await AsyncStorage.setItem("@safety_last", JSON.stringify(data));
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      } catch {
+        setSafetyData(
+          (prev) =>
+            prev || {
+              Danger_Percentage: 65,
+              safetyTips: ["Data unavailable. Stay alert."],
+            }
+        );
+      } finally {
+        setLoadingSafety(false);
+        setTimeout(() => setShowLottie(false), 2000);
+      }
+    },
+    []
+  );
 
   // ==================== REFRESH HANDLER ====================
   const onRefresh = useCallback(async () => {
@@ -524,7 +519,11 @@ export default function HomeScreen() {
       const loc = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
-      await fetchSafetyData(currentLocation, loc.coords.latitude, loc.coords.longitude);
+      await fetchSafetyData(
+        currentLocation,
+        loc.coords.latitude,
+        loc.coords.longitude
+      );
     } catch {
       await fetchSafetyData(currentLocation || "Johannesburg");
     }
@@ -538,17 +537,17 @@ export default function HomeScreen() {
       setModalVisible(true);
 
       const backendNotifications = await fetchNotificationsFromBackend();
-      
+
       if (backendNotifications.length > 0) {
         setNotifications((prev) => {
           // Create a map of existing notification IDs
-          const existingIds = new Set(prev.map(n => n.id));
-          
+          const existingIds = new Set(prev.map((n) => n.id));
+
           // Filter out duplicates and add new ones
           const newNotifications = backendNotifications.filter(
-            n => !existingIds.has(n.id)
+            (n) => !existingIds.has(n.id)
           );
-          
+
           return [...newNotifications, ...prev];
         });
       }
@@ -567,16 +566,12 @@ export default function HomeScreen() {
 
   const handleMarkAsRead = useCallback((notificationId) => {
     setNotifications((prev) =>
-      prev.map((n) =>
-        n.id === notificationId ? { ...n, isRead: true } : n
-      )
+      prev.map((n) => (n.id === notificationId ? { ...n, isRead: true } : n))
     );
   }, []);
 
   const handleMarkAllAsRead = useCallback(() => {
-    setNotifications((prev) =>
-      prev.map((n) => ({ ...n, isRead: true }))
-    );
+    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   }, []);
 
@@ -584,14 +579,14 @@ export default function HomeScreen() {
   const handleLogout = useCallback(async () => {
     try {
       console.log("🚪 HomeScreen: Starting logout...");
-      
+
       await supabaseAuth.signOut();
       console.log("✅ Supabase signout complete");
-      
+
       await AsyncStorage.removeItem("userSession");
       await AsyncStorage.removeItem("userID");
       console.log("✅ AsyncStorage cleared");
-      
+
       navigation.dispatch(
         CommonActions.reset({
           index: 0,
@@ -613,7 +608,7 @@ export default function HomeScreen() {
         translucent
         backgroundColor="transparent"
       />
-      
+
       {/* Header */}
       <Header
         notificationsCount={notifications.length}
@@ -621,7 +616,7 @@ export default function HomeScreen() {
         onProfilePress={() => navigation.navigate("ProfileScreen")}
         riskColor={riskColor}
       />
-      
+
       {/* Notification Modal */}
       <NotificationModal
         visible={modalVisible}
@@ -630,7 +625,7 @@ export default function HomeScreen() {
         onClose={() => setModalVisible(false)}
         onClearAll={handleClearAll}
       />
-      
+
       {/* Main Content */}
       <ScrollView
         style={styles.scrollView}
@@ -685,7 +680,7 @@ export default function HomeScreen() {
 
         {/* Quick Actions */}
         <QuickActions navigation={navigation} />
-        
+
         {/* News Feed */}
         {!loadingNews && newsArticles.length > 0 && (
           <NewsFeed

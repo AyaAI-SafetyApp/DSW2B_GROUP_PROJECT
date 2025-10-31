@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Welcome to Aya",
-    "slug": "AyaAI",
+    "name": "Aya",
+    "slug": "Welcome to Aya",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/Logos/Aya_Logo.png",
@@ -10,7 +10,11 @@
     "splash": {
       "image": "./assets/Logos/Aya_Logo.png"
     },
-    "platforms": ["ios", "android", "web"],
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
     "assetBundlePatterns": [
       "**/*",
       "assets/*.ppn"
