@@ -10,7 +10,7 @@ import MainTabs from "./navigation/TabsNavigator";
 import OnboardingScreen from "./screens/OnboardingScreen";
 import LoginScreen from "./screens/LoginScreen";
 import SignupScreen from "./screens/SignupScreen";
-import SubscriptionScreen from "./screens/Subscription/subscriptionScreen";
+import SubscriptionScreen from "./screens/Subscription/SubscriptionScreen";
 import HealthScreen from "./screens/HealthScreen";
 import ReactionGame from "./screens/Learning/ReactionGame";
 import PoliceGame from "./screens/Learning/PoliceGame";
@@ -99,9 +99,15 @@ export default function App() {
           component={PrivacySecurityScreen}
         />
         <Stack.Screen name="HelpSupportScreen" component={HelpSupportScreen} />
-        <Stack.Screen name="AchievementsScreen" component={AchievementsScreen} />
+        <Stack.Screen
+          name="AchievementsScreen"
+          component={AchievementsScreen}
+        />
         <Stack.Screen name="EditProfileScreen" component={EditProfile} />
-        <Stack.Screen name="SubscriptionUpgrade" component={SubscriptionUpgrade} />
+        <Stack.Screen
+          name="SubscriptionUpgrade"
+          component={SubscriptionUpgrade}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );
