@@ -1,5 +1,5 @@
 // ...existing code...
-import React, { useMemo, useState, useCallback } from "react";
+import React, { useMemo, useState, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -44,6 +44,10 @@ const PostCard = ({
   onComment,
   onViewComments,
   currentUsername,
+  // added props
+  shouldPlay,
+  onViewMedia,
+  onViewLikes, // <-- added prop so parent can show likers
 }) => {
   const createdAt = useMemo(() => timeAgo(post.created_at), [post.created_at]);
   const media = Array.isArray(post.media_urls)
@@ -61,6 +65,51 @@ const PostCard = ({
   const onLoadEnd = useCallback((index) => {
     setLoadingMap((m) => ({ ...m, [index]: false }));
   }, []);
+
+  // track last tap for single vs double tap
+  const lastTapRef = useRef(null);
+
+  // track currently visible media index (so we only autoplay the visible video)
+  const currentMediaIndexRef = useRef(0);
+  const mediaViewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 50,
+    minimumViewTime: 50,
+  }).current;
+  const onViewableMediaChanged = useRef(({ viewableItems }) => {
+    if (viewableItems && viewableItems.length > 0) {
+      currentMediaIndexRef.current = viewableItems[0].index || 0;
+    }
+  }).current;
+
+  const handleSingleOrDoubleTap = useCallback(
+    (index) => {
+      const now = Date.now();
+      if (lastTapRef.current && now - lastTapRef.current < 300) {
+        // double tap -> like
+        lastTapRef.current = null;
+        if (typeof onLike === "function") onLike(post.id);
+        return;
+      }
+      lastTapRef.current = now;
+      setTimeout(() => {
+        if (!lastTapRef.current) return;
+        const diff = Date.now() - now;
+        if (diff >= 300) {
+          // single tap -> open media viewer for currently visible media (use index param)
+          const idx = typeof index === "number" ? index : currentMediaIndexRef.current || 0;
+          const uri = media[idx];
+          if (uri && typeof onViewMedia === "function") {
+            const isVideo = isVideoUrl(uri);
+            onViewMedia(uri, isVideo);
+          }
+          lastTapRef.current = null;
+        }
+      }, 300);
+    },
+    [onLike, post.id, media, onViewMedia]
+  );
+
+  const likesCount = Array.isArray(post.likes) ? post.likes.length : 0;
 
   return (
     <View style={styles.card}>
@@ -97,6 +146,8 @@ const PostCard = ({
             pagingEnabled
             keyExtractor={(_, i) => `${post.id}_media_${i}`}
             showsHorizontalScrollIndicator={false}
+            viewabilityConfig={mediaViewabilityConfig}
+            onViewableItemsChanged={onViewableMediaChanged}
             renderItem={({ item, index }) => {
               const video = isVideoUrl(item);
               return (
@@ -106,27 +157,36 @@ const PostCard = ({
                       <ActivityIndicator size="small" color={COLORS.accent} />
                     </View>
                   )}
-                  {video ? (
-                    <Video
-                      source={{ uri: item }}
-                      style={styles.mediaFull}
-                      useNativeControls
-                      resizeMode="cover"
-                      isLooping
-                      onLoadStart={() => onLoadStart(index)}
-                      onLoad={() => onLoadEnd(index)}
-                      onError={() => onLoadEnd(index)}
-                    />
-                  ) : (
-                    <Image
-                      source={{ uri: item }}
-                      style={styles.mediaFull}
-                      resizeMode="cover"
-                      onLoadStart={() => onLoadStart(index)}
-                      onLoadEnd={() => onLoadEnd(index)}
-                      onError={() => onLoadEnd(index)}
-                    />
-                  )}
+                  <TouchableOpacity
+                    activeOpacity={1}
+                    onPress={() => handleSingleOrDoubleTap(index)}
+                    style={{ flex: 1 }}
+                  >
+                    {video ? (
+                      <Video
+                        source={{ uri: item }}
+                        style={styles.mediaFull}
+                        useNativeControls
+                        resizeMode="cover"
+                        isLooping
+                        onLoadStart={() => onLoadStart(index)}
+                        onLoad={() => onLoadEnd(index)}
+                        onError={() => onLoadEnd(index)}
+                        // autoplay only when this post is marked shouldPlay and this media index is the visible one
+                        shouldPlay={!!(shouldPlay && currentMediaIndexRef.current === index)}
+                        isMuted={!(shouldPlay && currentMediaIndexRef.current === index)}
+                      />
+                    ) : (
+                      <Image
+                        source={{ uri: item }}
+                        style={styles.mediaFull}
+                        resizeMode="cover"
+                        onLoadStart={() => onLoadStart(index)}
+                        onLoadEnd={() => onLoadEnd(index)}
+                        onError={() => onLoadEnd(index)}
+                      />
+                    )}
+                  </TouchableOpacity>
                 </View>
               );
             }}
@@ -174,6 +234,15 @@ const PostCard = ({
           />
         </TouchableOpacity>
       </View>
+
+      {/* clickable likes count: ask parent to show likers when provided */}
+      {likesCount > 0 ? (
+        <TouchableOpacity onPress={() => typeof onViewLikes === "function" && onViewLikes(post)}>
+          <Text style={styles.viewLikes}>
+            {likesCount} {likesCount === 1 ? "like" : "likes"}
+          </Text>
+        </TouchableOpacity>
+      ) : null}
 
       {post.comments && post.comments.length > 0 ? (
         <TouchableOpacity onPress={() => onViewComments?.(post)}>
@@ -279,6 +348,13 @@ const styles = StyleSheet.create({
   iconAction: {
     marginRight: 12,
   },
+  viewLikes: {
+    color: COLORS.text,
+    fontSize: 14,
+    marginTop: 6,
+    marginLeft: 4,
+    fontWeight: "600",
+  },
   viewComments: {
     color: COLORS.textSecondary,
     fontSize: 14,
@@ -292,4 +368,3 @@ const styles = StyleSheet.create({
 });
 
 export default PostCard;
-// ...existing code...

@@ -196,9 +196,11 @@ const PAYPAL_SECRET = "EI6U2x4gRe5Xj7EeX8g-TQX1eAAvTBvA-7n_PhjuB7U1_dLwRG9dPTLod
 const PAYPAL_BASE = "https://api-m.sandbox.paypal.com";
 
 // Supabase client setup
-const SUPABASE_URL = "https://mcjjabajtfodvmixklfj.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1jamphYmFqdGZvZHZtaXhrbGZqIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NjQ3NTg0MywiZXhwIjoyMDcyMDUxODQzfQ.NbVNBTcC3Cr9ili0EFa9o4IiMhdZRREKlthVJjMW0Xg";
+const SUPABASE_URL = "https://gfrnxqhivmgfgdersflu.supabase.co";
+// const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdmcm54cWhpdm1nZmdkZXJzZmx1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MTA0NjY2NiwiZXhwIjoyMDc2NjIyNjY2fQ.9jPBDKLm4aw5sa1PZalKxSQo4JyDQydnv6mWZqofjto";
+const SUPABASE_KEY= "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdmcm54cWhpdm1nZmdkZXJzZmx1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MTA0NjY2NiwiZXhwIjoyMDc2NjIyNjY2fQ.9jPBDKLm4aw5sa1PZalKxSQo4JyDQydnv6mWZqofjto";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
 
 // Supabase Auth client setup (for user management)
 const AUTH_SUPABASE_URL = "https://gfrnxqhivmgfgdersflu.supabase.co";
@@ -555,6 +557,71 @@ app.get("/models", async (req, res) => {
         res.status(500).json({ ok: false, error: "Failed to fetch models" });
     }
 });
+
+app.get("/api/time-based-safety-tips", async (req, res) => {
+  try {
+    // Example static data
+    const tips = [
+      { id: 1, awareness: "Morning Safety", tip: "Stay hydrated and alert.", hour_start: 6, hour_end: 12 },
+      { id: 2, awareness: "Afternoon Safety", tip: "Avoid distractions while walking.", hour_start: 12, hour_end: 18 },
+      { id: 3, awareness: "Night Safety", tip: "Stay in well-lit areas.", hour_start: 18, hour_end: 24 },
+      { id: 4, awareness: "Late Night Safety", tip: "Keep emergency numbers handy.", hour_start: 0, hour_end: 6 }
+    ];
+
+    res.json(tips); // ✅ Respond with JSON
+  } catch (error) {
+    console.error("Error fetching time-based tips:", error);
+    res.status(500).json({ error: "Failed to fetch safety tips" });
+  }
+});
+
+app.post('/api/save-push-token', async (req, res) => {
+  try {
+    const { token, userId, platform = 'expo' } = req.body;
+
+    if (!token) {
+      return res.status(400).json({ error: 'Push token is required' });
+    }
+
+    console.log("✅ Received Expo push token:", token);
+
+    const response = await axios.post(
+      `${AUTH_SUPABASE_URL}/rest/v1/push_tokens`,
+      { 
+        token: token,           // The actual push token
+        platform: platform,     // Required: 'expo', 'ios', or 'android'
+        user_id: userId || null // Optional user association
+      },
+      {
+        headers: {
+          'apikey': AUTH_SUPABASE_SERVICE_KEY,
+          'Authorization': `Bearer ${AUTH_SUPABASE_SERVICE_KEY}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=representation'
+        },
+        timeout: 10000
+      }
+    );
+
+    console.log("✅ Token saved in Supabase:", response.data);
+    res.status(200).json({ message: 'Push token saved successfully', data: response.data });
+  } catch (err) {
+    console.error("❌ Error saving push token:", {
+      message: err.message,
+      response: err.response?.data
+    });
+    
+    if (err.response?.status === 409 || err.response?.data?.code === '23505') {
+      return res.status(200).json({ message: 'Token already exists' });
+    }
+    
+    res.status(500).json({ 
+      error: err.response?.data?.message || err.message,
+      details: err.response?.data
+    });
+  }
+});
+
 
 // === SOS & EMERGENCY ALERT ENDPOINTS ===
 
