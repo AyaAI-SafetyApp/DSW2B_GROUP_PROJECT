@@ -254,7 +254,7 @@ export default function CreateCredentials({ route }) {
       showSuccess();
 
       // Navigate to subscription screen after success animation
-      setTimeout(() => navigation.navigate("subscription", { 
+      setTimeout(() => navigation.navigate("SubscriptionScreen", { 
         userID 
       }), 1800);
     } catch (err) {

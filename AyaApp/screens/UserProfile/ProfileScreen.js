@@ -214,6 +214,12 @@ const ProfileScreen = () => {
       icon: "ribbon-outline",
       subtitle: "Milestones & badges",
     },
+    {
+      id: 6,
+      title: "Upgrade",
+      icon: "crown",
+      subtitle: "Subscription plans",
+    },
   ];
 
   const handleOptionPress = (option) => {
@@ -270,20 +276,11 @@ const ProfileScreen = () => {
               console.error('Logout error:', error);
             }
           },
-        },
-      },
-    ]);
+        }
+      ]);
   };
 
-  const profileOptions = [
-    { id: 1, title: 'Account Details', icon: 'person-circle-outline', subtitle: 'View and edit your information', 
-      data: { phone: userData.phone, location: userData.location, age: userData.age, gender: userData.gender, email: userData.email } },
-    { id: 2, title: 'Safety Preferences', icon: 'shield-outline', subtitle: 'Configure safety settings' },
-    { id: 3, title: 'Privacy & Security', icon: 'lock-closed-outline', subtitle: 'Account security' },
-    { id: 4, title: 'Help & Support', icon: 'help-circle-outline', subtitle: 'Get assistance' },
-    { id: 5, title: 'Achievements', icon: 'ribbon-outline', subtitle: 'Safety milestones and badges'},
-    { id: 6, title: 'Account upgrade', icon: 'crown', subtitle: 'Subscription plans'},
-  ];
+
 
   return (
     <SafeAreaView style={styles.container}>

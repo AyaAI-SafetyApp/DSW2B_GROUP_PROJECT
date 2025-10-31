@@ -10,7 +10,7 @@ import MainTabs from "./navigation/TabsNavigator";
 import OnboardingScreen from "./screens/OnboardingScreen";
 import LoginScreen from "./screens/LoginScreen";
 import SignupScreen from "./screens/SignupScreen";
-import SubscriptionScreen from "./screens/Subscription/SubscriptionScreen";
+import SubscriptionScreen from "./screens/Subscription/subscriptionScreen";
 import HealthScreen from "./screens/HealthScreen";
 import ReactionGame from "./screens/Learning/ReactionGame";
 import PoliceGame from "./screens/Learning/PoliceGame";
