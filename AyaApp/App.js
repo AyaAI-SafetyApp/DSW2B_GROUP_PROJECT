@@ -28,7 +28,8 @@ import SafetyPreferencesScreen from "./screens/UserProfile/SafetyPreferencesScre
 import PrivacySecurityScreen from "./screens/UserProfile/PrivacySecurityScreen";
 import HelpSupportScreen from "./screens/UserProfile/HelpSupportScreen";
 import AchievementsScreen from "./screens/UserProfile/AchievementsScreen";
-import EditProfileScreen from "./screens/UserProfile/EditProfile";
+import EditProfile from "./screens/UserProfile/EditProfile";
+import SubscriptionUpgrade from "./screens/Subscription/SubscriptionUpgrade.js";
 
 const Stack = createNativeStackNavigator();
 
@@ -98,11 +99,9 @@ export default function App() {
           component={PrivacySecurityScreen}
         />
         <Stack.Screen name="HelpSupportScreen" component={HelpSupportScreen} />
-        <Stack.Screen
-          name="AchievementsScreen"
-          component={AchievementsScreen}
-        />
-        <Stack.Screen name="EditProfileScreen" component={EditProfileScreen} />
+        <Stack.Screen name="AchievementsScreen" component={AchievementsScreen} />
+        <Stack.Screen name="EditProfileScreen" component={EditProfile} />
+        <Stack.Screen name="SubscriptionUpgrade" component={SubscriptionUpgrade} />
       </Stack.Navigator>
     </NavigationContainer>
   );

@@ -217,7 +217,33 @@ const ProfileScreen = () => {
   ];
 
   const handleOptionPress = (option) => {
-    navigation.navigate(option.title.replace(/\s/g, "") + "Screen");
+    switch (option.id) {
+      case 1:
+        // Account Details
+        navigation.navigate('AccountDetailsScreen');
+        break;
+      case 2:
+        // Safety Preferences
+        navigation.navigate('SafetyPreferencesScreen');
+        break;
+      case 3:
+        // Privacy & Security
+        navigation.navigate('PrivacySecurityScreen');
+        break;
+      case 4:
+        // Help & Support
+        navigation.navigate('HelpSupportScreen');
+        break;
+      case 5:
+        // Achievements
+        navigation.navigate('AchievementsScreen');
+      case 6:
+        // Achievements
+        navigation.navigate('SubscriptionUpgrade');
+        break;
+      default:
+        Alert.alert(option.title, option.subtitle);
+    }
   };
 
   const handleLogout = async () => {
@@ -248,6 +274,16 @@ const ProfileScreen = () => {
       },
     ]);
   };
+
+  const profileOptions = [
+    { id: 1, title: 'Account Details', icon: 'person-circle-outline', subtitle: 'View and edit your information', 
+      data: { phone: userData.phone, location: userData.location, age: userData.age, gender: userData.gender, email: userData.email } },
+    { id: 2, title: 'Safety Preferences', icon: 'shield-outline', subtitle: 'Configure safety settings' },
+    { id: 3, title: 'Privacy & Security', icon: 'lock-closed-outline', subtitle: 'Account security' },
+    { id: 4, title: 'Help & Support', icon: 'help-circle-outline', subtitle: 'Get assistance' },
+    { id: 5, title: 'Achievements', icon: 'ribbon-outline', subtitle: 'Safety milestones and badges'},
+    { id: 6, title: 'Account upgrade', icon: 'crown', subtitle: 'Subscription plans'},
+  ];
 
   return (
     <SafeAreaView style={styles.container}>
