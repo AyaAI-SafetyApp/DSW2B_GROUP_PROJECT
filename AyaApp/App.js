@@ -37,6 +37,7 @@ import PrivacySecurityScreen from "./screens/UserProfile/PrivacySecurityScreen";
 import HelpSupportScreen from "./screens/UserProfile/HelpSupportScreen";
 import AchievementsScreen from "./screens/UserProfile/AchievementsScreen";
 import EditProfile from "./screens/UserProfile/EditProfile";
+import ReactivateAccountScreen from "./screens/ReactivateAccountScreen";
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -185,11 +186,12 @@ export default function App() {
     <NavigationContainer>
       <Stack.Navigator
         screenOptions={{ headerShown: false }}
-        initialRouteName="OnboardingScreen"
+        initialRouteName="MainTabs"
       >
         <Stack.Screen name="OnboardingScreen" component={OnboardingScreen} />
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Signup" component={SignupScreen} />
+        <Stack.Screen name="ReactivateAccount" component={ReactivateAccountScreen} />
         <Stack.Screen name="subscription" component={subscription} />
         <Stack.Screen name="SubscriptionScreen" component={subscription} />
         <Stack.Screen name="MainTabs" component={TabsNavigator} />

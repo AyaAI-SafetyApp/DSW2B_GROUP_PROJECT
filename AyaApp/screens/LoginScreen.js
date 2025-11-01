@@ -86,25 +86,16 @@ export default function LoginScreen({ navigation }) {
         throw new Error("User profile not found");
       }
       
-      // Check if account is deactivated and reactivate it
+      // Check if account is deactivated - BLOCK login
       if (userProfile.is_active === false) {
-        console.log('🔄 Reactivating deactivated account...');
-        const { error: reactivateError } = await supabase
-          .from('user_profiles')
-          .update({ 
-            is_active: true,
-            deactivated_at: null,
-            last_login_at: new Date().toISOString()
-          })
-          .eq('email', userEmail);
-        
-        if (reactivateError) {
-          console.error('⚠️ Reactivation error:', reactivateError);
-        } else {
-          console.log('✅ Account reactivated successfully');
-          userProfile.is_active = true;
-          userProfile.deactivated_at = null;
-        }
+        console.log('� Account is deactivated');
+        Alert.alert(
+          "Account Deactivated",
+          "Your account has been deactivated. Please contact support if you wish to reactivate it.",
+          [{ text: "OK" }]
+        );
+        setLoading(false);
+        return;
       }
       
       // Create comprehensive user session data
@@ -178,25 +169,20 @@ export default function LoginScreen({ navigation }) {
         userProfile = await getUserProfile(email);
         console.log('📊 Profile loaded:', userProfile);
         
-        // Check if account is deactivated and reactivate it
+        // Check if account is deactivated - BLOCK login
         if (userProfile && userProfile.is_active === false) {
-          console.log('🔄 Reactivating deactivated account...');
-          const { error: reactivateError } = await supabase
-            .from('user_profiles')
-            .update({ 
-              is_active: true,
-              deactivated_at: null,
-              last_login_at: new Date().toISOString()
-            })
-            .eq('email', email);
+          console.log('� Account is deactivated');
           
-          if (reactivateError) {
-            console.error('⚠️ Reactivation error:', reactivateError);
-          } else {
-            console.log('✅ Account reactivated successfully');
-            userProfile.is_active = true;
-            userProfile.deactivated_at = null;
-          }
+          // Sign out the user immediately
+          await supabase.auth.signOut();
+          
+          Alert.alert(
+            "Account Deactivated",
+            "Your account has been deactivated. Please contact support if you wish to reactivate it.",
+            [{ text: "OK" }]
+          );
+          setLoading(false);
+          return;
         }
       } catch (profileError) {
         console.warn('⚠️ Could not load profile:', profileError);
@@ -306,6 +292,22 @@ export default function LoginScreen({ navigation }) {
           if (sessionData?.session) {
             console.log('✅ Session created:', sessionData.session.user.email);
             
+            // Check if account is deactivated
+            const { getUserProfile } = require('../lib/profileService');
+            const userProfile = await getUserProfile(sessionData.session.user.email);
+            
+            if (userProfile && userProfile.is_active === false) {
+              console.log('🚫 Account is deactivated');
+              await supabase.auth.signOut();
+              Alert.alert(
+                "Account Deactivated",
+                "Your account has been deactivated. Please contact support if you wish to reactivate it.",
+                [{ text: "OK" }]
+              );
+              setLoading(false);
+              return;
+            }
+            
             // Create user session data
             const userData = {
               email: sessionData.session.user.email,
@@ -367,6 +369,22 @@ export default function LoginScreen({ navigation }) {
           if (sessionData?.session) {
             console.log('✅ Session created:', sessionData.session.user.email);
             
+            // Check if account is deactivated
+            const { getUserProfile } = require('../lib/profileService');
+            const userProfile = await getUserProfile(sessionData.session.user.email);
+            
+            if (userProfile && userProfile.is_active === false) {
+              console.log('🚫 Account is deactivated');
+              await supabase.auth.signOut();
+              Alert.alert(
+                "Account Deactivated",
+                "Your account has been deactivated. Please contact support if you wish to reactivate it.",
+                [{ text: "OK" }]
+              );
+              setLoading(false);
+              return;
+            }
+            
             // Create user session data
             const userData = {
               email: sessionData.session.user.email,
@@ -408,19 +426,26 @@ export default function LoginScreen({ navigation }) {
             placeholder="Enter your email"
             value={email}
             onChangeText={setEmail}
-            style={styles.input}
+            style={[styles.input, { color: 'black' }]} 
+            placeholderTextColor="gray"
             keyboardType="email-address"
           />
           <TextInput
             placeholder="Enter your password"
             value={password}
             onChangeText={setPassword}
-            style={styles.input}
+            style={[styles.input, { color: 'black' }]} 
+            placeholderTextColor="gray"
             secureTextEntry
           />
-          <TouchableOpacity onPress={handleForgotPassword}>
-            <Text style={styles.forgotText}>Forgot Password?</Text>
-          </TouchableOpacity>
+          <View style={styles.linksContainer}>
+            <TouchableOpacity onPress={handleForgotPassword}>
+              <Text style={styles.forgotText}>Forgot Password?</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => navigation.navigate('ReactivateAccount')}>
+              <Text style={styles.reactivateText}>Reactivate Account</Text>
+            </TouchableOpacity>
+          </View>
 
           <TouchableOpacity 
             style={[styles.signInButton, loading && styles.disabledButton]} 
@@ -496,7 +521,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#eee",
   },
-  forgotText: { textAlign: "right", color: "#e91e63", marginTop: 4 },
+  linksContainer: { 
+    flexDirection: "row", 
+    justifyContent: "space-between", 
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  forgotText: { color: "#e91e63", fontSize: 14 },
+  reactivateText: { color: "#4CAF50", fontSize: 14, fontWeight: "500" },
   signInButton: {
     backgroundColor: "#e91e63",
     borderRadius: 8,

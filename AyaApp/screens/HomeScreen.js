@@ -15,30 +15,38 @@ import {
   StatusBar,
   Platform,
   Image,
-  Modal,
   RefreshControl,
-  ActivityIndicator,
   Animated,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as Location from "expo-location";
 import { Ionicons } from "@expo/vector-icons";
 import Svg, { Circle } from "react-native-svg";
-import { useNavigation, CommonActions } from "@react-navigation/native";
+import { useNavigation } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
 import * as Speech from "expo-speech";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import LottieView from "lottie-react-native";
 import { supabaseAuth } from "../lib/supabaseClient";
+import { hasFeatureAccess, FEATURES } from "../utils/subscriptionUtils";
 import { fetchNews } from "./GBVNews/newsService";
-import * as Notifications from "expo-notifications";
-import * as Device from "expo-device";
-import { hasFeatureAccess, showUpgradePrompt, FEATURES } from "../utils/subscriptionUtils";
+import NotificationModal from "../components/NotificationModal";
+import * as NotificationService from "../components/NotificationService";
+import {
+  registerForPushNotifications,
+  sendTokenToBackend,
+  loadAndNotifyTimeTip,
+  fetchNotificationsFromBackend,
+  setupNotificationListeners,
+  clearAllNotifications,
+} from "../components/NotificationService";
 
 const { width } = Dimensions.get("window");
 export const PRIMARY = "#D81B60";
 export const API_BASE_URL = "https://dsw2b-backend.onrender.com";
 
+
+// ==================== ANIMATED COMPONENTS ====================
 const FadeView = ({ children, delay = 0, style }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -56,11 +64,11 @@ const FadeView = ({ children, delay = 0, style }) => {
   );
 };
 
+// ==================== HEADER COMPONENT ====================
 const Header = ({
   notificationsCount,
   onOpenNotifications,
   onProfilePress,
-  onLogout,
   riskColor,
 }) => (
   <FadeView style={styles.header} delay={100}>
@@ -109,59 +117,7 @@ const Header = ({
   </FadeView>
 );
 
-const NotificationModal = ({ visible, notifications, onClose }) => (
-  <Modal
-    visible={visible}
-    transparent
-    animationType="slide"
-    onRequestClose={onClose}
-  >
-    <View style={styles.modalOverlay}>
-      <View style={styles.modalContent} accessibilityViewIsModal>
-        <View
-          style={{
-            flexDirection: "row",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <Text style={styles.modalTitle}>Notifications</Text>
-          <TouchableOpacity
-            onPress={onClose}
-            accessibilityLabel="Close notifications"
-          >
-            <Ionicons name="close" size={22} color="#111" />
-          </TouchableOpacity>
-        </View>
-        {notifications.length === 0 ? (
-          <View style={{ paddingVertical: 24 }}>
-            <Text>No notifications</Text>
-          </View>
-        ) : (
-          notifications.map((n, i) => (
-            <Text
-              key={i}
-              style={styles.modalItem}
-              accessibilityLabel={`Notification ${i + 1}`}
-            >
-              {n}
-            </Text>
-          ))
-        )}
-        <TouchableOpacity
-          style={styles.modalCloseButton}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            onClose();
-          }}
-          accessibilityLabel="Close"
-        >
-          <Text style={{ color: "#fff", fontWeight: "700" }}>Close</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  </Modal>
-);
+// ==================== RISK CARD COMPONENT ====================
 const RiskCard = ({ crimeProbability, riskColor, riskLabel, safetyTip }) => (
   <FadeView style={styles.riskCard} delay={200}>
     <View style={styles.riskHeader}>
@@ -199,8 +155,7 @@ const RiskCard = ({ crimeProbability, riskColor, riskLabel, safetyTip }) => (
   </FadeView>
 );
 
-
-
+// ==================== QUICK ACTIONS COMPONENT ====================
 const QuickActions = ({ navigation }) => {
   const actions = [
     {
@@ -266,6 +221,7 @@ const QuickActions = ({ navigation }) => {
   );
 };
 
+// ==================== NEWS FEED COMPONENT ====================
 const NewsFeed = ({ data, onOpenNews, navigation }) => (
   <FadeView style={styles.newsSection} delay={400}>
     <View style={styles.newsSectionHeader}>
@@ -313,25 +269,98 @@ const NewsFeed = ({ data, onOpenNews, navigation }) => (
   </FadeView>
 );
 
+// ==================== MAIN HOME SCREEN COMPONENT ====================
 export default function HomeScreen() {
   const navigation = useNavigation();
+  
+  // ========== Location & Safety State ==========
   const [currentLocation, setCurrentLocation] = useState("Loading...");
   const [crimeProbability, setCrimeProbability] = useState(0);
   const [safetyData, setSafetyData] = useState(null);
+  const [loadingSafety, setLoadingSafety] = useState(true);
+  const [showLottie, setShowLottie] = useState(true);
+  
+  // ========== News State ==========
+  const [newsArticles, setNewsArticles] = useState([]);
+  const [loadingNews, setLoadingNews] = useState(true);
+  
+  // ========== Notification State ==========
   const [notifications, setNotifications] = useState([
-    "Welcome to AyaAI!",
-    "New AI safety tools launched.",
+    {
+      id: "welcome",
+      message: "Welcome to AyaAI!",
+      timestamp: new Date().toISOString(),
+      isRead: false,
+      priority: "normal",
+    },
+    {
+      id: "intro",
+      message: "Stay safe with real-time alerts.",
+      timestamp: new Date(Date.now() - 60000).toISOString(), // 1 min ago
+      isRead: false,
+      priority: "normal",
+    },
   ]);
   const [modalVisible, setModalVisible] = useState(false);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
+  
+  // ========== UI State ==========
   const [refreshing, setRefreshing] = useState(false);
-  const [loadingSafety, setLoadingSafety] = useState(true);
-  const [showLottie, setShowLottie] = useState(true);
-  const [newsArticles, setNewsArticles] = useState([]);
-  const [loadingNews, setLoadingNews] = useState(true);
 
-  const LAST_TIP_KEY = "@last_tip_shown";
+  // ==================== SETUP PUSH NOTIFICATIONS ====================
+  useEffect(() => {
+    const initializeNotifications = async () => {
+      try {
+        // Register for push notifications
+        const token = await registerForPushNotifications();
+        if (token) {
+          await sendTokenToBackend(token);
+        }
 
+        // Load time-based safety tip
+        const tipNotification = await loadAndNotifyTimeTip();
+        if (tipNotification) {
+          setNotifications((prev) => [tipNotification, ...prev]);
+        }
+      } catch (error) {
+        console.error("Error initializing notifications:", error);
+      }
+    };
+
+    initializeNotifications();
+
+    // Setup notification listeners
+    const cleanup = setupNotificationListeners(
+      (notification) => {
+        // When notification is received
+        const content = notification.request.content;
+        const newNotification = {
+          id: notification.request.identifier,
+          message: content.body || content.title || "New notification",
+          timestamp: content.data?.timestamp || new Date().toISOString(),
+          isRead: false,
+          priority: content.data?.priority || "normal",
+        };
+        setNotifications((prev) => [newNotification, ...prev]);
+      },
+      (response) => {
+        // When notification is tapped
+        console.log("Notification tapped:", response);
+        // Mark as read
+        const notificationId = response.notification.request.identifier;
+        setNotifications((prev) =>
+          prev.map((n) =>
+            n.id === notificationId ? { ...n, isRead: true } : n
+          )
+        );
+        // You can navigate to specific screens based on notification data
+      }
+    );
+
+    return cleanup;
+  }, []);
+
+  // ==================== LOAD CACHED SAFETY DATA ====================
   useEffect(() => {
     (async () => {
       try {
@@ -341,6 +370,7 @@ export default function HomeScreen() {
     })();
   }, []);
 
+  // ==================== LOAD NEWS ARTICLES ====================
   useEffect(() => {
     loadNewsArticles();
   }, []);
@@ -389,6 +419,7 @@ export default function HomeScreen() {
     return `${diffDays}d`;
   };
 
+  // ==================== FETCH LOCATION & SAFETY DATA ====================
   useEffect(() => {
     let mounted = true;
     const fetchLocation = async () => {
@@ -423,6 +454,7 @@ export default function HomeScreen() {
     return () => (mounted = false);
   }, []);
 
+  // ==================== COMPUTE RISK INDICATORS ====================
   const riskColor = useMemo(
     () =>
       crimeProbability < 40
@@ -432,6 +464,7 @@ export default function HomeScreen() {
         : "#FF3B30",
     [crimeProbability]
   );
+  
   const riskLabel = useMemo(
     () =>
       crimeProbability < 40
@@ -442,6 +475,7 @@ export default function HomeScreen() {
     [crimeProbability]
   );
 
+  // ==================== UPDATE CRIME PROBABILITY & SPEAK ====================
   useEffect(() => {
     const target = safetyData?.Danger_Percentage ?? 65;
     setCrimeProbability(target);
@@ -451,6 +485,7 @@ export default function HomeScreen() {
     }
   }, [safetyData, riskLabel]);
 
+  // ==================== FETCH SAFETY DATA FROM API ====================
   const fetchSafetyData = useCallback(async (area = "Johannesburg", lat = null, lon = null) => {
     setLoadingSafety(true);
     setShowLottie(true);
@@ -483,6 +518,7 @@ export default function HomeScreen() {
     }
   }, []);
 
+  // ==================== REFRESH HANDLER ====================
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
@@ -496,6 +532,56 @@ export default function HomeScreen() {
     setRefreshing(false);
   }, [currentLocation]);
 
+  // ==================== NOTIFICATION HANDLERS ====================
+  const handleOpenNotifications = useCallback(async () => {
+    try {
+      setLoadingNotifications(true);
+      setModalVisible(true);
+
+      const backendNotifications = await fetchNotificationsFromBackend();
+      
+      if (backendNotifications.length > 0) {
+        setNotifications((prev) => {
+          // Create a map of existing notification IDs
+          const existingIds = new Set(prev.map(n => n.id));
+          
+          // Filter out duplicates and add new ones
+          const newNotifications = backendNotifications.filter(
+            n => !existingIds.has(n.id)
+          );
+          
+          return [...newNotifications, ...prev];
+        });
+      }
+    } catch (error) {
+      console.warn("Error opening notifications:", error);
+    } finally {
+      setLoadingNotifications(false);
+    }
+  }, []);
+
+  const handleClearAll = useCallback(async () => {
+    await clearAllNotifications();
+    setNotifications([]);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  }, []);
+
+  const handleMarkAsRead = useCallback((notificationId) => {
+    setNotifications((prev) =>
+      prev.map((n) =>
+        n.id === notificationId ? { ...n, isRead: true } : n
+      )
+    );
+  }, []);
+
+  const handleMarkAllAsRead = useCallback(() => {
+    setNotifications((prev) =>
+      prev.map((n) => ({ ...n, isRead: true }))
+    );
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  }, []);
+
+  // ==================== LOGOUT HANDLER ====================
   const handleLogout = useCallback(async () => {
     try {
       console.log("🚪 HomeScreen: Starting logout...");
@@ -520,135 +606,7 @@ export default function HomeScreen() {
     }
   }, [navigation]);
 
-  // Helper to pick tip for current hour
-  const pickTipForHour = (tips, hour) => {
-    if (!Array.isArray(tips) || tips.length === 0) return null;
-    const exact = tips.find(
-      (t) => Number(t.hour_start) <= hour && hour < Number(t.hour_end)
-    );
-    return exact || tips[0] || null;
-  };
-
-  // Schedule local notification
-  const scheduleLocalNotification = async (title, body) => {
-    try {
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title,
-          body,
-        },
-        trigger: null, // immediate
-      });
-    } catch (e) {
-      console.warn("Schedule notification failed", e);
-    }
-  };
-
-  // Load and notify time-based tip
-  const loadAndNotifyTimeTip = async () => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/time-based-safety-tips`);
-      const tips = res.ok ? await res.json() : [];
-      if (!tips || tips.length === 0) return;
-
-      const now = new Date();
-      const hour = now.getHours();
-      const selected = pickTipForHour(tips, hour);
-      if (!selected) return;
-
-      // check last shown id to avoid duplicate notifications
-      const last = await AsyncStorage.getItem(LAST_TIP_KEY);
-      const selectedId = String(selected.id ?? selected.time_range ?? selected.hour_start);
-      if (last === selectedId) return;
-
-      const message = `${selected.awareness}: ${selected.tip}`;
-      setNotifications((prev) => [message, ...prev]);
-
-      await scheduleLocalNotification("Safety tip", message);
-
-      await AsyncStorage.setItem(LAST_TIP_KEY, selectedId);
-    } catch (e) {
-      console.warn("loadAndNotifyTimeTip error", e);
-    }
-  };
-
-  // Fetch notifications when opening modal
-  const handleOpenNotifications = useCallback(async () => {
-    try {
-      setLoadingNotifications(true);
-
-      // Try multiple endpoints in order until we get items
-      const endpoints = [
-        `${API_BASE_URL}/api/notifications`,
-        `${API_BASE_URL}/api/time-based-safety-tips`,
-        `${API_BASE_URL}/api/notifications-log`,
-        `${API_BASE_URL}/api/notifications_all`,
-      ];
-
-      let items = [];
-      for (const url of endpoints) {
-        try {
-          const r = await fetch(url);
-          if (!r.ok) {
-            continue;
-          }
-          const json = await r.json();
-          if (Array.isArray(json) && json.length > 0) {
-            items = json;
-            break;
-          }
-        } catch (err) {
-          continue;
-        }
-      }
-
-      // Format received items into readable strings
-      const formatted = [];
-      if (Array.isArray(items) && items.length) {
-        for (const it of items) {
-          if (!it) continue;
-          if (typeof it === "string") {
-            formatted.push(it);
-            continue;
-          }
-          const body =
-            it.message ??
-            it.body ??
-            it.tip ??
-            it.notification ??
-            it.text ??
-            it.payload ??
-            "";
-
-          const title =
-            it.title ??
-            it.awareness ??
-            it.type ??
-            it.time_range ??
-            it.category ??
-            "";
-
-          const display = title && body ? `${title}: ${body}` : body || title || JSON.stringify(it);
-          formatted.push(display);
-        }
-      }
-
-      if (formatted.length > 0) {
-        setNotifications((prev) => {
-          const merged = [...formatted, ...prev];
-          return Array.from(new Set(merged));
-        });
-      }
-
-      setModalVisible(true);
-    } catch (e) {
-      console.warn("handleOpenNotifications error", e);
-      setModalVisible(true);
-    } finally {
-      setLoadingNotifications(false);
-    }
-  }, []);
-
+  // ==================== RENDER ====================
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar
@@ -656,19 +614,25 @@ export default function HomeScreen() {
         translucent
         backgroundColor="transparent"
       />
+      
+      {/* Header */}
       <Header
         notificationsCount={notifications.length}
         onOpenNotifications={handleOpenNotifications}
         onProfilePress={() => navigation.navigate("ProfileScreen")}
-        onLogout={handleLogout}
         riskColor={riskColor}
       />
+      
+      {/* Notification Modal */}
       <NotificationModal
         visible={modalVisible}
         notifications={notifications}
         loading={loadingNotifications}
         onClose={() => setModalVisible(false)}
+        onClearAll={handleClearAll}
       />
+      
+      {/* Main Content */}
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
@@ -677,6 +641,7 @@ export default function HomeScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
+        {/* Location Banner */}
         <View style={styles.locationBanner}>
           <Ionicons name="location-outline" size={16} color={PRIMARY} />
           <View style={{ flex: 1, marginLeft: 8 }}>
@@ -694,6 +659,7 @@ export default function HomeScreen() {
           </View>
         </View>
 
+        {/* Loading Animation or Risk Card */}
         {showLottie ? (
           <FadeView style={{ alignItems: "center", marginTop: 24 }}>
             <LottieView
@@ -718,8 +684,10 @@ export default function HomeScreen() {
           />
         )}
 
+        {/* Quick Actions */}
         <QuickActions navigation={navigation} />
         
+        {/* News Feed */}
         {!loadingNews && newsArticles.length > 0 && (
           <NewsFeed
             data={newsArticles}
@@ -728,6 +696,7 @@ export default function HomeScreen() {
           />
         )}
 
+        {/* Footer Animation */}
         <FadeView
           style={{ alignItems: "center", marginTop: 0, marginBottom: 80 }}
           delay={0}
@@ -747,6 +716,7 @@ export default function HomeScreen() {
   );
 }
 
+// ==================== STYLES ====================
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#ffffffff" },
   scrollView: { flex: 1 },
@@ -794,27 +764,6 @@ const styles = StyleSheet.create({
     backgroundColor: PRIMARY,
     alignItems: "center",
     justifyContent: "center",
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.3)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  modalContent: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 20,
-    width: width - 60,
-  },
-  modalTitle: { fontSize: 18, fontWeight: "700", marginBottom: 10 },
-  modalItem: { fontSize: 14, marginVertical: 6 },
-  modalCloseButton: {
-    backgroundColor: PRIMARY,
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 12,
-    alignItems: "center",
   },
   locationBanner: {
     flexDirection: "row",

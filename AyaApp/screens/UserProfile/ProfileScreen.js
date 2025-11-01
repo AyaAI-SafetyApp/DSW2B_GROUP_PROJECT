@@ -142,9 +142,10 @@ const ProfileScreen = () => {
   const uploadProfilePicture = async (imageUri) => {
     try {
       setUploading(true);
+      const { uploadProfilePicture: upload, saveUserProfile } = require('../../lib/profileService');
       
       // Upload image to Supabase
-      const publicUrl = await uploadProfilePic(imageUri, userData.email);
+      const publicUrl = await upload(imageUri, userData.email);
       
       // Update profile with new image URL
       await saveUserProfile({
@@ -239,7 +240,7 @@ const ProfileScreen = () => {
   const handleDeactivateAccount = () => {
     Alert.alert(
       'Deactivate Account',
-      'Your account will be temporarily disabled. You can reactivate it anytime by logging in again.\n\nAre you sure you want to continue?',
+      'Your account will be suspended and you will not be able to log in. Contact support to reactivate your account.\n\nAre you sure you want to continue?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -265,9 +266,45 @@ const ProfileScreen = () => {
                 return;
               }
 
+              // Send deactivation notification email via Supabase Edge Function
+              try {
+                // Get email from Supabase auth session
+                const { data: { user } } = await supabase.auth.getUser();
+                const emailToUse = user?.email || userData.email;
+                
+                console.log('📧 Preparing deactivation email...');
+                console.log('📧 Email data:', { 
+                  email: emailToUse, 
+                  userName: userData.name || userData.fullName,
+                  emailValid: emailToUse?.includes('@')
+                });
+                
+                // Validate email before sending
+                if (!emailToUse || emailToUse === 'Loading...' || !emailToUse.includes('@')) {
+                  console.warn('⚠️ Invalid email, skipping deactivation notification');
+                } else {
+                  const { data: emailResult, error: emailError } = await supabase.functions.invoke('dynamic-api', {
+                    body: {
+                      email: emailToUse,
+                      userName: userData.name || userData.fullName || 'User',
+                      isDeactivation: true,
+                    },
+                  });
+                  
+                  if (emailResult?.success) {
+                    console.log('✅ Deactivation notification email sent');
+                  } else {
+                    console.warn('⚠️ Failed to send deactivation email:', emailError || emailResult?.error);
+                  }
+                }
+              } catch (emailError) {
+                console.error('❌ Email service error:', emailError);
+                // Continue with account deactivation even if email fails
+              }
+
               Alert.alert(
                 'Account Deactivated',
-                'Your account has been deactivated successfully. You can reactivate it by logging in again.',
+                'Your account has been deactivated. Check your email for details on how to reactivate it.',
                 [
                   {
                     text: 'OK',
@@ -360,7 +397,44 @@ const ProfileScreen = () => {
               }
               console.log('✅ User profile deleted');
 
-              // 4. Sign out the user from Supabase Auth
+              // 4. Send deletion confirmation email via Supabase Edge Function (before signing out)
+              try {
+                // Get email from Supabase auth session before deleting
+                const { data: { user } } = await supabase.auth.getUser();
+                const emailToUse = user?.email || userData.email;
+                
+                console.log('📧 Sending deletion confirmation email...');
+                console.log('📧 Email data:', { 
+                  email: emailToUse, 
+                  userName: userData.name || userData.fullName,
+                  emailType: typeof emailToUse,
+                  emailLength: emailToUse?.length 
+                });
+                
+                // Validate email before sending
+                if (!emailToUse || emailToUse === 'Loading...' || !emailToUse.includes('@')) {
+                  console.warn('⚠️ Invalid email, skipping deletion notification');
+                } else {
+                  const { data: emailResult, error: emailError } = await supabase.functions.invoke('dynamic-api', {
+                    body: {
+                      email: emailToUse,
+                      userName: userData.name || userData.fullName || 'User',
+                      isDeletion: true,
+                    },
+                  });
+                  
+                  if (emailResult?.success) {
+                    console.log('✅ Deletion confirmation email sent');
+                  } else {
+                    console.warn('⚠️ Failed to send deletion email:', emailError || emailResult?.error);
+                  }
+                }
+              } catch (emailError) {
+                console.error('❌ Email service error:', emailError);
+                // Continue with account deletion even if email fails
+              }
+
+              // 5. Sign out the user from Supabase Auth
               console.log('🚪 Signing out from Supabase Auth...');
               const { error: signOutError } = await supabase.auth.signOut();
               if (signOutError) {
@@ -369,7 +443,7 @@ const ProfileScreen = () => {
                 console.log('✅ Signed out from Supabase Auth');
               }
 
-              // 5. Clear all local storage
+              // 6. Clear all local storage
               console.log('🧹 Clearing local storage...');
               await AsyncStorage.clear();
               console.log('✅ Local storage cleared');
@@ -548,6 +622,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#FECACA',
+    
   },
   backButton: {
     padding: 8,
@@ -579,7 +654,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     paddingVertical: 32,
-    marginBottom: 24,
+    marginBottom: 14,
   },
   avatarContainer: {
     position: 'relative',
@@ -773,8 +848,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#FFFFFF',
     marginHorizontal: 20,
-    marginTop: 24,
-    marginBottom: 12,
+    marginTop: 12,
+    marginBottom: 50,
     paddingVertical: 16,
     borderRadius: 12,
     borderWidth: 1,

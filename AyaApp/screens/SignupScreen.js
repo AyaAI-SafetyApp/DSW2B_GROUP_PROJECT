@@ -44,7 +44,7 @@ export default function SignupScreen({ navigation }) {
           await AsyncStorage.setItem("userSession", JSON.stringify(data.session));
         }
         
-        navigation.navigate("AccountForm", { userID: data.user.id });
+  navigation.navigate("AccountForm", { userID: data.user.id, initialFullName: fullName });
         
         if (data.session) {
           Alert.alert("Success", "Account created! Please complete your profile.");
@@ -76,14 +76,16 @@ export default function SignupScreen({ navigation }) {
             placeholder="Enter your full name"
             value={fullName}
             onChangeText={setFullName}
-            style={styles.input}
+             style={[styles.input, { color: 'black' }]} 
+            placeholderTextColor="gray"
             autoCapitalize="words"
           />
           <TextInput
             placeholder="Enter your email"
             value={email}
             onChangeText={setEmail}
-            style={styles.input}
+             style={[styles.input, { color: 'black' }]} 
+            placeholderTextColor="gray"
             keyboardType="email-address"
             autoCapitalize="none"
           />
@@ -91,7 +93,8 @@ export default function SignupScreen({ navigation }) {
             placeholder="Enter your password"
             value={password}
             onChangeText={setPassword}
-            style={styles.input}
+             style={[styles.input, { color: 'black' }]} 
+            placeholderTextColor="gray"
             secureTextEntry
           />
 
