@@ -1332,12 +1332,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
+    flex: 1,
   },
   cardTitle: {
     fontSize: 16,
     fontWeight: "700",
     color: "#271121ff",
-    marginBottom: 8,
+    marginBottom: 12,
   },
 
   subtle: { color: "#6b7280", fontSize: 13 },

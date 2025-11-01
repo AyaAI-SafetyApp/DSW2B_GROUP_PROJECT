@@ -220,6 +220,12 @@ const ProfileScreen = () => {
       icon: "crown",
       subtitle: "Subscription plans",
     },
+    {
+      id: 7,
+      title: "About Us",
+      icon: "group-rows-outline",
+      subtitle: "Wiew Info About Us",
+    },
   ];
 
   const handleOptionPress = (option) => {
@@ -247,6 +253,11 @@ const ProfileScreen = () => {
         // Achievements
         navigation.navigate('SubscriptionUpgrade');
         break;
+      case 7:
+        // About Us
+        navigation.navigate('AboutUsScreen');
+        break;
+      
       default:
         Alert.alert(option.title, option.subtitle);
     }
@@ -279,7 +290,6 @@ const ProfileScreen = () => {
         }
       ]);
   };
-
 
 
   return (

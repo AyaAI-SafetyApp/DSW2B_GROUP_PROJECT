@@ -10,7 +10,7 @@ import MainTabs from "./navigation/TabsNavigator";
 import OnboardingScreen from "./screens/OnboardingScreen";
 import LoginScreen from "./screens/LoginScreen";
 import SignupScreen from "./screens/SignupScreen";
-import SubscriptionScreen from "./screens/Subscription/SubscriptionScreen";
+import SubscriptionScreen from "./screens/Subscription/subscriptionScreen";
 import HealthScreen from "./screens/HealthScreen";
 import ReactionGame from "./screens/Learning/ReactionGame";
 import PoliceGame from "./screens/Learning/PoliceGame";
@@ -30,6 +30,7 @@ import HelpSupportScreen from "./screens/UserProfile/HelpSupportScreen";
 import AchievementsScreen from "./screens/UserProfile/AchievementsScreen";
 import EditProfile from "./screens/UserProfile/EditProfile";
 import SubscriptionUpgrade from "./screens/Subscription/SubscriptionUpgrade.js";
+import AboutUsScreen from "./screens/UserProfile/AboutUsScreen.js";
 
 const Stack = createNativeStackNavigator();
 
@@ -108,6 +109,7 @@ export default function App() {
           name="SubscriptionUpgrade"
           component={SubscriptionUpgrade}
         />
+        <Stack.Screen name="AboutUsScreen" component={AboutUsScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
