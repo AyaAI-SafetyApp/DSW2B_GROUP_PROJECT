@@ -16,6 +16,18 @@ const GBV_KEYWORDS = [
 
 export async function fetchNews(userQuery = "") {
   try {
+    // Check cache first and use if less than 1 hour old
+    const cachedData = await AsyncStorage.getItem("cachedNews");
+    const cacheTimestamp = await AsyncStorage.getItem("cacheTimestamp");
+    
+    if (cachedData && cacheTimestamp) {
+      const hoursSinceCache = (Date.now() - parseInt(cacheTimestamp)) / (1000 * 60 * 60);
+      if (hoursSinceCache < 1) {
+        console.log("Using cached news (cache is fresh)");
+        return JSON.parse(cachedData);
+      }
+    }
+
     const isGBVQuery = GBV_KEYWORDS.some((kw) =>
       userQuery.toLowerCase().includes(kw.toLowerCase())
     );
@@ -55,6 +67,7 @@ export async function fetchNews(userQuery = "") {
     );
 
     await AsyncStorage.setItem("cachedNews", JSON.stringify(uniqueArticles));
+    await AsyncStorage.setItem("cacheTimestamp", Date.now().toString());
 
     return uniqueArticles;
   } catch (error) {

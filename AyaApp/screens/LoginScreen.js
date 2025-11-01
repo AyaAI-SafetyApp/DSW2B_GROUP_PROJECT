@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, TextInput, TouchableOpacity, Image, StyleSheet, Alert, ActivityIndicator } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, Image, StyleSheet, Alert, ActivityIndicator, Linking } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { AntDesign, FontAwesome, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as LocalAuthentication from "expo-local-authentication";
+import * as WebBrowser from "expo-web-browser";
 import { supabaseAuth } from "../lib/supabaseClient";
 import { supabase } from "../lib/supabaseClient";
+
+// Important for OAuth flow
+WebBrowser.maybeCompleteAuthSession();
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState("");
@@ -265,6 +269,132 @@ export default function LoginScreen({ navigation }) {
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    try {
+      setLoading(true);
+      console.log('🔵 Starting Google Sign-In...');
+      
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: 'ayaai://auth/callback',
+          skipBrowserRedirect: true,
+        },
+      });
+
+      if (error) throw error;
+
+      console.log('✅ Google Sign-In initiated:', data);
+
+      // Open the OAuth URL in browser
+      if (data?.url) {
+        const result = await WebBrowser.openAuthSessionAsync(
+          data.url,
+          'ayaai://auth/callback'
+        );
+
+        console.log('📱 Browser result:', result);
+
+        if (result.type === 'success') {
+          // Extract the URL with auth code
+          const { url } = result;
+          
+          // Supabase will handle the session automatically
+          // Let's check for the session
+          const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+          
+          if (sessionData?.session) {
+            console.log('✅ Session created:', sessionData.session.user.email);
+            
+            // Create user session data
+            const userData = {
+              email: sessionData.session.user.email,
+              userId: sessionData.session.user.id,
+              name: sessionData.session.user.user_metadata?.full_name || sessionData.session.user.email.split('@')[0],
+              provider: 'google',
+              loginTime: new Date().toISOString(),
+            };
+            
+            await AsyncStorage.setItem("@user_session", JSON.stringify(userData));
+            
+            navigation.reset({
+              index: 0,
+              routes: [{ name: "MainTabs" }],
+            });
+            
+            Alert.alert("Success", "Signed in with Google!");
+          }
+        }
+      }
+    } catch (error) {
+      console.error('❌ Google Sign-In error:', error);
+      Alert.alert('Sign-In Failed', 'Failed to sign in with Google. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFacebookSignIn = async () => {
+    try {
+      setLoading(true);
+      console.log('🔵 Starting Facebook Sign-In...');
+      
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'facebook',
+        options: {
+          redirectTo: 'ayaai://auth/callback',
+          skipBrowserRedirect: true,
+        },
+      });
+
+      if (error) throw error;
+
+      console.log('✅ Facebook Sign-In initiated:', data);
+
+      // Open the OAuth URL in browser
+      if (data?.url) {
+        const result = await WebBrowser.openAuthSessionAsync(
+          data.url,
+          'ayaai://auth/callback'
+        );
+
+        console.log('📱 Browser result:', result);
+
+        if (result.type === 'success') {
+          // Check for the session
+          const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+          
+          if (sessionData?.session) {
+            console.log('✅ Session created:', sessionData.session.user.email);
+            
+            // Create user session data
+            const userData = {
+              email: sessionData.session.user.email,
+              userId: sessionData.session.user.id,
+              name: sessionData.session.user.user_metadata?.full_name || sessionData.session.user.email.split('@')[0],
+              provider: 'facebook',
+              loginTime: new Date().toISOString(),
+            };
+            
+            await AsyncStorage.setItem("@user_session", JSON.stringify(userData));
+            
+            navigation.reset({
+              index: 0,
+              routes: [{ name: "MainTabs" }],
+            });
+            
+            Alert.alert("Success", "Signed in with Facebook!");
+          }
+        }
+      }
+    } catch (error) {
+      console.error('❌ Facebook Sign-In error:', error);
+      Alert.alert('Sign-In Failed', 'Failed to sign in with Facebook. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <LinearGradient colors={["#d9c9ff", "#f6d5ef"]} style={styles.container}>
       <View style={styles.content}>
@@ -321,14 +451,22 @@ export default function LoginScreen({ navigation }) {
           <Text style={styles.orText}>or continue with</Text>
 
           <View style={styles.socialRow}>
-            <TouchableOpacity style={styles.socialButton}>
+            <TouchableOpacity 
+              style={[styles.socialButton, loading && styles.disabledButton]} 
+              onPress={handleGoogleSignIn}
+              disabled={loading}
+            >
               <AntDesign name="google" size={22} color="#DB4437" />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.socialButton}>
+            <TouchableOpacity 
+              style={[styles.socialButton, loading && styles.disabledButton]} 
+              onPress={handleFacebookSignIn}
+              disabled={loading}
+            >
               <FontAwesome name="facebook" size={22} color="#1877F2" />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.socialButton}>
-              <Ionicons name="logo-apple" size={22} color="#000" />
+            <TouchableOpacity style={[styles.socialButton, styles.disabledButton]} disabled={true}>
+              <Ionicons name="logo-apple" size={22} color="#999" />
             </TouchableOpacity>
           </View>
 

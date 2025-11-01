@@ -19,6 +19,8 @@ import HealthScreen from "./screens/HealthScreen";
 import ReactionGame from "./screens/Learning/ReactionGame";
 import PoliceGame from "./screens/Learning/PoliceGame";
 import Safety from "./screens/Learning/SafetyGame";
+import ARTrainingScreen from "./screens/Learning/ARTrainingScreen";
+import CameraARTrainingScreen from "./screens/Learning/CameraARTrainingScreen";
 import EmergencyScreen from "./screens/EmergencyScreen";
 import MapViewScreen from "./screens/MapViewScreen";
 import OnboardingScreen from "./screens/OnboardingScreen";
@@ -196,6 +198,16 @@ export default function App() {
         <Stack.Screen name="PoliceGame" component={PoliceGame} />
         <Stack.Screen name="NewsFeed" component={NewsFeed} />
         <Stack.Screen name="Safety" component={Safety} />
+        <Stack.Screen 
+          name="ARTraining" 
+          component={ARTrainingScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen 
+          name="CameraARTraining" 
+          component={CameraARTrainingScreen}
+          options={{ headerShown: false }}
+        />
         <Stack.Screen name="ArticleScreen" component={ArticleScreen} />
         <Stack.Screen name="EmergencyScreen" component={EmergencyScreen} />
         <Stack.Screen name="AccountForm" component={AccountForm} />
