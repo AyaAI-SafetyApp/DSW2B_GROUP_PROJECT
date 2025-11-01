@@ -198,23 +198,40 @@ export const deleteAllUserPasskeys = async (userId) => {
  */
 export const sendPasskeyEmail = async (email, credentialId, provider, userName) => {
   try {
-    const { data, error } = await supabase.functions.invoke('send-passkey-email', {
+    console.log('📧 Preparing to send passkey email...');
+    console.log('📧 Email params:', { 
+      email, 
+      credentialId: credentialId?.substring(0, 20) + '...', 
+      provider, 
+      userName,
+      emailValid: email?.includes('@')
+    });
+
+    // Validate email before sending
+    if (!email || !email.includes('@')) {
+      console.error('❌ Invalid email address:', email);
+      throw new Error('Invalid email address');
+    }
+
+    const { data, error } = await supabase.functions.invoke('dynamic-api', {
       body: {
-        email,
+        email: email.trim().toLowerCase(),
         credentialId,
         provider,
         userName,
+        isWelcome: true,
       },
     });
 
     if (error) {
-      console.error("Error sending passkey email:", error);
+      console.error("❌ Error sending passkey email:", error);
       throw error;
     }
 
+    console.log('✅ Passkey email sent successfully:', data);
     return data;
   } catch (error) {
-    console.error("Failed to send passkey email:", error);
+    console.error("❌ Failed to send passkey email:", error);
     throw error;
   }
 };

@@ -280,7 +280,256 @@ const ProfileScreen = () => {
       ]);
   };
 
+<<<<<<< HEAD
 
+=======
+  const handleDeactivateAccount = () => {
+    Alert.alert(
+      'Deactivate Account',
+      'Your account will be suspended and you will not be able to log in. Contact support to reactivate your account.\n\nAre you sure you want to continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Deactivate',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setLoading(true);
+              
+              // Update user_profiles to mark as deactivated
+              const { error } = await supabase
+                .from('user_profiles')
+                .update({ 
+                  is_active: false,
+                  deactivated_at: new Date().toISOString()
+                })
+                .eq('email', userData.email);
+
+              if (error) {
+                console.error('Deactivation error:', error);
+                Alert.alert('Error', 'Failed to deactivate account. Please try again.');
+                setLoading(false);
+                return;
+              }
+
+              // Send deactivation notification email via Supabase Edge Function
+              try {
+                // Get email from Supabase auth session
+                const { data: { user } } = await supabase.auth.getUser();
+                const emailToUse = user?.email || userData.email;
+                
+                console.log('📧 Preparing deactivation email...');
+                console.log('📧 Email data:', { 
+                  email: emailToUse, 
+                  userName: userData.name || userData.fullName,
+                  emailValid: emailToUse?.includes('@')
+                });
+                
+                // Validate email before sending
+                if (!emailToUse || emailToUse === 'Loading...' || !emailToUse.includes('@')) {
+                  console.warn('⚠️ Invalid email, skipping deactivation notification');
+                } else {
+                  const { data: emailResult, error: emailError } = await supabase.functions.invoke('dynamic-api', {
+                    body: {
+                      email: emailToUse,
+                      userName: userData.name || userData.fullName || 'User',
+                      isDeactivation: true,
+                    },
+                  });
+                  
+                  if (emailResult?.success) {
+                    console.log('✅ Deactivation notification email sent');
+                  } else {
+                    console.warn('⚠️ Failed to send deactivation email:', emailError || emailResult?.error);
+                  }
+                }
+              } catch (emailError) {
+                console.error('❌ Email service error:', emailError);
+                // Continue with account deactivation even if email fails
+              }
+
+              Alert.alert(
+                'Account Deactivated',
+                'Your account has been deactivated. Check your email for details on how to reactivate it.',
+                [
+                  {
+                    text: 'OK',
+                    onPress: async () => {
+                      await AsyncStorage.removeItem('@user_session');
+                      await AsyncStorage.removeItem('@safety_last');
+                      navigation.reset({
+                        index: 0,
+                        routes: [{ name: 'OnboardingScreen' }],
+                      });
+                    },
+                  },
+                ]
+              );
+            } catch (error) {
+              console.error('Deactivation error:', error);
+              Alert.alert('Error', 'An error occurred. Please try again.');
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.prompt(
+      'Delete Account Permanently',
+      'This action cannot be undone! All your data will be permanently deleted.\n\nType "DELETE" to confirm:',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Forever',
+          style: 'destructive',
+          onPress: async (inputText) => {
+            if (inputText?.toUpperCase() !== 'DELETE') {
+              Alert.alert('Cancelled', 'Account deletion cancelled.');
+              return;
+            }
+
+            try {
+              setLoading(true);
+              console.log('🗑️ Starting account deletion for:', userData.email);
+
+              // 1. Delete profile picture from storage if exists
+              if (userData.profilePicture) {
+                try {
+                  const fileName = userData.profilePicture.split('/').pop();
+                  console.log('🖼️ Deleting profile picture:', fileName);
+                  const { error: storageError } = await supabase.storage
+                    .from('profile-pictures')
+                    .remove([`${userData.email}/${fileName}`]);
+                  
+                  if (storageError) {
+                    console.warn('⚠️ Storage deletion warning:', storageError);
+                  } else {
+                    console.log('✅ Profile picture deleted from storage');
+                  }
+                } catch (storageError) {
+                  console.warn('⚠️ Could not delete profile picture:', storageError);
+                }
+              }
+
+              // 2. Delete from passkeys table
+              console.log('🔑 Deleting passkeys...');
+              const { error: passkeysError } = await supabase
+                .from('passkeys')
+                .delete()
+                .eq('user_id', userData.email);
+
+              if (passkeysError) {
+                console.warn('⚠️ Passkeys deletion warning:', passkeysError);
+              } else {
+                console.log('✅ Passkeys deleted');
+              }
+
+              // 3. Delete from user_profiles table
+              console.log('👤 Deleting user profile...');
+              const { error: profileError } = await supabase
+                .from('user_profiles')
+                .delete()
+                .eq('email', userData.email);
+
+              if (profileError) {
+                console.error('❌ Delete profile error:', profileError);
+                Alert.alert('Error', 'Failed to delete profile. Please try again.');
+                setLoading(false);
+                return;
+              }
+              console.log('✅ User profile deleted');
+
+              // 4. Send deletion confirmation email via Supabase Edge Function (before signing out)
+              try {
+                // Get email from Supabase auth session before deleting
+                const { data: { user } } = await supabase.auth.getUser();
+                const emailToUse = user?.email || userData.email;
+                
+                console.log('📧 Sending deletion confirmation email...');
+                console.log('📧 Email data:', { 
+                  email: emailToUse, 
+                  userName: userData.name || userData.fullName,
+                  emailType: typeof emailToUse,
+                  emailLength: emailToUse?.length 
+                });
+                
+                // Validate email before sending
+                if (!emailToUse || emailToUse === 'Loading...' || !emailToUse.includes('@')) {
+                  console.warn('⚠️ Invalid email, skipping deletion notification');
+                } else {
+                  const { data: emailResult, error: emailError } = await supabase.functions.invoke('dynamic-api', {
+                    body: {
+                      email: emailToUse,
+                      userName: userData.name || userData.fullName || 'User',
+                      isDeletion: true,
+                    },
+                  });
+                  
+                  if (emailResult?.success) {
+                    console.log('✅ Deletion confirmation email sent');
+                  } else {
+                    console.warn('⚠️ Failed to send deletion email:', emailError || emailResult?.error);
+                  }
+                }
+              } catch (emailError) {
+                console.error('❌ Email service error:', emailError);
+                // Continue with account deletion even if email fails
+              }
+
+              // 5. Sign out the user from Supabase Auth
+              console.log('🚪 Signing out from Supabase Auth...');
+              const { error: signOutError } = await supabase.auth.signOut();
+              if (signOutError) {
+                console.warn('⚠️ Sign out warning:', signOutError);
+              } else {
+                console.log('✅ Signed out from Supabase Auth');
+              }
+
+              // 6. Clear all local storage
+              console.log('🧹 Clearing local storage...');
+              await AsyncStorage.clear();
+              console.log('✅ Local storage cleared');
+
+              Alert.alert(
+                'Account Deleted',
+                'Your account and all data have been permanently deleted.',
+                [
+                  {
+                    text: 'OK',
+                    onPress: () => {
+                      navigation.reset({
+                        index: 0,
+                        routes: [{ name: 'OnboardingScreen' }],
+                      });
+                    },
+                  },
+                ]
+              );
+            } catch (error) {
+              console.error('❌ Delete error:', error);
+              Alert.alert('Error', 'An error occurred while deleting your account. Please try again.');
+              setLoading(false);
+            }
+          },
+        },
+      ],
+      'plain-text'
+    );
+  };
+
+  const profileOptions = [
+    { id: 1, title: 'Account Details', icon: 'person-circle-outline', subtitle: 'View and edit your information', 
+      data: { phone: userData.phone, location: userData.location, age: userData.age, gender: userData.gender, email: userData.email } },
+    { id: 2, title: 'Safety Preferences', icon: 'shield-outline', subtitle: 'Configure safety settings' },
+    { id: 3, title: 'Privacy & Security', icon: 'lock-closed-outline', subtitle: 'Account security' },
+    { id: 4, title: 'Help & Support', icon: 'help-circle-outline', subtitle: 'Get assistance' },
+    { id: 5, title: 'Achievements', icon: 'ribbon-outline', subtitle: 'Safety milestones and badges'},
+  ];
+>>>>>>> origin/feature/subscription-feature-locking
 
   return (
     <SafeAreaView style={styles.container}>

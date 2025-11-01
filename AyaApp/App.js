@@ -17,6 +17,9 @@ import PoliceGame from "./screens/Learning/PoliceGame";
 import SafetyGame from "./screens/Learning/SafetyGame";
 import NewsFeed from "./screens/GBVNews/NewsFeed";
 import ArticleScreen from "./screens/GBVNews/ArticleScreen";
+import Safety from "./screens/Learning/SafetyGame";
+import ARTrainingScreen from "./screens/Learning/ARTrainingScreen";
+import CameraARTrainingScreen from "./screens/Learning/CameraARTrainingScreen";
 import EmergencyScreen from "./screens/EmergencyScreen";
 import AccountForm from "./screens/Auth/AccountForm";
 import GetAssertion from "./screens/Auth/GetAssertion";
@@ -30,6 +33,7 @@ import HelpSupportScreen from "./screens/UserProfile/HelpSupportScreen";
 import AchievementsScreen from "./screens/UserProfile/AchievementsScreen";
 import EditProfile from "./screens/UserProfile/EditProfile";
 import SubscriptionUpgrade from "./screens/Subscription/SubscriptionUpgrade.js";
+import ReactivateAccountScreen from "./screens/ReactivateAccountScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -74,11 +78,26 @@ export default function App() {
           component={SubscriptionScreen}
         />
         {/* <Stack.Screen name="MainTabs" component={MainTabs} /> */}
+        <Stack.Screen name="ReactivateAccount" component={ReactivateAccountScreen} />
+        <Stack.Screen name="subscription" component={subscription} />
+        <Stack.Screen name="SubscriptionScreen" component={subscription} />
+        <Stack.Screen name="MainTabs" component={TabsNavigator} />
         <Stack.Screen name="Health" component={HealthScreen} />
         <Stack.Screen name="ReactionGame" component={ReactionGame} />
         <Stack.Screen name="PoliceGame" component={PoliceGame} />
         <Stack.Screen name="SafetyGame" component={SafetyGame} />
         <Stack.Screen name="NewsFeed" component={NewsFeed} />
+        <Stack.Screen name="Safety" component={Safety} />
+        <Stack.Screen 
+          name="ARTraining" 
+          component={ARTrainingScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen 
+          name="CameraARTraining" 
+          component={CameraARTrainingScreen}
+          options={{ headerShown: false }}
+        />
         <Stack.Screen name="ArticleScreen" component={ArticleScreen} />
         <Stack.Screen name="EmergencyScreen" component={EmergencyScreen} />
         <Stack.Screen name="AccountForm" component={AccountForm} />

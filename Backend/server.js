@@ -7,6 +7,7 @@ const bodyParser = require('body-parser');
 const { createClient } = require('@supabase/supabase-js');
 const dotenv = require('dotenv');
 const passkeyService = require('./passkeyService');
+const emailService = require('./emailService');
 const twilio = require("twilio");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const multer = require("multer");
@@ -618,6 +619,141 @@ app.post('/api/save-push-token', async (req, res) => {
     res.status(500).json({ 
       error: err.response?.data?.message || err.message,
       details: err.response?.data
+    });
+  }
+});
+
+
+// === EMAIL SERVICE ENDPOINTS ===
+
+/**
+ * Send reactivation code email
+ * POST /api/email/send-reactivation-code
+ * Body: { email, code, userName }
+ */
+app.post('/api/email/send-reactivation-code', async (req, res) => {
+  try {
+    const { email, code, userName } = req.body;
+
+    if (!email || !code) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Email and code are required' 
+      });
+    }
+
+    const result = await emailService.sendReactivationCode(email, code, userName || 'User');
+
+    res.json({ 
+      success: true, 
+      message: 'Reactivation code email sent successfully',
+      data: result.data 
+    });
+
+  } catch (error) {
+    console.error('❌ Error sending reactivation code:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Failed to send reactivation code email' 
+    });
+  }
+});
+
+/**
+ * Send account deactivation notification
+ * POST /api/email/send-deactivation-notification
+ * Body: { email, userName }
+ */
+app.post('/api/email/send-deactivation-notification', async (req, res) => {
+  try {
+    const { email, userName } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Email is required' 
+      });
+    }
+
+    const result = await emailService.sendDeactivationNotification(email, userName || 'User');
+
+    res.json({ 
+      success: true, 
+      message: 'Deactivation notification sent successfully',
+      data: result.data 
+    });
+
+  } catch (error) {
+    console.error('❌ Error sending deactivation notification:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Failed to send deactivation notification' 
+    });
+  }
+});
+
+/**
+ * Send account deletion confirmation
+ * POST /api/email/send-deletion-confirmation
+ * Body: { email, userName }
+ */
+app.post('/api/email/send-deletion-confirmation', async (req, res) => {
+  try {
+    const { email, userName } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Email is required' 
+      });
+    }
+
+    const result = await emailService.sendDeletionConfirmation(email, userName || 'User');
+
+    res.json({ 
+      success: true, 
+      message: 'Deletion confirmation sent successfully',
+      data: result.data 
+    });
+
+  } catch (error) {
+    console.error('❌ Error sending deletion confirmation:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Failed to send deletion confirmation' 
+    });
+  }
+});
+
+/**
+ * Test email service
+ * POST /api/email/test
+ * Body: { email }
+ */
+app.post('/api/email/test', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Email is required' 
+      });
+    }
+
+    const result = await emailService.testEmailService(email);
+
+    res.json({ 
+      success: true, 
+      message: 'Test email sent successfully',
+      data: result.data 
+    });
+
+  } catch (error) {
+    console.error('❌ Error testing email service:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Failed to test email service' 
     });
   }
 });

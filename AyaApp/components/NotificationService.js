@@ -292,8 +292,12 @@ export function setupNotificationListeners(
 
   // Return cleanup function
   return () => {
-    receivedListener.remove();
-    responseListener.remove();
+    if (receivedListener) {
+      receivedListener.remove();
+    }
+    if (responseListener) {
+      responseListener.remove();
+    }
   };
 }
 

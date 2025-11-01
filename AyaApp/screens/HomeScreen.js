@@ -29,6 +29,7 @@ import * as Speech from "expo-speech";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import LottieView from "lottie-react-native";
 import { supabaseAuth } from "../lib/supabaseClient";
+import { hasFeatureAccess, FEATURES } from "../utils/subscriptionUtils";
 import { fetchNews } from "./GBVNews/newsService";
 import NotificationModal from "../components/NotificationModal";
 import {
