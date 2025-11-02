@@ -254,6 +254,51 @@ const ProfileScreen = () => {
     }
   };
 
+  const profileOptions = [
+    {
+      id: 1,
+      title: "Account Details",
+      icon: "person-circle-outline",
+      subtitle: "View and edit info",
+    },
+    {
+      id: 2,
+      title: "Safety Preferences",
+      icon: "shield-outline",
+      subtitle: "Configure safety settings",
+    },
+    {
+      id: 3,
+      title: "Privacy & Security",
+      icon: "lock-closed-outline",
+      subtitle: "Account security",
+    },
+    {
+      id: 4,
+      title: "Help & Support",
+      icon: "help-circle-outline",
+      subtitle: "Get assistance",
+    },
+    {
+      id: 5,
+      title: "Achievements",
+      icon: "ribbon-outline",
+      subtitle: "Milestones & badges",
+    },
+    {
+      id: 6,
+      title: "Upgrade",
+      icon: "crown",
+      subtitle: "Subscription plans",
+    },
+    {
+      id: 7,
+      title: "About Us",
+      icon: "group-rows-outline",
+      subtitle: "Wiew Info About Us",
+    },
+  ];
+
   const handleOptionPress = (option) => {
     switch (option.id) {
       case 1:
@@ -276,6 +321,11 @@ const ProfileScreen = () => {
         // Achievements
         navigation.navigate('AchievementsScreen');
         break;
+      case 7:
+        // About Us
+        navigation.navigate('AboutUsScreen');
+        break;
+      
       default:
         Alert.alert(option.title, option.subtitle);
     }

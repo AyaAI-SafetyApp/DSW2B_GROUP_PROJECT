@@ -33,6 +33,7 @@ import HelpSupportScreen from "./screens/UserProfile/HelpSupportScreen";
 import AchievementsScreen from "./screens/UserProfile/AchievementsScreen";
 import EditProfile from "./screens/UserProfile/EditProfile";
 import SubscriptionUpgrade from "./screens/Subscription/SubscriptionUpgrade.js";
+import AboutUsScreen from "./screens/UserProfile/AboutUsScreen.js";
 import ReactivateAccountScreen from "./screens/ReactivateAccountScreen";
 
 const Stack = createNativeStackNavigator();
@@ -123,6 +124,7 @@ export default function App() {
           name="SubscriptionUpgrade"
           component={SubscriptionUpgrade}
         />
+        <Stack.Screen name="AboutUsScreen" component={AboutUsScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
