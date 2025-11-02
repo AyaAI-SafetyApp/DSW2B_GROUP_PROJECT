@@ -10,7 +10,7 @@ import MainTabs from "./navigation/TabsNavigator";
 import OnboardingScreen from "./screens/OnboardingScreen";
 import LoginScreen from "./screens/LoginScreen";
 import SignupScreen from "./screens/SignupScreen";
-import SubscriptionScreen from "./screens/Subscription/SubscriptionScreen";
+import SubscriptionScreen from "./screens/Subscription/subscriptionScreen";
 import HealthScreen from "./screens/HealthScreen";
 import ReactionGame from "./screens/Learning/ReactionGame";
 import PoliceGame from "./screens/Learning/PoliceGame";
@@ -77,11 +77,7 @@ export default function App() {
           name="SubscriptionScreen"
           component={SubscriptionScreen}
         />
-        {/* <Stack.Screen name="MainTabs" component={MainTabs} /> */}
         <Stack.Screen name="ReactivateAccount" component={ReactivateAccountScreen} />
-        <Stack.Screen name="subscription" component={subscription} />
-        <Stack.Screen name="SubscriptionScreen" component={subscription} />
-        <Stack.Screen name="MainTabs" component={TabsNavigator} />
         <Stack.Screen name="Health" component={HealthScreen} />
         <Stack.Screen name="ReactionGame" component={ReactionGame} />
         <Stack.Screen name="PoliceGame" component={PoliceGame} />

@@ -86,6 +86,9 @@ importers:
       expo-blur:
         specifier: ~15.0.7
         version: 15.0.7(expo@54.0.21)(react-native@0.81.4(@babel/core@7.28.5)(@react-native-community/cli@20.0.2)(react@19.1.0))(react@19.1.0)
+      expo-camera:
+        specifier: ~17.0.8
+        version: 17.0.8(expo@54.0.21)(react-native-web@0.21.2(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react-native@0.81.4(@babel/core@7.28.5)(@react-native-community/cli@20.0.2)(react@19.1.0))(react@19.1.0)
       expo-constants:
         specifier: ^18.0.10
         version: 18.0.10(expo@54.0.21)(react-native@0.81.4(@babel/core@7.28.5)(@react-native-community/cli@20.0.2)(react@19.1.0))
@@ -123,13 +126,13 @@ importers:
         specifier: ^0.32.12
         version: 0.32.12(expo@54.0.21)(react-native@0.81.4(@babel/core@7.28.5)(@react-native-community/cli@20.0.2)(react@19.1.0))(react@19.1.0)
       expo-print:
-        specifier: ^15.0.7
+        specifier: ~15.0.7
         version: 15.0.7(expo@54.0.21)(react-native@0.81.4(@babel/core@7.28.5)(@react-native-community/cli@20.0.2)(react@19.1.0))
       expo-sensors:
         specifier: ^15.0.7
         version: 15.0.7(expo@54.0.21)(react-native@0.81.4(@babel/core@7.28.5)(@react-native-community/cli@20.0.2)(react@19.1.0))
       expo-sharing:
-        specifier: ^14.0.7
+        specifier: ~14.0.7
         version: 14.0.7(expo@54.0.21)
       expo-speech:
         specifier: ^14.0.7
@@ -2262,6 +2265,17 @@ packages:
       expo: '*'
       react: '*'
       react-native: '*'
+
+  expo-camera@17.0.8:
+    resolution: {integrity: sha512-BIGvS+3myaYqMtk2VXWgdcOMrewH+55BttmaYqq9tv9+o5w+RAbH9wlJSt0gdaswikiyzoWT7mOnLDleYClXmw==}
+    peerDependencies:
+      expo: '*'
+      react: '*'
+      react-native: '*'
+      react-native-web: '*'
+    peerDependenciesMeta:
+      react-native-web:
+        optional: true
 
   expo-constants@18.0.10:
     resolution: {integrity: sha512-Rhtv+X974k0Cahmvx6p7ER5+pNhBC0XbP1lRviL2J1Xl4sT2FBaIuIxF/0I0CbhOsySf0ksqc5caFweAy9Ewiw==}
@@ -7165,6 +7179,15 @@ snapshots:
       expo: 54.0.21(@babel/core@7.28.5)(@expo/metro-runtime@6.1.2)(react-native-webview@13.15.0(react-native@0.81.4(@babel/core@7.28.5)(@react-native-community/cli@20.0.2)(react@19.1.0))(react@19.1.0))(react-native@0.81.4(@babel/core@7.28.5)(@react-native-community/cli@20.0.2)(react@19.1.0))(react@19.1.0)
       react: 19.1.0
       react-native: 0.81.4(@babel/core@7.28.5)(@react-native-community/cli@20.0.2)(react@19.1.0)
+
+  expo-camera@17.0.8(expo@54.0.21)(react-native-web@0.21.2(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react-native@0.81.4(@babel/core@7.28.5)(@react-native-community/cli@20.0.2)(react@19.1.0))(react@19.1.0):
+    dependencies:
+      expo: 54.0.21(@babel/core@7.28.5)(@expo/metro-runtime@6.1.2)(react-native-webview@13.15.0(react-native@0.81.4(@babel/core@7.28.5)(@react-native-community/cli@20.0.2)(react@19.1.0))(react@19.1.0))(react-native@0.81.4(@babel/core@7.28.5)(@react-native-community/cli@20.0.2)(react@19.1.0))(react@19.1.0)
+      invariant: 2.2.4
+      react: 19.1.0
+      react-native: 0.81.4(@babel/core@7.28.5)(@react-native-community/cli@20.0.2)(react@19.1.0)
+    optionalDependencies:
+      react-native-web: 0.21.2(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
 
   expo-constants@18.0.10(expo@54.0.21)(react-native@0.81.4(@babel/core@7.28.5)(@react-native-community/cli@20.0.2)(react@19.1.0)):
     dependencies:
