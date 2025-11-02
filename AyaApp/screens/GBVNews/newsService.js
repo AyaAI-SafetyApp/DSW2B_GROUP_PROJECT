@@ -1,7 +1,7 @@
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const MEDIASTACK_API_KEY = "f78b2b82908863f103894ab589f2127f"; 
+const MEDIASTACK_API_KEY = "d4bbcde93ba428e2b4e62d7c377dad60"; 
 const BASE_URL = "http://api.mediastack.com/v1/news";
 
 const GBV_KEYWORDS = [

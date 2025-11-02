@@ -321,6 +321,10 @@ const ProfileScreen = () => {
         // Achievements
         navigation.navigate('AchievementsScreen');
         break;
+      case 6:
+        // Upgrade
+        navigation.navigate('SubscriptionUpgrade');
+        break;
       case 7:
         // About Us
         navigation.navigate('AboutUsScreen');
@@ -640,15 +644,6 @@ const ProfileScreen = () => {
       ]
     );
   };
-
-  const profileOptions = [
-    { id: 1, title: 'Account Details', icon: 'person-circle-outline', subtitle: 'View and edit your information', 
-      data: { phone: userData.phone, location: userData.location, age: userData.age, gender: userData.gender, email: userData.email } },
-    { id: 2, title: 'Safety Preferences', icon: 'shield-outline', subtitle: 'Configure safety settings' },
-    { id: 3, title: 'Privacy & Security', icon: 'lock-closed-outline', subtitle: 'Account security' },
-    { id: 4, title: 'Help & Support', icon: 'help-circle-outline', subtitle: 'Get assistance' },
-    { id: 5, title: 'Achievements', icon: 'ribbon-outline', subtitle: 'Safety milestones and badges'},
-  ];
 
   return (
     <SafeAreaView style={styles.container}>
