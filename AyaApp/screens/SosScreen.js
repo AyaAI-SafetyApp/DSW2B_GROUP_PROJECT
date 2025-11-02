@@ -368,6 +368,7 @@ export default function AyaEmergencyApp() {
           <View style={styles.addContactContainer}>
             <TextInput
               placeholder="+27..."
+              placeholderTextColor="#999"
               style={styles.input}
               value={newContact}
               onChangeText={setNewContact}
@@ -473,6 +474,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderRadius: 12,
     fontSize: 16,
+    color: "#000",
     shadowColor: "#00000010",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,

@@ -29,7 +29,7 @@ import * as Speech from "expo-speech";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import LottieView from "lottie-react-native";
 import { supabaseAuth } from "../lib/supabaseClient";
-import { hasFeatureAccess, FEATURES } from "../utils/subscriptionUtils";
+import { hasFeatureAccess, FEATURES, showUpgradePrompt } from "../utils/subscriptionUtils";
 import { fetchNews } from "./GBVNews/newsService";
 import NotificationModal from "../components/NotificationModal";
 import {
@@ -155,7 +155,7 @@ const QuickActions = ({ navigation }) => {
       text: "Safe Route",
       route: "MapViewScreen",
       requiresFeature: FEATURES.AI_SAFE_ROUTES,
-      isPremium: true,
+      isPremium: false,
     },
     {
       icon: "call-outline",
@@ -171,7 +171,7 @@ const QuickActions = ({ navigation }) => {
       text: "Medical",
       route: "Health",
       requiresFeature: FEATURES.HEALTH_MONITORING,
-      isPremium: true,
+      isPremium: false,
     },
   ];
 

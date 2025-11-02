@@ -20,6 +20,7 @@ import {
   ActivityIndicator,
   Platform,
   KeyboardAvoidingView,
+  ScrollView,
   TextInput as RNTextInput,
   Modal as RNModal,
   Animated,
@@ -1876,10 +1877,12 @@ const Newsfeed = ({ scrollY: externalScrollY }) => {
         style={styles.createPostModal}
         animationIn="slideInUp"
         animationOut="slideOutDown"
+        avoidKeyboard={true}
       >
         <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={styles.modalContainer}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
         >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
@@ -1899,7 +1902,11 @@ const Newsfeed = ({ scrollY: externalScrollY }) => {
                 </Text>
               </TouchableOpacity>
             </View>
-            <View style={styles.modalBody}>
+            <ScrollView
+              style={styles.modalBody}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
               <View style={styles.modalUserInfo}>
                 <UserAvatar
                   username={currentUsername}
@@ -1977,7 +1984,7 @@ const Newsfeed = ({ scrollY: externalScrollY }) => {
                   />
                 </TouchableOpacity>
               </View>
-            </View>
+            </ScrollView>
           </View>
         </KeyboardAvoidingView>
       </Modal>

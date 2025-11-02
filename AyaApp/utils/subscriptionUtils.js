@@ -57,7 +57,7 @@ const FEATURE_ACCESS = {
   [FEATURES.GBV_NEWS]: [SUBSCRIPTION_TIERS.FREE, SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
   [FEATURES.LEARNING_GAMES]: [SUBSCRIPTION_TIERS.FREE, SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
   
-  // Personal tier
+  // Personal tier - NOW UNLOCKS EVERYTHING!
   [FEATURES.REAL_TIME_ALERTS]: [SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
   [FEATURES.OFFLINE_SUPPORT]: [SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
   [FEATURES.AI_SAFE_ROUTES]: [SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
@@ -66,20 +66,20 @@ const FEATURE_ACCESS = {
   [FEATURES.UNLIMITED_CONTACTS]: [SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
   [FEATURES.FALL_DETECTION]: [SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
   
-  // Family tier
-  [FEATURES.FAMILY_TRACKING]: [SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
-  [FEATURES.SHARED_ALERTS]: [SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
-  [FEATURES.GROUP_SAFETY_ZONES]: [SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
-  [FEATURES.CHILD_SAFETY]: [SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
-  [FEATURES.FAMILY_SUPPORT]: [SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
+  // Family tier - Also gets everything
+  [FEATURES.FAMILY_TRACKING]: [SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
+  [FEATURES.SHARED_ALERTS]: [SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
+  [FEATURES.GROUP_SAFETY_ZONES]: [SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
+  [FEATURES.CHILD_SAFETY]: [SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
+  [FEATURES.FAMILY_SUPPORT]: [SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
   
-  // Personal Pro tier
-  [FEATURES.AI_COMPANION]: [SUBSCRIPTION_TIERS.PERSONAL_PRO],
-  [FEATURES.ADVANCED_ANALYTICS]: [SUBSCRIPTION_TIERS.PERSONAL_PRO],
-  [FEATURES.EXTENDED_MAPS]: [SUBSCRIPTION_TIERS.PERSONAL_PRO],
-  [FEATURES.DEDICATED_SUPPORT]: [SUBSCRIPTION_TIERS.PERSONAL_PRO],
-  [FEATURES.THERAPIST_ACCESS]: [SUBSCRIPTION_TIERS.PERSONAL_PRO],
-  [FEATURES.HEALTH_MONITORING]: [SUBSCRIPTION_TIERS.PERSONAL_PRO],
+  // Personal Pro tier - Also gets everything (all tiers now have full access)
+  [FEATURES.AI_COMPANION]: [SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
+  [FEATURES.ADVANCED_ANALYTICS]: [SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
+  [FEATURES.EXTENDED_MAPS]: [SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
+  [FEATURES.DEDICATED_SUPPORT]: [SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
+  [FEATURES.THERAPIST_ACCESS]: [SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
+  [FEATURES.HEALTH_MONITORING]: [SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
 };
 
 /**
@@ -94,18 +94,24 @@ export const getUserSubscriptionTier = async () => {
       const { tier, expiresAt } = JSON.parse(cachedSub);
       
       // Check if subscription is still valid
-      if (expiresAt && new Date(expiresAt) > new Date()) {
+      // Free tier has no expiration (expiresAt is null)
+      if (!expiresAt || new Date(expiresAt) > new Date()) {
+        console.log('📦 Using cached subscription:', { tier, expiresAt });
         return tier;
+      } else {
+        console.log('⏰ Cached subscription expired:', { tier, expiresAt });
       }
     }
 
     // Fetch from Supabase
     const sessionData = await AsyncStorage.getItem('@user_session');
     if (!sessionData) {
+      console.log('❌ No session found, returning FREE tier');
       return SUBSCRIPTION_TIERS.FREE;
     }
 
     const { email } = JSON.parse(sessionData);
+    console.log('🔍 Fetching subscription for email:', email);
     
     const { data, error } = await supabase
       .from('user_subscriptions')
@@ -114,9 +120,17 @@ export const getUserSubscriptionTier = async () => {
       .eq('is_active', true)
       .maybeSingle();
 
-    if (error || !data) {
+    if (error) {
+      console.error('❌ Supabase error:', error);
       return SUBSCRIPTION_TIERS.FREE;
     }
+
+    if (!data) {
+      console.log('📭 No subscription found or error, returning FREE tier');
+      return SUBSCRIPTION_TIERS.FREE;
+    }
+
+    console.log('✅ Subscription found:', data);
 
     // Cache the subscription
     await AsyncStorage.setItem('@user_subscription', JSON.stringify({
@@ -140,7 +154,22 @@ export const hasFeatureAccess = async (feature) => {
   try {
     const userTier = await getUserSubscriptionTier();
     const allowedTiers = FEATURE_ACCESS[feature] || [];
-    return allowedTiers.includes(userTier);
+    const hasAccess = allowedTiers.includes(userTier);
+    
+    console.log(`🔐 Feature Access Check:`, {
+      feature,
+      userTier,
+      allowedTiers,
+      hasAccess
+    });
+    
+    // Show all available features for this tier (only once per tier)
+    if (!hasFeatureAccess._lastTierLogged || hasFeatureAccess._lastTierLogged !== userTier) {
+      getAvailableFeaturesForTier(userTier);
+      hasFeatureAccess._lastTierLogged = userTier;
+    }
+    
+    return hasAccess;
   } catch (error) {
     console.error('Error checking feature access:', error);
     return false;
@@ -189,6 +218,8 @@ export const updateUserSubscription = async (tier, expiresAt = null) => {
 
     const { email } = JSON.parse(sessionData);
 
+    console.log(`💾 Updating subscription for ${email}:`, { tier, expiresAt });
+
     // Update in Supabase
     const { error } = await supabase
       .from('user_subscriptions')
@@ -200,7 +231,10 @@ export const updateUserSubscription = async (tier, expiresAt = null) => {
         updated_at: new Date().toISOString(),
       });
 
-    if (error) throw error;
+    if (error) {
+      console.error('❌ Supabase error:', error);
+      throw error;
+    }
 
     // Update cache
     await AsyncStorage.setItem('@user_subscription', JSON.stringify({
@@ -208,11 +242,38 @@ export const updateUserSubscription = async (tier, expiresAt = null) => {
       expiresAt,
     }));
 
+    console.log('✅ Subscription updated successfully');
     return true;
   } catch (error) {
     console.error('Error updating subscription:', error);
     return false;
   }
+};
+
+/**
+ * Clear subscription cache (forces refresh on next check)
+ */
+export const clearSubscriptionCache = async () => {
+  try {
+    await AsyncStorage.removeItem('@user_subscription');
+    console.log('🗑️ Subscription cache cleared');
+  } catch (error) {
+    console.error('Error clearing subscription cache:', error);
+  }
+};
+
+/**
+ * Debug helper: Get all features available for a tier
+ */
+export const getAvailableFeaturesForTier = (tier) => {
+  const features = [];
+  for (const [featureKey, allowedTiers] of Object.entries(FEATURE_ACCESS)) {
+    if (allowedTiers.includes(tier)) {
+      features.push(featureKey);
+    }
+  }
+  console.log(`🎯 Features available for ${tier} tier:`, features);
+  return features;
 };
 
 /**
