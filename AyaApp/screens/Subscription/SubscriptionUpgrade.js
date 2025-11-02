@@ -16,6 +16,8 @@ import axios from "axios";
 import { FontAwesome5, Ionicons } from "@expo/vector-icons";
 import * as Animatable from "react-native-animatable";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { updateUserSubscription, SUBSCRIPTION_TIERS } from "../../utils/subscriptionUtils";
+import { scheduleLocalNotification } from "../../components/NotificationService";
 
 // Constants
 const { width, height } = Dimensions.get("window");
@@ -170,6 +172,13 @@ const useSubscription = (navigation, userID) => {
         return;
       }
       
+      // Update subscription to FREE tier (no expiration)
+      const updated = await updateUserSubscription(SUBSCRIPTION_TIERS.FREE, null);
+      
+      if (!updated) {
+        console.warn('Failed to update free subscription in database');
+      }
+      
       console.log('✅ Session verified, navigating to app');
       Alert.alert(
         "Welcome to Aya App! 🎉",
@@ -189,6 +198,25 @@ const useSubscription = (navigation, userID) => {
       return;
     }
     
+    // For paid plans, get userID from session if not provided
+    let currentUserID = userID;
+    if (!currentUserID) {
+      try {
+        const sessionData = await AsyncStorage.getItem("@user_session");
+        if (sessionData) {
+          const { email } = JSON.parse(sessionData);
+          currentUserID = email; // Use email as userID
+        }
+      } catch (error) {
+        console.error("Error getting session:", error);
+      }
+    }
+    
+    if (!currentUserID) {
+      Alert.alert("Authentication Error", "User authentication required. Please log in again.");
+      return;
+    }
+    
     try {
       setLoading(true);
 
@@ -196,7 +224,7 @@ const useSubscription = (navigation, userID) => {
         `${CONFIG.API_BASE_URL}/create-subscription`,
         {
           planId: selectedPlan.id,
-          userId: userID,
+          userId: currentUserID,
           billingCycle,
           planName: selectedPlan.title,
           amount: selectedPlan.price,
@@ -243,6 +271,43 @@ const useSubscription = (navigation, userID) => {
           }
           
           console.log('✅ Session verified after payment, navigating to app');
+          
+          // Map plan to subscription tier
+          let subscriptionTier = SUBSCRIPTION_TIERS.FREE;
+          if (selectedPlan?.title.toLowerCase().includes('personal pro') || selectedPlan?.title.toLowerCase().includes('premium')) {
+            subscriptionTier = SUBSCRIPTION_TIERS.PERSONAL_PRO;
+          } else if (selectedPlan?.title.toLowerCase().includes('family')) {
+            subscriptionTier = SUBSCRIPTION_TIERS.FAMILY;
+          } else if (selectedPlan?.title.toLowerCase().includes('personal')) {
+            subscriptionTier = SUBSCRIPTION_TIERS.PERSONAL;
+          }
+          
+          // Calculate expiration date (30 days for monthly, 365 for yearly)
+          const expiresAt = new Date();
+          if (billingCycle === 'yearly') {
+            expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+          } else {
+            expiresAt.setDate(expiresAt.getDate() + 30);
+          }
+          
+          // Update subscription in database
+          const updated = await updateUserSubscription(subscriptionTier, expiresAt.toISOString());
+          
+          if (!updated) {
+            console.warn('Failed to update subscription in database');
+          }
+          
+          // Send notification for subscription upgrade
+          await scheduleLocalNotification(
+            "Subscription Upgraded! 🎉",
+            `Your ${selectedPlan?.title} plan is now active. Enjoy all premium features!`,
+            { 
+              type: "subscription_upgrade", 
+              tier: subscriptionTier,
+              expiresAt: expiresAt.toISOString()
+            }
+          );
+          
           Alert.alert(
             "Subscription Successful!",
             `Your ${selectedPlan?.title} plan has been activated.`,
@@ -263,7 +328,7 @@ const useSubscription = (navigation, userID) => {
         Alert.alert("Cancelled", "Subscription was cancelled.");
       }
     },
-    [navigation, selectedPlan]
+    [navigation, selectedPlan, billingCycle]
   );
 
   const resetCheckout = useCallback(() => {

@@ -105,6 +105,14 @@ export default function AyaTherapistScreen() {
     checkAccess();
   }, []);
 
+  // Re-check access when screen gains focus (after returning from subscription)
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      checkAccess();
+    });
+    return unsubscribe;
+  }, [navigation]);
+
   const checkAccess = async () => {
     try {
       const access = await hasFeatureAccess(FEATURES.THERAPIST_ACCESS);

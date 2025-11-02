@@ -189,11 +189,25 @@ export default function CreateCredentials({ route }) {
 
       console.log("Passkey stored successfully:", data);
 
+      // Get email from session if not provided via route params
+      let emailToUse = email;
+      if (!emailToUse || !emailToUse.includes('@')) {
+        // Try to get email from Supabase session
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.email) {
+          emailToUse = user.email;
+          console.log('📧 Using email from session:', emailToUse);
+        } else if (userID && userID.includes('@')) {
+          emailToUse = userID;
+          console.log('📧 Using userID as email:', emailToUse);
+        }
+      }
+
       // Send welcome email with passkey if user provided an email address
-      if (email && email.includes('@')) {
+      if (emailToUse && emailToUse.includes('@')) {
         try {
           console.log('📧 Attempting to send welcome email...');
-          console.log('📧 Email:', email);
+          console.log('📧 Email:', emailToUse);
           console.log('📧 Credential ID:', credentialId);
           console.log('📧 Provider:', selectedProvider);
           console.log('📧 User Name:', fullName.trim());
@@ -201,7 +215,7 @@ export default function CreateCredentials({ route }) {
           
           const { data: emailData, error: emailError } = await supabase.functions.invoke('dynamic-api', {
             body: {
-              email: email,
+              email: emailToUse,
               credentialId: credentialId,
               provider: selectedProvider,
               userName: fullName.trim(),

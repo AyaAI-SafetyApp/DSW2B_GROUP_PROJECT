@@ -13,10 +13,13 @@ import {
   Modal,
   TextInput,
   ScrollView,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
+import { hasFeatureAccess, showUpgradePrompt, FEATURES } from "../utils/subscriptionUtils";
+import { useNavigation } from "@react-navigation/native";
 
 // added minimal imports to save/load card to Supabase (placed in HealthBackend folder)
 import { supabase } from "../HealthBackend/supabaseClient";
@@ -24,7 +27,10 @@ import { getCardForUser, upsertCardByUser } from "../HealthBackend/healthService
 
 const { width } = Dimensions.get("window");
 
-const DigitalCard = ({ navigation }) => {
+const DigitalCard = () => {
+  const navigation = useNavigation();
+  const [hasAccess, setHasAccess] = useState(false);
+  const [checkingAccess, setCheckingAccess] = useState(true);
   const [isFlipped, setIsFlipped] = useState(true);
   const flipAnimation = useRef(new Animated.Value(1)).current;
 
@@ -38,6 +44,31 @@ const DigitalCard = ({ navigation }) => {
   });
 
   const [form, setForm] = useState(cardDetails);
+
+  // Check feature access
+  useEffect(() => {
+    checkAccess();
+  }, []);
+
+  // Re-check access when screen gains focus (after returning from subscription)
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      checkAccess();
+    });
+    return unsubscribe;
+  }, [navigation]);
+
+  const checkAccess = async () => {
+    try {
+      const access = await hasFeatureAccess(FEATURES.HEALTH_MONITORING);
+      setHasAccess(access);
+    } catch (error) {
+      console.error('Error checking access:', error);
+      setHasAccess(false);
+    } finally {
+      setCheckingAccess(false);
+    }
+  };
 
   useEffect(() => {
     flipAnimation.setValue(isFlipped ? 1 : 0);
@@ -257,6 +288,46 @@ const DigitalCard = ({ navigation }) => {
     }
   };
 
+  // Show loading or locked screen
+  if (checkingAccess) {
+    return (
+      <SafeAreaView style={styles.appContainer}>
+        <View style={styles.centerContent}>
+          <ActivityIndicator size="large" color="#de0973ff" />
+          <Text style={styles.loadingText}>Loading...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!hasAccess) {
+    return (
+      <SafeAreaView style={styles.appContainer}>
+        <View style={styles.lockedContainer}>
+          <Ionicons name="lock-closed" size={80} color="#de0973ff" />
+          <Text style={styles.lockedTitle}>Premium Feature</Text>
+          <Text style={styles.lockedDescription}>
+            Health Monitoring requires a Personal Pro subscription (R99.99/month).
+            Store and manage your medical information securely.
+          </Text>
+          <TouchableOpacity
+            style={styles.upgradeButton}
+            onPress={() => showUpgradePrompt(navigation, 'Health Monitoring')}
+          >
+            <Ionicons name="star" size={20} color="#FFFFFF" />
+            <Text style={styles.upgradeButtonText}>Upgrade to Personal Pro</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.backButtonLocked}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.backButtonText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.appContainer}>
       <TouchableOpacity
@@ -381,6 +452,7 @@ const DigitalCard = ({ navigation }) => {
                       setForm((prev) => ({ ...prev, [key]: text }))
                     }
                     placeholder={`Enter ${key}`}
+                    placeholderTextColor="#999"
                   />
                 </View>
               ))}
@@ -554,6 +626,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 8,
     fontSize: 14,
+    color: "#000",
   },
   modalButtons: { flexDirection: "row", justifyContent: "space-between", marginTop: 15 },
   modalButton: {
@@ -564,6 +637,60 @@ const styles = StyleSheet.create({
     marginHorizontal: 5,
   },
   modalButtonText: { color: "#fff", fontWeight: "600" },
+  centerContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#6B7280',
+  },
+  lockedContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  lockedTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#111827',
+    marginTop: 24,
+    marginBottom: 12,
+  },
+  lockedDescription: {
+    fontSize: 16,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginBottom: 32,
+    lineHeight: 24,
+  },
+  upgradeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#de0973ff',
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 12,
+    gap: 8,
+    marginBottom: 16,
+  },
+  upgradeButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  backButtonLocked: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+  },
+  backButtonText: {
+    fontSize: 16,
+    color: '#de0973ff',
+    fontWeight: '600',
+  },
 });
 
 export default DigitalCard;

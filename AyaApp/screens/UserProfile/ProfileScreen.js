@@ -15,6 +15,9 @@ import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
+import { supabase, supabaseAdmin } from "../../lib/supabaseClient";
+
+const API_BASE_URL = "https://dsw2b-backend.onrender.com";
 
 // Reusable Option Card
 const OptionCard = ({ title, subtitle, icon, onPress }) => {
@@ -172,14 +175,82 @@ const ProfileScreen = () => {
   const uploadProfilePicture = async (uri) => {
     try {
       setUploading(true);
-      // Replace this with your upload logic
-      setTimeout(() => {
-        setUserData((prev) => ({ ...prev, profilePicture: uri }));
+      console.log('📤 Uploading profile picture:', uri);
+
+      // Get user ID
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        Alert.alert('Error', 'User not authenticated');
         setUploading(false);
-      }, 1500);
+        return;
+      }
+
+      // Create file name
+      const fileExt = uri.split('.').pop();
+      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+      const filePath = `${user.email}/${fileName}`;
+
+      // Convert URI to blob for upload
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      const arrayBuffer = await new Response(blob).arrayBuffer();
+
+      // Upload to Supabase Storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('profile-pictures')
+        .upload(filePath, arrayBuffer, {
+          contentType: `image/${fileExt}`,
+          upsert: false
+        });
+
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        Alert.alert('Error', 'Failed to upload image. Please try again.');
+        setUploading(false);
+        return;
+      }
+
+      console.log('✅ Image uploaded:', uploadData.path);
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('profile-pictures')
+        .getPublicUrl(filePath);
+
+      console.log('📸 Public URL:', publicUrl);
+
+      // Update user profile in database
+      const { error: updateError } = await supabase
+        .from('user_profiles')
+        .update({ profile_picture_url: publicUrl })
+        .eq('email', user.email);
+
+      if (updateError) {
+        console.error('Profile update error:', updateError);
+        Alert.alert('Error', 'Failed to update profile. Please try again.');
+        setUploading(false);
+        return;
+      }
+
+      // Update local state and session
+      setUserData((prev) => ({ ...prev, profilePicture: publicUrl }));
+      
+      // Update session storage
+      const sessionData = await AsyncStorage.getItem("@user_session");
+      if (sessionData) {
+        const session = JSON.parse(sessionData);
+        session.profilePicture = publicUrl;
+        await AsyncStorage.setItem("@user_session", JSON.stringify(session));
+      }
+
+      console.log('✅ Profile picture updated successfully');
+      Alert.alert('Success', 'Profile picture updated!');
+      
     } catch (err) {
+      console.error('Upload error:', err);
+      Alert.alert('Error', 'Failed to upload image.');
+    } finally {
       setUploading(false);
-      Alert.alert("Error", "Failed to upload image.");
     }
   };
 
@@ -249,9 +320,6 @@ const ProfileScreen = () => {
       case 5:
         // Achievements
         navigation.navigate('AchievementsScreen');
-      case 6:
-        // Achievements
-        navigation.navigate('SubscriptionUpgrade');
         break;
       case 7:
         // About Us
@@ -291,6 +359,296 @@ const ProfileScreen = () => {
       ]);
   };
 
+  const handleDeactivateAccount = () => {
+    Alert.alert(
+      'Deactivate Account',
+      'Your account will be suspended and you will not be able to log in. Contact support to reactivate your account.\n\nAre you sure you want to continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Deactivate',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setLoading(true);
+              
+              // Update user_profiles to mark as deactivated
+              const { error } = await supabase
+                .from('user_profiles')
+                .update({ 
+                  is_active: false,
+                  deactivated_at: new Date().toISOString()
+                })
+                .eq('email', userData.email);
+
+              if (error) {
+                console.error('Deactivation error:', error);
+                Alert.alert('Error', 'Failed to deactivate account. Please try again.');
+                setLoading(false);
+                return;
+              }
+
+              // Send deactivation notification email via Supabase Edge Function
+              try {
+                // Get email from Supabase auth session
+                const { data: { user } } = await supabase.auth.getUser();
+                const emailToUse = user?.email || userData.email;
+                
+                console.log('📧 Preparing deactivation email...');
+                console.log('📧 Email data:', { 
+                  email: emailToUse, 
+                  userName: userData.name || userData.fullName,
+                  emailValid: emailToUse?.includes('@')
+                });
+                
+                // Validate email before sending
+                if (!emailToUse || emailToUse === 'Loading...' || !emailToUse.includes('@')) {
+                  console.warn('⚠️ Invalid email, skipping deactivation notification');
+                } else {
+                  const { data: emailResult, error: emailError } = await supabase.functions.invoke('dynamic-api', {
+                    body: {
+                      email: emailToUse,
+                      userName: userData.name || userData.fullName || 'User',
+                      isDeactivation: true,
+                    },
+                  });
+                  
+                  if (emailResult?.success) {
+                    console.log('✅ Deactivation notification email sent');
+                  } else {
+                    console.warn('⚠️ Failed to send deactivation email:', emailError || emailResult?.error);
+                  }
+                }
+              } catch (emailError) {
+                console.error('❌ Email service error:', emailError);
+                // Continue with account deactivation even if email fails
+              }
+
+              Alert.alert(
+                'Account Deactivated',
+                'Your account has been deactivated. Check your email for details on how to reactivate it.',
+                [
+                  {
+                    text: 'OK',
+                    onPress: async () => {
+                      await AsyncStorage.removeItem('@user_session');
+                      await AsyncStorage.removeItem('@safety_last');
+                      navigation.reset({
+                        index: 0,
+                        routes: [{ name: 'OnboardingScreen' }],
+                      });
+                    },
+                  },
+                ]
+              );
+            } catch (error) {
+              console.error('Deactivation error:', error);
+              Alert.alert('Error', 'An error occurred. Please try again.');
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete Account Permanently',
+      'This action cannot be undone! All your data will be permanently deleted.\n\nAre you absolutely sure?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Yes, Delete Forever',
+          style: 'destructive',
+          onPress: async () => {
+            // Second confirmation
+            Alert.alert(
+              '⚠️ Final Confirmation',
+              'This is your last chance! Type DELETE in the next prompt to confirm permanent deletion.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'I Understand, Continue',
+                  style: 'destructive',
+                  onPress: () => {
+                    // For cross-platform support, we'll use a simple second confirmation
+                    Alert.alert(
+                      'Type DELETE to Confirm',
+                      'Please confirm by pressing "DELETE FOREVER" below:',
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        {
+                          text: 'DELETE FOREVER',
+                          style: 'destructive',
+                          onPress: async () => {
+                            try {
+                              setLoading(true);
+                              console.log('🗑️ Starting account deletion for:', userData.email);
+
+                              // 1. Delete profile picture from storage if exists
+                              if (userData.profilePicture) {
+                                try {
+                                  const fileName = userData.profilePicture.split('/').pop();
+                                  console.log('🖼️ Deleting profile picture:', fileName);
+                                  const { error: storageError } = await supabase.storage
+                                    .from('profile-pictures')
+                                    .remove([`${userData.email}/${fileName}`]);
+                                  
+                                  if (storageError) {
+                                    console.warn('⚠️ Storage deletion warning:', storageError);
+                                  } else {
+                                    console.log('✅ Profile picture deleted from storage');
+                                  }
+                                } catch (storageError) {
+                                  console.warn('⚠️ Could not delete profile picture:', storageError);
+                                }
+                              }
+
+                              // 2. Delete from passkeys table
+                              console.log('🔑 Deleting passkeys...');
+                              const { error: passkeysError } = await supabase
+                                .from('passkeys')
+                                .delete()
+                                .eq('user_id', userData.email);
+
+                              if (passkeysError) {
+                                console.warn('⚠️ Passkeys deletion warning:', passkeysError);
+                              } else {
+                                console.log('✅ Passkeys deleted');
+                              }
+
+                              // 3. Delete from user_profiles table
+                              console.log('👤 Deleting user profile...');
+                              const { error: profileError } = await supabase
+                                .from('user_profiles')
+                                .delete()
+                                .eq('email', userData.email);
+
+                              if (profileError) {
+                                console.error('❌ Delete profile error:', profileError);
+                                Alert.alert('Error', 'Failed to delete profile. Please try again.');
+                                setLoading(false);
+                                return;
+                              }
+                              console.log('✅ User profile deleted');
+
+                              // 4. Send deletion confirmation email via Supabase Edge Function (before signing out)
+                              try {
+                                // Get email from Supabase auth session before deleting
+                                const { data: { user } } = await supabase.auth.getUser();
+                                const emailToUse = user?.email || userData.email;
+                                
+                                console.log('📧 Sending deletion confirmation email...');
+                                console.log('📧 Email data:', { 
+                                  email: emailToUse, 
+                                  userName: userData.name || userData.fullName,
+                                  emailType: typeof emailToUse,
+                                  emailLength: emailToUse?.length 
+                                });
+                                
+                                // Validate email before sending
+                                if (!emailToUse || emailToUse === 'Loading...' || !emailToUse.includes('@')) {
+                                  console.warn('⚠️ Invalid email, skipping deletion notification');
+                                } else {
+                                  const { data: emailResult, error: emailError } = await supabase.functions.invoke('dynamic-api', {
+                                    body: {
+                                      email: emailToUse,
+                                      userName: userData.name || userData.fullName || 'User',
+                                      isDeletion: true,
+                                    },
+                                  });
+                                  
+                                  if (emailResult?.success) {
+                                    console.log('✅ Deletion confirmation email sent');
+                                  } else {
+                                    console.warn('⚠️ Failed to send deletion email:', emailError || emailResult?.error);
+                                  }
+                                }
+                              } catch (emailError) {
+                                console.error('❌ Email service error:', emailError);
+                                // Continue with account deletion even if email fails
+                              }
+
+                              // 5. Delete user from Supabase Authentication
+                              try {
+                                const { data: { user } } = await supabase.auth.getUser();
+                                const userId = user?.id;
+                                
+                                if (userId) {
+                                  console.log('🔐 Deleting user from Supabase Auth...');
+                                  const { data, error } = await supabaseAdmin.auth.admin.deleteUser(userId);
+                                  
+                                  if (error) {
+                                    console.error('❌ Failed to delete from Auth:', error);
+                                  } else {
+                                    console.log('✅ User deleted from Supabase Authentication');
+                                  }
+                                } else {
+                                  console.warn('⚠️ No user ID found, skipping auth deletion');
+                                }
+                              } catch (authDeleteError) {
+                                console.error('❌ Auth deletion error:', authDeleteError);
+                                // Continue even if auth deletion fails
+                              }
+
+                              // 6. Sign out the user from Supabase Auth (cleanup)
+                              console.log('🚪 Signing out from Supabase Auth...');
+                              const { error: signOutError } = await supabase.auth.signOut();
+                              if (signOutError) {
+                                console.warn('⚠️ Sign out warning:', signOutError);
+                              } else {
+                                console.log('✅ Signed out from Supabase Auth');
+                              }
+
+                              // 7. Clear all local storage
+                              console.log('🧹 Clearing local storage...');
+                              await AsyncStorage.clear();
+                              console.log('✅ Local storage cleared');
+
+                              Alert.alert(
+                                'Account Deleted',
+                                'Your account and all data have been permanently deleted.',
+                                [
+                                  {
+                                    text: 'OK',
+                                    onPress: () => {
+                                      navigation.reset({
+                                        index: 0,
+                                        routes: [{ name: 'OnboardingScreen' }],
+                                      });
+                                    },
+                                  },
+                                ]
+                              );
+                            } catch (error) {
+                              console.error('❌ Delete error:', error);
+                              Alert.alert('Error', 'An error occurred while deleting your account. Please try again.');
+                              setLoading(false);
+                            }
+                          },
+                        },
+                      ]
+                    );
+                  },
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
+  };
+
+  const profileOptions = [
+    { id: 1, title: 'Account Details', icon: 'person-circle-outline', subtitle: 'View and edit your information', 
+      data: { phone: userData.phone, location: userData.location, age: userData.age, gender: userData.gender, email: userData.email } },
+    { id: 2, title: 'Safety Preferences', icon: 'shield-outline', subtitle: 'Configure safety settings' },
+    { id: 3, title: 'Privacy & Security', icon: 'lock-closed-outline', subtitle: 'Account security' },
+    { id: 4, title: 'Help & Support', icon: 'help-circle-outline', subtitle: 'Get assistance' },
+    { id: 5, title: 'Achievements', icon: 'ribbon-outline', subtitle: 'Safety milestones and badges'},
+  ];
 
   return (
     <SafeAreaView style={styles.container}>
@@ -348,6 +706,22 @@ const ProfileScreen = () => {
             >
               <Ionicons name="log-out-outline" size={20} color="#000" />
               <Text style={styles.logoutText}>Logout</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.deactivateButton}
+              onPress={handleDeactivateAccount}
+            >
+              <Ionicons name="pause-circle-outline" size={20} color="#ff9800" />
+              <Text style={styles.deactivateText}>Deactivate Account</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.deleteButton}
+              onPress={handleDeleteAccount}
+            >
+              <Ionicons name="trash-outline" size={20} color="#ff3b30" />
+              <Text style={styles.deleteText}>Delete Account Permanently</Text>
             </TouchableOpacity>
           </Animated.View>
         )}
@@ -467,7 +841,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginHorizontal: 20,
-    marginBottom: 50,
+    marginBottom: 12,
     paddingVertical: 16,
     borderRadius: 12,
     borderWidth: 1,
@@ -476,6 +850,42 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   logoutText: { fontSize: 16, fontWeight: "600", color: "#000", marginLeft: 8 },
+  deactivateButton: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginHorizontal: 20,
+    marginBottom: 12,
+    paddingVertical: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#ff9800",
+    backgroundColor: "#fff8e1",
+  },
+  deactivateText: { 
+    fontSize: 16, 
+    fontWeight: "600", 
+    color: "#ff9800", 
+    marginLeft: 8 
+  },
+  deleteButton: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginHorizontal: 20,
+    marginBottom: 50,
+    paddingVertical: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#ff3b30",
+    backgroundColor: "#ffebee",
+  },
+  deleteText: { 
+    fontSize: 16, 
+    fontWeight: "600", 
+    color: "#ff3b30", 
+    marginLeft: 8 
+  },
 });
 
 export default ProfileScreen;
