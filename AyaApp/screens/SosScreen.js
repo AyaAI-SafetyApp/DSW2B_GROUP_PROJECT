@@ -21,6 +21,63 @@ import { Ionicons, MaterialIcons, FontAwesome } from "@expo/vector-icons";
 const FALL_THRESHOLD = 2.5;
 const SOS_COUNTDOWN = 5;
 
+const isValidSouthAfricanNumber = (phoneNumber) => {
+  const cleanedNumber = phoneNumber.replace(/[\s\-\(\)]/g, '');
+
+  const isValidLength = (
+    cleanedNumber.length === 10 || 
+    (cleanedNumber.startsWith('+27') && cleanedNumber.length === 12) || 
+    (cleanedNumber.startsWith('27') && cleanedNumber.length === 11) 
+  );
+
+  if (!isValidLength) {
+    return false;
+  }
+  const validAreaCodes = [
+    '10', '11', '12', '13', '14', '15', '16', '17', '18',  
+    '21', '22', '23', '24', '27', '28', '31', '32', '33', '34', '35', '36', '39',  
+    '40', '41', '42', '43', '44', '45', '46', '47', '48', '49',  
+    '51', '52', '53', '54', '56', '57', '58',  
+    '60', '61', '62', '63', '64', '65', '66', '67', '68',  
+    '71', '72', '73', '74', '76', '78', '79',  
+    '81', '82', '83', '84', '85', '86', '87'   
+  ];
+
+  let areaCode;
+  if (cleanedNumber.startsWith('+27')) {
+    areaCode = cleanedNumber.substring(3, 5);
+  } else if (cleanedNumber.startsWith('27')) {
+    areaCode = cleanedNumber.substring(2, 4);
+  } else if (cleanedNumber.startsWith('0')) {
+    areaCode = cleanedNumber.substring(1, 3);
+  } else {
+    return false;
+  }
+  if (!validAreaCodes.includes(areaCode)) {
+    return false;
+  }
+  const remainingDigits = cleanedNumber.slice(-8);
+  return /^\d{8}$/.test(remainingDigits);
+};
+
+const formatSouthAfricanNumber = (phoneNumber) => {
+  const cleanedNumber = phoneNumber.replace(/[\s\-\(\)]/g, '');
+  
+  if (!isValidSouthAfricanNumber(cleanedNumber)) {
+    return null;
+  }
+  
+  if (cleanedNumber.startsWith('0')) {
+    return '+27' + cleanedNumber.substring(1);
+  } else if (cleanedNumber.startsWith('27') && !cleanedNumber.startsWith('+27')) {
+    return '+' + cleanedNumber;
+  } else if (cleanedNumber.startsWith('+27')) {
+    return cleanedNumber;
+  }
+  
+  return null;
+};
+
 export default function AyaEmergencyApp() {
   const [location, setLocation] = useState(null);
   const [offlineQueue, setOfflineQueue] = useState([]);
@@ -124,15 +181,23 @@ export default function AyaEmergencyApp() {
   `;
 
   const addContact = () => {
-    if (
-      newContact &&
-      !contacts.includes(newContact) &&
-      newContact.match(/^\+?\d{10,15}$/)
-    ) {
-      setContacts([...contacts, newContact]);
-      setNewContact("");
-    } else if (newContact)
-      Alert.alert("Invalid Number", "Please enter a valid phone number");
+    if (newContact && !contacts.includes(newContact)) {
+      if (isValidSouthAfricanNumber(newContact)) {
+        const formattedNumber = formatSouthAfricanNumber(newContact);
+        setContacts([...contacts, formattedNumber]);
+        setNewContact("");
+      } else {
+        Alert.alert(
+          "Invalid Number", 
+          "Please enter a valid South African phone number"
+        );
+      }
+    } else if (newContact) {
+      Alert.alert(
+        "Invalid Number", 
+        "Please enter a valid South African phone number"
+      );
+    }
   };
 
   const removeContact = (contact) => {
@@ -258,12 +323,13 @@ export default function AyaEmergencyApp() {
         />
         <View style={styles.addContactContainer}>
           <TextInput
-            placeholder="+27..."
+            placeholder="+27...."
             style={styles.input}
             value={newContact}
             onChangeText={setNewContact}
             keyboardType="phone-pad"
             onSubmitEditing={addContact}
+            maxLength={15}
           />
           <TouchableOpacity
             onPress={addContact}
@@ -377,5 +443,12 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     justifyContent: "center",
     alignItems: "center",
+  },
+  validationText: {
+    fontSize: 12,
+    color: "#666",
+    marginTop: 8,
+    textAlign: "center",
+    fontStyle: "italic",
   },
 });
