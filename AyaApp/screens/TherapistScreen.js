@@ -301,114 +301,120 @@ export default function AyaTherapistScreen() {
     );
   }
 
+  // keyboardVerticalOffset should match header height so the input isn't covered by the keyboard
+  const keyboardVerticalOffset = Platform.OS === "ios" ? 90 : 80;
+
   return (
-    <SafeAreaView style={styles.container}>
-      {/* History Modal */}
-      <Modal
-        visible={showHistory}
-        animationType="slide"
-        transparent={false}
-        onRequestClose={() => setShowHistory(false)}
-      >
-        <SafeAreaView style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={() => setShowHistory(false)}>
-              <Ionicons name="arrow-back" size={28} color="#333" />
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>Conversation History</Text>
-            <View style={{ width: 28 }} />
-          </View>
-
-          <ScrollView style={styles.historyScroll}>
-            {conversationHistory.map((item) => (
-              <View
-                key={item.id}
-                style={[
-                  styles.historyItem,
-                  item.sender === "Natalie"
-                    ? styles.userMessage
-                    : styles.ayaMessage,
-                ]}
-              >
-                <Text style={styles.senderName}>{item.sender}</Text>
-                <Text style={styles.historyText}>{item.message}</Text>
-                <Text style={styles.timestamp}>{item.timestamp}</Text>
-              </View>
-            ))}
-          </ScrollView>
-        </SafeAreaView>
-      </Modal>
-
-      {/* Main Screen */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => setShowHistory(true)}>
-          <Ionicons name="menu" size={28} color="#333" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>AYA Therapist</Text>
-        <View style={{ width: 28 }} />
-      </View>
-
-      <View style={styles.inner}>
-        {/* Lottie Voice Orb */}
-        <TouchableOpacity
-          onPressIn={startRecording}
-          onPressOut={stopRecording}
-          activeOpacity={0.8}
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={keyboardVerticalOffset}
+    >
+      <SafeAreaView style={styles.container}>
+        {/* History Modal */}
+        <Modal
+          visible={showHistory}
+          animationType="slide"
+          transparent={false}
+          onRequestClose={() => setShowHistory(false)}
         >
-          <Animated.View
-            style={[styles.lottieWrapper, { shadowColor: glowInterpolation }]}
-          >
-            <LottieView
-              ref={lottieRef}
-              source={require("../assets/animations/AYA.json")}
-              autoPlay
-              loop
-              style={styles.lottie}
-            />
-          </Animated.View>
-        </TouchableOpacity>
+          <SafeAreaView style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <TouchableOpacity onPress={() => setShowHistory(false)}>
+                <Ionicons name="arrow-back" size={28} color="#333" />
+              </TouchableOpacity>
+              <Text style={styles.modalTitle}>Conversation History</Text>
+              <View style={{ width: 28 }} />
+            </View>
 
-        {/* AI Response */}
-        {loading && (
-          <ActivityIndicator
-            size="large"
-            color="#dc006eff"
-            style={{ marginTop: 30 }}
-          />
-        )}
-        {!loading && aiResponse && (
-          <Animated.View
-            style={{ opacity: fadeAnim, marginTop: 30, width: "90%" }}
-          >
-            <Text style={styles.aiText}>{aiResponse}</Text>
-          </Animated.View>
-        )}
+            <ScrollView style={styles.historyScroll}>
+              {conversationHistory.map((item) => (
+                <View
+                  key={item.id}
+                  style={[
+                    styles.historyItem,
+                    item.sender === "Natalie"
+                      ? styles.userMessage
+                      : styles.ayaMessage,
+                  ]}
+                >
+                  <Text style={styles.senderName}>{item.sender}</Text>
+                  <Text style={styles.historyText}>{item.message}</Text>
+                  <Text style={styles.timestamp}>{item.timestamp}</Text>
+                </View>
+              ))}
+            </ScrollView>
+          </SafeAreaView>
+        </Modal>
 
-        {/* Text input with icon button */}
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
-          style={styles.inputWrapper}
-        >
-          <TextInput
-            style={styles.input}
-            placeholder="Share what's on your mind..."
-            placeholderTextColor="#aaa"
-            value={message}
-            onChangeText={setMessage}
-            onSubmitEditing={sendTextToAI}
-            multiline
-          />
-          <TouchableOpacity
-            style={styles.sendBtn}
-            onPress={sendTextToAI}
-            disabled={!message.trim()}
-          >
-            <Ionicons name="send" size={22} color="#fff" />
+        {/* Main Screen */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => setShowHistory(true)}>
+            <Ionicons name="menu" size={28} color="#333" />
           </TouchableOpacity>
-        </KeyboardAvoidingView>
-      </View>
-    </SafeAreaView>
+          <Text style={styles.headerTitle}>AYA Therapist</Text>
+          <View style={{ width: 28 }} />
+        </View>
+
+        <View style={styles.inner}>
+          {/* Lottie Voice Orb */}
+          <TouchableOpacity
+            onPressIn={startRecording}
+            onPressOut={stopRecording}
+            activeOpacity={0.8}
+          >
+            <Animated.View
+              style={[styles.lottieWrapper, { shadowColor: glowInterpolation }]}
+            >
+              <LottieView
+                ref={lottieRef}
+                source={require("../assets/animations/AYA.json")}
+                autoPlay
+                loop
+                style={styles.lottie}
+              />
+            </Animated.View>
+          </TouchableOpacity>
+
+          {/* AI Response */}
+          {loading && (
+            <ActivityIndicator
+              size="large"
+              color="#dc006eff"
+              style={{ marginTop: 30 }}
+            />
+          )}
+          {!loading && aiResponse && (
+            <Animated.View
+              style={{ opacity: fadeAnim, marginTop: 30, width: "90%" }}
+            >
+              <Text style={styles.aiText}>{aiResponse}</Text>
+            </Animated.View>
+          )}
+
+          {/* Text input with icon button */}
+          {/* Changed inner KeyboardAvoidingView -> plain View because top-level KeyboardAvoidingView now handles keyboard */}
+          <View style={styles.inputWrapper}>
+            <TextInput
+              style={styles.input}
+              placeholder="Share what's on your mind..."
+              placeholderTextColor="#aaa"
+              value={message}
+              onChangeText={setMessage}
+              onSubmitEditing={sendTextToAI}
+              multiline
+            />
+            <TouchableOpacity
+              style={styles.sendBtn}
+              onPress={sendTextToAI}
+              disabled={!message.trim()}
+            >
+              <Ionicons name="send" size={22} color="#fff" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </SafeAreaView>
+    </KeyboardAvoidingView>
   );
 }
 
