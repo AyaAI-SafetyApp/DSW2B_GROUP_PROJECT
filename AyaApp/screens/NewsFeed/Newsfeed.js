@@ -1,3 +1,4 @@
+// ...existing code...
 import React, {
   useState,
   useCallback,
@@ -7,7 +8,7 @@ import React, {
 } from "react";
 import {
   SafeAreaView,
-  FlatList as RNFlatList, // <-- NEW
+  FlatList as RNFlatList,
   View,
   Text,
   StyleSheet,
@@ -20,6 +21,7 @@ import {
   ActivityIndicator,
   Platform,
   KeyboardAvoidingView,
+  ScrollView,
   TextInput as RNTextInput,
   Modal as RNModal,
   Animated,
@@ -623,10 +625,15 @@ const CommentsModal = ({
     if (commentText.trim()) {
       onAddComment(post.id, commentText.trim());
       setCommentText("");
+      // ensure list scrolls to bottom after adding
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 120);
     }
   };
   if (!post) return null;
 
+  // keep offset so keyboard doesn't cover input
   const keyboardVerticalOffset =
     Platform.OS === "ios" ? 80 : (StatusBar.currentHeight || 0) + 80;
 
@@ -638,11 +645,17 @@ const CommentsModal = ({
       animationIn="slideInUp"
       animationOut="slideOutDown"
       avoidKeyboard={true}
+      backdropOpacity={0.6}
+      swipeDirection="down"
+      onSwipeComplete={onClose}
+      useNativeDriver={true}
+      useNativeDriverForBackdrop={true}
     >
+      {/* Change: ensure modal content anchors to bottom inside KeyboardAvoidingView */}
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={keyboardVerticalOffset}
-        style={{ flex: 1 }}
+        style={{ flex: 1, justifyContent: "flex-end" }}
       >
         <View style={styles.commentsContainer}>
           <View style={styles.commentsHeader}>
@@ -655,11 +668,14 @@ const CommentsModal = ({
               />
             </TouchableOpacity>
           </View>
+
+          {/* comments list should take available space inside the sheet */}
           <AnimatedFlatList
             ref={flatListRef}
             data={post.comments || []}
             keyExtractor={(c) => c.id}
             style={styles.commentsList}
+            contentContainerStyle={{ paddingBottom: 12 }}
             renderItem={({ item }) => (
               <View style={styles.commentItem}>
                 <UserAvatar
@@ -704,6 +720,7 @@ const CommentsModal = ({
               </View>
             }
           />
+
           <View style={styles.commentInputContainer}>
             <UserAvatar
               username={currentUsername}
@@ -1889,6 +1906,8 @@ const Newsfeed = ({ scrollY: externalScrollY }) => {
         animationOut="slideOutDown"
         avoidKeyboard={true}
       >
+        {/* Ensure KeyboardAvoidingView prevents keyboard from covering input.
+            Increased keyboardVerticalOffset so the input remains visible on both platforms. */}
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           keyboardVerticalOffset={
@@ -1914,7 +1933,14 @@ const Newsfeed = ({ scrollY: externalScrollY }) => {
                 </Text>
               </TouchableOpacity>
             </View>
-            <View style={styles.modalBody}>
+
+            {/* Make ScrollView contentContainer have extra bottom padding so typed text remains visible above keyboard */}
+            <ScrollView
+              style={styles.modalBody}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: Platform.OS === "ios" ? 140 : 120 }}
+            >
               <View style={styles.modalUserInfo}>
                 <UserAvatar
                   username={currentUsername}
@@ -1992,7 +2018,7 @@ const Newsfeed = ({ scrollY: externalScrollY }) => {
                   />
                 </TouchableOpacity>
               </View>
-            </View>
+            </ScrollView>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -2399,10 +2425,11 @@ const styles = StyleSheet.create({
   modalActionBtn: {
     padding: 8,
   },
+  /* moved FAB slightly higher so it doesn't conflict with navigation pane */
   fab: {
     position: "absolute",
     right: 20,
-    bottom: Platform.OS === "ios" ? 120 : 100,
+    bottom: Platform.OS === "ios" ? 180 : 150,
     backgroundColor: COLORS.accent,
   },
   commentsModal: {
