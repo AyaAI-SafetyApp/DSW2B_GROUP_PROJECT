@@ -20,7 +20,6 @@ import {
   ActivityIndicator,
   Platform,
   KeyboardAvoidingView,
-  ScrollView,
   TextInput as RNTextInput,
   Modal as RNModal,
   Animated,
@@ -627,6 +626,10 @@ const CommentsModal = ({
     }
   };
   if (!post) return null;
+
+  const keyboardVerticalOffset =
+    Platform.OS === "ios" ? 80 : (StatusBar.currentHeight || 0) + 80;
+
   return (
     <Modal
       isVisible={visible}
@@ -634,98 +637,105 @@ const CommentsModal = ({
       style={styles.commentsModal}
       animationIn="slideInUp"
       animationOut="slideOutDown"
+      avoidKeyboard={true}
     >
-      <View style={styles.commentsContainer}>
-        <View style={styles.commentsHeader}>
-          <Text style={styles.commentsTitle}>Comments</Text>
-          <TouchableOpacity onPress={onClose}>
-            <MaterialCommunityIcons
-              name="close"
-              size={24}
-              color={COLORS.text}
-            />
-          </TouchableOpacity>
-        </View>
-        <AnimatedFlatList
-          ref={flatListRef}
-          data={post.comments || []}
-          keyExtractor={(c) => c.id}
-          style={styles.commentsList}
-          renderItem={({ item }) => (
-            <View style={styles.commentItem}>
-              <UserAvatar
-                username={item.user}
-                avatarUrl={item.avatar}
-                size={32}
-                style={styles.commentAvatar}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={keyboardVerticalOffset}
+        style={{ flex: 1 }}
+      >
+        <View style={styles.commentsContainer}>
+          <View style={styles.commentsHeader}>
+            <Text style={styles.commentsTitle}>Comments</Text>
+            <TouchableOpacity onPress={onClose}>
+              <MaterialCommunityIcons
+                name="close"
+                size={24}
+                color={COLORS.text}
               />
-              <View style={styles.commentContent}>
-                <Text style={styles.commentText}>
-                  <Text style={styles.commentUser}>{item.user}</Text>{" "}
-                  {item.text}
-                </Text>
-                <Text style={styles.commentTime}>
-                  {getTimeAgo(item.created_at)}
+            </TouchableOpacity>
+          </View>
+          <AnimatedFlatList
+            ref={flatListRef}
+            data={post.comments || []}
+            keyExtractor={(c) => c.id}
+            style={styles.commentsList}
+            renderItem={({ item }) => (
+              <View style={styles.commentItem}>
+                <UserAvatar
+                  username={item.user}
+                  avatarUrl={item.avatar}
+                  size={32}
+                  style={styles.commentAvatar}
+                />
+                <View style={styles.commentContent}>
+                  <Text style={styles.commentText}>
+                    <Text style={styles.commentUser}>{item.user}</Text>{" "}
+                    {item.text}
+                  </Text>
+                  <Text style={styles.commentTime}>
+                    {getTimeAgo(item.created_at)}
+                  </Text>
+                </View>
+                {item.user === currentUsername && (
+                  <TouchableOpacity
+                    onPress={() => onDeleteComment(post.id, item.id)}
+                  >
+                    <MaterialCommunityIcons
+                      name="trash-can-outline"
+                      size={18}
+                      color={COLORS.textSecondary}
+                    />
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+            ListEmptyComponent={
+              <View style={styles.emptyComments}>
+                <MaterialCommunityIcons
+                  name="comment-outline"
+                  size={48}
+                  color={COLORS.textSecondary}
+                />
+                <Text style={styles.emptyCommentsText}>No comments yet</Text>
+                <Text style={styles.emptyCommentsSubtext}>
+                  Be the first to comment!
                 </Text>
               </View>
-              {item.user === currentUsername && (
-                <TouchableOpacity
-                  onPress={() => onDeleteComment(post.id, item.id)}
-                >
-                  <MaterialCommunityIcons
-                    name="trash-can-outline"
-                    size={18}
-                    color={COLORS.textSecondary}
-                  />
-                </TouchableOpacity>
-              )}
-            </View>
-          )}
-          ListEmptyComponent={
-            <View style={styles.emptyComments}>
-              <MaterialCommunityIcons
-                name="comment-outline"
-                size={48}
-                color={COLORS.textSecondary}
-              />
-              <Text style={styles.emptyCommentsText}>No comments yet</Text>
-              <Text style={styles.emptyCommentsSubtext}>
-                Be the first to comment!
-              </Text>
-            </View>
-          }
-        />
-        <View style={styles.commentInputContainer}>
-          <UserAvatar
-            username={currentUsername}
-            avatarUrl={currentUser?.user_metadata?.avatar_url}
-            size={32}
-            style={styles.commentInputAvatar}
+            }
           />
-          <RNTextInput
-            placeholder="Add a comment..."
-            value={commentText}
-            onChangeText={setCommentText}
-            style={styles.commentInput}
-            onSubmitEditing={handleSubmit}
-            returnKeyType="send"
-            multiline
-          />
-          <TouchableOpacity
-            onPress={handleSubmit}
-            disabled={!commentText.trim()}
-          >
-            <Text
-              style={[
-                styles.postButtonText,
-                !commentText.trim() && styles.postButtonDisabled,
-              ]}
+          <View style={styles.commentInputContainer}>
+            <UserAvatar
+              username={currentUsername}
+              avatarUrl={currentUser?.user_metadata?.avatar_url}
+              size={32}
+              style={styles.commentInputAvatar}
+            />
+            <RNTextInput
+              placeholder="Add a comment..."
+              value={commentText}
+              onChangeText={setCommentText}
+              style={styles.commentInput}
+              onSubmitEditing={handleSubmit}
+              returnKeyType="send"
+              multiline
+            />
+            <TouchableOpacity
+              onPress={handleSubmit}
+              disabled={!commentText.trim()}
             >
-              Post
-            </Text>
-          </TouchableOpacity>
+              <Text
+                style={[
+                  styles.postButtonText,
+                  !commentText.trim() && styles.postButtonDisabled,
+                ]}
+              >
+                Post
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
@@ -1881,8 +1891,10 @@ const Newsfeed = ({ scrollY: externalScrollY }) => {
       >
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={
+            Platform.OS === "ios" ? 80 : (StatusBar.currentHeight || 0) + 80
+          }
           style={styles.modalContainer}
-          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
         >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
@@ -1902,11 +1914,7 @@ const Newsfeed = ({ scrollY: externalScrollY }) => {
                 </Text>
               </TouchableOpacity>
             </View>
-            <ScrollView
-              style={styles.modalBody}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-            >
+            <View style={styles.modalBody}>
               <View style={styles.modalUserInfo}>
                 <UserAvatar
                   username={currentUsername}
@@ -1984,7 +1992,7 @@ const Newsfeed = ({ scrollY: externalScrollY }) => {
                   />
                 </TouchableOpacity>
               </View>
-            </ScrollView>
+            </View>
           </View>
         </KeyboardAvoidingView>
       </Modal>
