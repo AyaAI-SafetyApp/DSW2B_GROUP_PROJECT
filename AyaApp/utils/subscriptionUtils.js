@@ -88,22 +88,7 @@ const FEATURE_ACCESS = {
  */
 export const getUserSubscriptionTier = async () => {
   try {
-    // Check cached subscription
-    const cachedSub = await AsyncStorage.getItem('@user_subscription');
-    if (cachedSub) {
-      const { tier, expiresAt } = JSON.parse(cachedSub);
-      
-      // Check if subscription is still valid
-      // Free tier has no expiration (expiresAt is null)
-      if (!expiresAt || new Date(expiresAt) > new Date()) {
-        console.log('📦 Using cached subscription:', { tier, expiresAt });
-        return tier;
-      } else {
-        console.log('⏰ Cached subscription expired:', { tier, expiresAt });
-      }
-    }
-
-    // Fetch from Supabase
+    // Get current user session first
     const sessionData = await AsyncStorage.getItem('@user_session');
     if (!sessionData) {
       console.log('❌ No session found, returning FREE tier');
@@ -111,6 +96,29 @@ export const getUserSubscriptionTier = async () => {
     }
 
     const { email } = JSON.parse(sessionData);
+    console.log('👤 Checking subscription for user:', email);
+
+    // Use user-specific cache key
+    const userCacheKey = `@user_subscription_${email}`;
+    const cachedSub = await AsyncStorage.getItem(userCacheKey);
+    
+    if (cachedSub) {
+      const { tier, expiresAt, userEmail } = JSON.parse(cachedSub);
+      
+      // Verify cache is for the current user
+      if (userEmail === email) {
+        // Check if subscription is still valid
+        if (!expiresAt || new Date(expiresAt) > new Date()) {
+          console.log('📦 Using cached subscription for', email, ':', { tier, expiresAt });
+          return tier;
+        } else {
+          console.log('⏰ Cached subscription expired for', email);
+        }
+      } else {
+        console.log('🔄 Cache is for different user, clearing...');
+        await AsyncStorage.removeItem(userCacheKey);
+      }
+    }
     console.log('🔍 Fetching subscription for email:', email);
     
     const { data, error } = await supabase
@@ -132,10 +140,11 @@ export const getUserSubscriptionTier = async () => {
 
     console.log('✅ Subscription found:', data);
 
-    // Cache the subscription
-    await AsyncStorage.setItem('@user_subscription', JSON.stringify({
+    // Cache the subscription with user-specific key (reuse existing userCacheKey)
+    await AsyncStorage.setItem(userCacheKey, JSON.stringify({
       tier: data.subscription_tier,
       expiresAt: data.expires_at,
+      userEmail: email, // Store email to verify cache belongs to current user
     }));
 
     return data.subscription_tier || SUBSCRIPTION_TIERS.FREE;
@@ -236,10 +245,12 @@ export const updateUserSubscription = async (tier, expiresAt = null) => {
       throw error;
     }
 
-    // Update cache
-    await AsyncStorage.setItem('@user_subscription', JSON.stringify({
+    // Update cache with user-specific key
+    const userCacheKey = `@user_subscription_${email}`;
+    await AsyncStorage.setItem(userCacheKey, JSON.stringify({
       tier,
       expiresAt,
+      userEmail: email,
     }));
 
     console.log('✅ Subscription updated successfully');
@@ -255,10 +266,39 @@ export const updateUserSubscription = async (tier, expiresAt = null) => {
  */
 export const clearSubscriptionCache = async () => {
   try {
-    await AsyncStorage.removeItem('@user_subscription');
-    console.log('🗑️ Subscription cache cleared');
+    // Get current user to clear their specific cache
+    const sessionData = await AsyncStorage.getItem('@user_session');
+    if (sessionData) {
+      const { email } = JSON.parse(sessionData);
+      const userCacheKey = `@user_subscription_${email}`;
+      await AsyncStorage.removeItem(userCacheKey);
+      console.log(`🗑️ Subscription cache cleared for user: ${email}`);
+    } else {
+      // Fallback: clear old global cache if it exists
+      await AsyncStorage.removeItem('@user_subscription');
+      console.log('🗑️ Global subscription cache cleared');
+    }
   } catch (error) {
     console.error('Error clearing subscription cache:', error);
+  }
+};
+
+/**
+ * Clear all subscription caches (for logout)
+ */
+export const clearAllSubscriptionCaches = async () => {
+  try {
+    const keys = await AsyncStorage.getAllKeys();
+    const subscriptionKeys = keys.filter(key => 
+      key.startsWith('@user_subscription') || key === '@user_subscription'
+    );
+    
+    if (subscriptionKeys.length > 0) {
+      await AsyncStorage.multiRemove(subscriptionKeys);
+      console.log(`🗑️ Cleared ${subscriptionKeys.length} subscription caches`);
+    }
+  } catch (error) {
+    console.error('Error clearing all subscription caches:', error);
   }
 };
 
@@ -274,6 +314,51 @@ export const getAvailableFeaturesForTier = (tier) => {
   }
   console.log(`🎯 Features available for ${tier} tier:`, features);
   return features;
+};
+
+/**
+ * 🧪 DEBUG: Check current cache state (for testing)
+ */
+export const debugCacheState = async () => {
+  try {
+    const sessionData = await AsyncStorage.getItem('@user_session');
+    if (!sessionData) {
+      console.log('❌ No session - cannot check cache');
+      return;
+    }
+
+    const { email } = JSON.parse(sessionData);
+    const userCacheKey = `@user_subscription_${email}`;
+    const cachedSub = await AsyncStorage.getItem(userCacheKey);
+    
+    console.log('\n🔍 === CACHE DEBUG ===');
+    console.log('👤 Current user:', email);
+    console.log('🔑 Cache key:', userCacheKey);
+    
+    if (cachedSub) {
+      const cache = JSON.parse(cachedSub);
+      console.log('📦 Cached data:', cache);
+      console.log('✅ Cache exists for this user');
+      
+      if (cache.userEmail !== email) {
+        console.log('⚠️  WARNING: Cache email mismatch!');
+        console.log('   Cache email:', cache.userEmail);
+        console.log('   Current user:', email);
+      }
+    } else {
+      console.log('📭 No cache found for this user');
+    }
+    
+    // Check for old global cache
+    const oldCache = await AsyncStorage.getItem('@user_subscription');
+    if (oldCache) {
+      console.log('⚠️  Old global cache still exists:', JSON.parse(oldCache));
+      console.log('   This should be cleared!');
+    }
+    console.log('====================\n');
+  } catch (error) {
+    console.error('Cache debug error:', error);
+  }
 };
 
 /**

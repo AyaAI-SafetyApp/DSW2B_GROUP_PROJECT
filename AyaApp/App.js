@@ -5,6 +5,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import LottieView from "lottie-react-native";
 import { getSession } from "./utils/session";
 import MainTabs from "./navigation/TabsNavigator";
+import { initializeAllNotificationServices } from "./components/NotificationService";
 
 // Screens
 import OnboardingScreen from "./screens/OnboardingScreen";
@@ -46,6 +47,16 @@ export default function App() {
     const init = async () => {
       const session = await getSession();
       setInitialRoute(session ? "MainTabs" : "OnboardingScreen");
+      
+      // Initialize notification services ONCE at app startup
+      console.log('🚀 App.js: Starting notification initialization...');
+      try {
+        const notificationInit = await initializeAllNotificationServices();
+        console.log('🔔 App.js: Notification services:', notificationInit ? 'Initialized ✅' : 'Failed ❌');
+      } catch (error) {
+        console.error('❌ App.js: Failed to initialize notification services:', error);
+      }
+      
       setTimeout(() => setLoading(false), 1800);
     };
     init();

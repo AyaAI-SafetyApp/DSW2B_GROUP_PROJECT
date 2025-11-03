@@ -33,9 +33,6 @@ import { hasFeatureAccess, FEATURES, showUpgradePrompt } from "../utils/subscrip
 import { fetchNews } from "./GBVNews/newsService";
 import NotificationModal from "../components/NotificationModal";
 import {
-  registerForPushNotifications,
-  sendTokenToBackend,
-  fetchNotificationsFromBackend,
   setupNotificationListeners,
   clearAllNotifications,
   sendLocationRiskNotification,
@@ -290,18 +287,9 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    const initializeNotifications = async () => {
-      try {
-        const token = await registerForPushNotifications();
-        if (token) {
-          await sendTokenToBackend(token);
-        }
-      } catch (error) {
-        console.error("Error initializing notifications:", error);
-      }
-    };
-
-    initializeNotifications();
+    // Notification initialization is now handled in App.js
+    // Only setup listeners here for HomeScreen-specific handling
+    console.log('🏠 HomeScreen: Setting up notification listeners...');
 
     const cleanup = setupNotificationListeners(
       (notification) => {

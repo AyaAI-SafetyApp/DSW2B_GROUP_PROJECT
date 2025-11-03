@@ -347,9 +347,14 @@ const ProfileScreen = () => {
           onPress: async () => {
             try {
               console.log('🚪 Logging out, clearing session...');
+              
+              // Import and clear subscription caches
+              const { clearAllSubscriptionCaches } = await import('../../utils/subscriptionUtils');
+              await clearAllSubscriptionCaches();
+              
               await AsyncStorage.removeItem('@user_session');
               await AsyncStorage.removeItem('@safety_last');
-              console.log('✅ Session cleared successfully');
+              console.log('✅ Session and subscription caches cleared successfully');
               
               navigation.reset({
                 index: 0,

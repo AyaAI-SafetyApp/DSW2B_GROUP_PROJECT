@@ -32,7 +32,7 @@ import Constants from "expo-constants";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const NOTIFICATIONS_STORAGE_KEY = "@saved_notifications";
-const API_BASE_URL = "https://dsw2b-backend.onrender.com";
+const API_BASE_URL = "https://ayabackgroundservices-production.up.railway.app";
 
 // ==================== NOTIFICATION HANDLER CONFIGURATION ====================
 Notifications.setNotificationHandler({
