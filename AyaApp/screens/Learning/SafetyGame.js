@@ -20,7 +20,7 @@ const SafetyGame = () => {
       title: "Walking Home Alone",
       description:
         "It's getting dark and you need to walk home. What do you do?",
-      image: "���‍♀️",
+      image: "   ‍♀",
       options: [
         {
           text: "Take the shortest path through the park",
@@ -45,7 +45,7 @@ const SafetyGame = () => {
       title: "Ride Sharing",
       description:
         "You've ordered a ride share. The car arrives but something seems off.",
-      image: "���",
+      image: "   ",
       options: [
         {
           text: "Get in anyway - you're in a hurry",
@@ -69,7 +69,7 @@ const SafetyGame = () => {
       title: "Social Situation",
       description:
         "At a party, someone keeps offering you drinks you didn't see poured.",
-      image: "���",
+      image: "   ",
       options: [
         {
           text: "Politely decline and get your own drinks",
@@ -94,7 +94,7 @@ const SafetyGame = () => {
       title: "Stranger Approach",
       description:
         "A stranger approaches you asking for help finding their lost dog.",
-      image: "���",
+      image: "   ",
       options: [
         {
           text: "Help them search - it's just a lost dog",
@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   optionButton: {
-    backgroundColor: "#3498db",
+    backgroundColor: "#FF1493",
     padding: 15,
     borderRadius: 10,
     marginBottom: 10,
