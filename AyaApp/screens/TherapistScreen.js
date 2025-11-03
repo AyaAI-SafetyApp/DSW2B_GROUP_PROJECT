@@ -35,7 +35,6 @@ export default function AyaTherapistScreen() {
   const glowAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  // Fake conversation history
   const conversationHistory = [
     {
       id: 1,
@@ -95,7 +94,6 @@ export default function AyaTherapistScreen() {
     },
   ];
 
-  // Reactive Lottie glow animation
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
@@ -153,7 +151,7 @@ export default function AyaTherapistScreen() {
     }).start(() => setAIResponse(""));
   };
 
-  // Voice recording
+
   const startRecording = async () => {
     try {
       const { status } = await Audio.requestPermissionsAsync();
@@ -349,7 +347,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingVertical: 50,
+    paddingVertical: 20,
     borderBottomWidth: 1,
     borderBottomColor: "#f0f0f0",
   },
@@ -362,18 +360,15 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    padding: 20,
   },
   lottieWrapper: {
-    width: 320,
-    height: 320,
     borderRadius: 160,
     justifyContent: "center",
     alignItems: "center",
     shadowOpacity: 0.6,
     shadowOffset: { width: 0, height: 0 },
   },
-  lottie: { width: 400, height: 400 },
+  lottie: { width: 250, height: 150 },
   aiText: {
     color: "#2c2c2c",
     fontSize: 18,

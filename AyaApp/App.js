@@ -31,6 +31,15 @@ import subscription from "./screens/Subscription/subscriptionScreen.js";
 import NewsFeed from "./screens/GBVNews/NewsFeed.js";
 import ArticleScreen from "./screens/GBVNews/ArticleScreen.js";
 import ProfileScreen from "./screens/UserProfile/ProfileScreen";
+import AboutUsScreen from "./screens/UserProfile/AboutUsScreen.js";
+import AccountDetailsScreen from "./screens/UserProfile/AccountDetailsScreen.js";
+import AchievementsScreen from "./screens/UserProfile/AchievementsScreen.js";
+import EditProfileScreen from "./screens/UserProfile/EditProfile.js";
+import HelpSupportScreen from "./screens/UserProfile/HelpSupportScreen.js";
+import PrivacyScreen from "./screens/UserProfile/PrivacyScreen.js";
+import SafetyPreferencesScreen from "./screens/UserProfile/SafetyPreferencesScreen.js";
+import PrivacySecurityScreen from "./screens/UserProfile/PrivacySecurityScreen.js";
+import SubscriptionUpgrade from "./screens/Subscription/SubscriptionUpgrade.js"
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -140,7 +149,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 2500); // 2.5s splash
+    const timer = setTimeout(() => setLoading(false), 2500);
     return () => clearTimeout(timer);
   }, []);
 
@@ -161,7 +170,7 @@ return (
   <NavigationContainer>
     <Stack.Navigator
       screenOptions={{headerShown: false,}}
-      initialRouteName="OnboardingScreen"
+      initialRouteName="MainTabs"
     >
 
         <Stack.Screen name="OnboardingScreen" component={OnboardingScreen} />
@@ -179,6 +188,15 @@ return (
         <Stack.Screen name="CreateCredential" component={CreateCredential} />
         <Stack.Screen name="MapViewScreen" component={MapViewScreen} />
         <Stack.Screen name="ProfileScreen" component={ProfileScreen} />
+        <Stack.Screen name="AccountDetailsScreen" component={AccountDetailsScreen} />
+        <Stack.Screen name="AchievementsScreen" component={AchievementsScreen}/>
+        <Stack.Screen name="EditProfileScreen" component={EditProfileScreen}/>
+        <Stack.Screen name="HelpSupportScreen" component={HelpSupportScreen}/>
+        <Stack.Screen name="PrivacyScreen" component={PrivacyScreen}/>
+        <Stack.Screen name="PrivacySecurityScreen" component={PrivacySecurityScreen}/>
+        <Stack.Screen name="SafetyPreferencesScreen" component={SafetyPreferencesScreen}/>
+        <Stack.Screen name="AboutUsScreen" component={AboutUsScreen}/>
+        <Stack.Screen name="SubscriptionUpgrade" component={SubscriptionUpgrade}/>
       </Stack.Navigator>
     </NavigationContainer>
   );
