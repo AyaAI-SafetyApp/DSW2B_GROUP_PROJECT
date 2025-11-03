@@ -287,9 +287,8 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    // Notification initialization is now handled in App.js
-    // Only setup listeners here for HomeScreen-specific handling
-    console.log('🏠 HomeScreen: Setting up notification listeners...');
+  
+    console.log(' HomeScreen: Setting up notification listeners...');
 
     const cleanup = setupNotificationListeners(
       (notification) => {

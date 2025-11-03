@@ -8,6 +8,19 @@ import { getSession } from "./utils/session";
 import MainTabs from "./navigation/TabsNavigator";
 import { initializeAllNotificationServices } from "./components/NotificationService";
 
+
+// Initialize debugging tools
+if (__DEV__) {
+  import('./utils/reactotron');
+  
+  console.log('Development mode enabled - Debugging available');
+  // Enable network debugging safely
+  if (typeof global !== 'undefined') {
+    global.XMLHttpRequest = global.originalXMLHttpRequest || global.XMLHttpRequest;
+    global.FormData = global.originalFormData || global.FormData;
+  }
+}
+
 // Screens
 import OnboardingScreen from "./screens/OnboardingScreen";
 import LoginScreen from "./screens/LoginScreen";
@@ -50,12 +63,12 @@ export default function App() {
       setInitialRoute(session ? "MainTabs" : "OnboardingScreen");
       
       // Initialize notification services ONCE at app startup
-      console.log('🚀 App.js: Starting notification initialization...');
+      console.log('App.js: Starting notification initialization...');
       try {
         const notificationInit = await initializeAllNotificationServices();
-        console.log('🔔 App.js: Notification services:', notificationInit ? 'Initialized ✅' : 'Failed ❌');
+        console.log('App.js: Notification services:', notificationInit ? 'Initialized' : 'Failed');
       } catch (error) {
-        console.error('❌ App.js: Failed to initialize notification services:', error);
+        console.error('App.js: Failed to initialize notification services:', error);
       }
       
       setTimeout(() => setLoading(false), 1800);

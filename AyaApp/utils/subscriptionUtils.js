@@ -96,7 +96,7 @@ export const getUserSubscriptionTier = async () => {
     }
 
     const { email } = JSON.parse(sessionData);
-    console.log('👤 Checking subscription for user:', email);
+    console.log('Checking subscription for user:', email);
 
     // Use user-specific cache key
     const userCacheKey = `@user_subscription_${email}`;
@@ -109,10 +109,10 @@ export const getUserSubscriptionTier = async () => {
       if (userEmail === email) {
         // Check if subscription is still valid
         if (!expiresAt || new Date(expiresAt) > new Date()) {
-          console.log('📦 Using cached subscription for', email, ':', { tier, expiresAt });
+          console.log('Using cached subscription for', email, ':', { tier, expiresAt });
           return tier;
         } else {
-          console.log('⏰ Cached subscription expired for', email);
+          console.log('Cached subscription expired for', email);
         }
       } else {
         console.log('🔄 Cache is for different user, clearing...');
