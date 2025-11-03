@@ -179,7 +179,7 @@ export default function AchievementsScreen({ navigation }) {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#000" />
+          <Ionicons name="arrow-back" size={24} color="#FF1493" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Achievements</Text>
         <View style={{ width: 24 }} />
@@ -249,7 +249,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#E0E0E0",
   },
-  headerTitle: { fontSize: 18, fontWeight: "600", color: "#000" },
+  headerTitle: { fontSize: 18, fontWeight: "600", color:"#FF1493" },
   scroll: { flex: 1 },
   statsCard: {
     backgroundColor: "#333",
