@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { View, StyleSheet } from "react-native";
+import { View, StyleSheet, StatusBar, Platform } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import LottieView from "lottie-react-native";
 import { getSession } from "./utils/session";
 import MainTabs from "./navigation/TabsNavigator";
@@ -76,68 +77,75 @@ export default function App() {
   }
 
   return (
-    <NavigationContainer>
-      <Stack.Navigator
-        screenOptions={{ headerShown: false }}
-        initialRouteName={initialRoute}
-      >
-        <Stack.Screen name="MainTabs" component={MainTabs} />
-        <Stack.Screen name="OnboardingScreen" component={OnboardingScreen} />
-        <Stack.Screen name="Login" component={LoginScreen} />
-        <Stack.Screen name="Signup" component={SignupScreen} />
-        <Stack.Screen
-          name="SubscriptionScreen"
-          component={SubscriptionScreen}
-        />
-        <Stack.Screen name="ReactivateAccount" component={ReactivateAccountScreen} />
-        <Stack.Screen name="Health" component={HealthScreen} />
-        <Stack.Screen name="ReactionGame" component={ReactionGame} />
-        <Stack.Screen name="PoliceGame" component={PoliceGame} />
-        <Stack.Screen name="SafetyGame" component={SafetyGame} />
-        <Stack.Screen name="NewsFeed" component={NewsFeed} />
-        <Stack.Screen name="Safety" component={Safety} />
-        <Stack.Screen 
-          name="ARTraining" 
-          component={ARTrainingScreen}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen 
-          name="CameraARTraining" 
-          component={CameraARTrainingScreen}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen name="ArticleScreen" component={ArticleScreen} />
-        <Stack.Screen name="EmergencyScreen" component={EmergencyScreen} />
-        <Stack.Screen name="AccountForm" component={AccountForm} />
-        <Stack.Screen name="GetAssertion" component={GetAssertion} />
-        <Stack.Screen name="CreateCredential" component={CreateCredential} />
-        <Stack.Screen name="MapViewScreen" component={MapViewScreen} />
-        <Stack.Screen name="ProfileScreen" component={ProfileScreen} />
-        <Stack.Screen
-          name="AccountDetailsScreen"
-          component={AccountDetailsScreen}
-        />
-        <Stack.Screen
-          name="SafetyPreferencesScreen"
-          component={SafetyPreferencesScreen}
-        />
-        <Stack.Screen
-          name="PrivacySecurityScreen"
-          component={PrivacySecurityScreen}
-        />
-        <Stack.Screen name="HelpSupportScreen" component={HelpSupportScreen} />
-        <Stack.Screen
-          name="AchievementsScreen"
-          component={AchievementsScreen}
-        />
-        <Stack.Screen name="EditProfileScreen" component={EditProfile} />
-        <Stack.Screen
-          name="SubscriptionUpgrade"
-          component={SubscriptionUpgrade}
-        />
-        <Stack.Screen name="AboutUsScreen" component={AboutUsScreen} />
-      </Stack.Navigator>
-    </NavigationContainer>
+    <SafeAreaProvider>
+      <StatusBar 
+        barStyle="dark-content" 
+        backgroundColor="transparent" 
+        translucent={Platform.OS === "android"}
+      />
+      <NavigationContainer>
+        <Stack.Navigator
+          screenOptions={{ headerShown: false }}
+          initialRouteName={initialRoute}
+        >
+          <Stack.Screen name="MainTabs" component={MainTabs} />
+          <Stack.Screen name="OnboardingScreen" component={OnboardingScreen} />
+          <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen name="Signup" component={SignupScreen} />
+          <Stack.Screen
+            name="SubscriptionScreen"
+            component={SubscriptionScreen}
+          />
+          <Stack.Screen name="ReactivateAccount" component={ReactivateAccountScreen} />
+          <Stack.Screen name="Health" component={HealthScreen} />
+          <Stack.Screen name="ReactionGame" component={ReactionGame} />
+          <Stack.Screen name="PoliceGame" component={PoliceGame} />
+          <Stack.Screen name="SafetyGame" component={SafetyGame} />
+          <Stack.Screen name="NewsFeed" component={NewsFeed} />
+          <Stack.Screen name="Safety" component={Safety} />
+          <Stack.Screen 
+            name="ARTraining" 
+            component={ARTrainingScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen 
+            name="CameraARTraining" 
+            component={CameraARTrainingScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen name="ArticleScreen" component={ArticleScreen} />
+          <Stack.Screen name="EmergencyScreen" component={EmergencyScreen} />
+          <Stack.Screen name="AccountForm" component={AccountForm} />
+          <Stack.Screen name="GetAssertion" component={GetAssertion} />
+          <Stack.Screen name="CreateCredential" component={CreateCredential} />
+          <Stack.Screen name="MapViewScreen" component={MapViewScreen} />
+          <Stack.Screen name="ProfileScreen" component={ProfileScreen} />
+          <Stack.Screen
+            name="AccountDetailsScreen"
+            component={AccountDetailsScreen}
+          />
+          <Stack.Screen
+            name="SafetyPreferencesScreen"
+            component={SafetyPreferencesScreen}
+          />
+          <Stack.Screen
+            name="PrivacySecurityScreen"
+            component={PrivacySecurityScreen}
+          />
+          <Stack.Screen name="HelpSupportScreen" component={HelpSupportScreen} />
+          <Stack.Screen
+            name="AchievementsScreen"
+            component={AchievementsScreen}
+          />
+          <Stack.Screen name="EditProfileScreen" component={EditProfile} />
+          <Stack.Screen
+            name="SubscriptionUpgrade"
+            component={SubscriptionUpgrade}
+          />
+          <Stack.Screen name="AboutUsScreen" component={AboutUsScreen} />
+        </Stack.Navigator>
+      </NavigationContainer>
+    </SafeAreaProvider>
   );
 }
 

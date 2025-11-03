@@ -18,10 +18,15 @@ import { Audio } from "expo-av";
 import * as Speech from "expo-speech";
 import axios from "axios";
 import { Ionicons } from "@expo/vector-icons";
+import { hasFeatureAccess, showUpgradePrompt, FEATURES } from "../utils/subscriptionUtils";
+import { useNavigation } from "@react-navigation/native";
 
 const BACKEND_URL = "https://dsw2b-backend.onrender.com";
 
 export default function AyaTherapistScreen() {
+  const navigation = useNavigation();
+  const [hasAccess, setHasAccess] = useState(false);
+  const [checkingAccess, setCheckingAccess] = useState(true);
   const [listening, setListening] = useState(false);
   const [aiResponse, setAIResponse] = useState("");
   const [message, setMessage] = useState("");
@@ -35,6 +40,7 @@ export default function AyaTherapistScreen() {
   const glowAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
+  // Fake conversation history
   const conversationHistory = [
     {
       id: 1,
@@ -94,6 +100,32 @@ export default function AyaTherapistScreen() {
     },
   ];
 
+  // Check feature access
+  useEffect(() => {
+    checkAccess();
+  }, []);
+
+  // Re-check access when screen gains focus (after returning from subscription)
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      checkAccess();
+    });
+    return unsubscribe;
+  }, [navigation]);
+
+  const checkAccess = async () => {
+    try {
+      const access = await hasFeatureAccess(FEATURES.THERAPIST_ACCESS);
+      setHasAccess(access);
+    } catch (error) {
+      console.error('Error checking access:', error);
+      setHasAccess(false);
+    } finally {
+      setCheckingAccess(false);
+    }
+  };
+
+  // Reactive Lottie glow animation
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
@@ -151,7 +183,7 @@ export default function AyaTherapistScreen() {
     }).start(() => setAIResponse(""));
   };
 
-
+  // Voice recording
   const startRecording = async () => {
     try {
       const { status } = await Audio.requestPermissionsAsync();
@@ -229,114 +261,160 @@ export default function AyaTherapistScreen() {
     }
   };
 
-  return (
-    <SafeAreaView style={styles.container}>
-      {/* History Modal */}
-      <Modal
-        visible={showHistory}
-        animationType="slide"
-        transparent={false}
-        onRequestClose={() => setShowHistory(false)}
-      >
-        <SafeAreaView style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={() => setShowHistory(false)}>
-              <Ionicons name="arrow-back" size={28} color="#333" />
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>Conversation History</Text>
-            <View style={{ width: 28 }} />
-          </View>
+  // Show loading or locked screen
+  if (checkingAccess) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.centerContent}>
+          <ActivityIndicator size="large" color="#de0973ff" />
+          <Text style={styles.loadingText}>Loading...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
-          <ScrollView style={styles.historyScroll}>
-            {conversationHistory.map((item) => (
-              <View
-                key={item.id}
-                style={[
-                  styles.historyItem,
-                  item.sender === "Natalie"
-                    ? styles.userMessage
-                    : styles.ayaMessage,
-                ]}
-              >
-                <Text style={styles.senderName}>{item.sender}</Text>
-                <Text style={styles.historyText}>{item.message}</Text>
-                <Text style={styles.timestamp}>{item.timestamp}</Text>
-              </View>
-            ))}
-          </ScrollView>
-        </SafeAreaView>
-      </Modal>
-
-      {/* Main Screen */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => setShowHistory(true)}>
-          <Ionicons name="menu" size={28} color="#333" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>AYA Therapist</Text>
-        <View style={{ width: 28 }} />
-      </View>
-
-      <View style={styles.inner}>
-        {/* Lottie Voice Orb */}
-        <TouchableOpacity
-          onPressIn={startRecording}
-          onPressOut={stopRecording}
-          activeOpacity={0.8}
-        >
-          <Animated.View
-            style={[styles.lottieWrapper, { shadowColor: glowInterpolation }]}
-          >
-            <LottieView
-              ref={lottieRef}
-              source={require("../assets/animations/AYA.json")}
-              autoPlay
-              loop
-              style={styles.lottie}
-            />
-          </Animated.View>
-        </TouchableOpacity>
-
-        {/* AI Response */}
-        {loading && (
-          <ActivityIndicator
-            size="large"
-            color="#dc006eff"
-            style={{ marginTop: 30 }}
-          />
-        )}
-        {!loading && aiResponse && (
-          <Animated.View
-            style={{ opacity: fadeAnim, marginTop: 30, width: "90%" }}
-          >
-            <Text style={styles.aiText}>{aiResponse}</Text>
-          </Animated.View>
-        )}
-
-        {/* Text input with icon button */}
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
-          style={styles.inputWrapper}
-        >
-          <TextInput
-            style={styles.input}
-            placeholder="Share what's on your mind..."
-            placeholderTextColor="#aaa"
-            value={message}
-            onChangeText={setMessage}
-            onSubmitEditing={sendTextToAI}
-            multiline
-          />
+  if (!hasAccess) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.lockedContainer}>
+          <Ionicons name="lock-closed" size={80} color="#de0973ff" />
+          <Text style={styles.lockedTitle}>Premium Feature</Text>
+          <Text style={styles.lockedDescription}>
+            Access to the AI Therapist requires a Personal Pro subscription (R99.99/month).
+            Get professional mental health support powered by AI.
+          </Text>
           <TouchableOpacity
-            style={styles.sendBtn}
-            onPress={sendTextToAI}
-            disabled={!message.trim()}
+            style={styles.upgradeButton}
+            onPress={() => showUpgradePrompt(navigation, 'AI Therapist')}
           >
-            <Ionicons name="send" size={22} color="#fff" />
+            <Ionicons name="star" size={20} color="#FFFFFF" />
+            <Text style={styles.upgradeButtonText}>Upgrade to Personal Pro</Text>
           </TouchableOpacity>
-        </KeyboardAvoidingView>
-      </View>
-    </SafeAreaView>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.backButtonText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // keyboardVerticalOffset should match header height so the input isn't covered by the keyboard
+  const keyboardVerticalOffset = Platform.OS === "ios" ? 90 : 80;
+
+  return (
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={keyboardVerticalOffset}
+    >
+      <SafeAreaView style={styles.container}>
+        {/* History Modal */}
+        <Modal
+          visible={showHistory}
+          animationType="slide"
+          transparent={false}
+          onRequestClose={() => setShowHistory(false)}
+        >
+          <SafeAreaView style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <TouchableOpacity onPress={() => setShowHistory(false)}>
+                <Ionicons name="arrow-back" size={28} color="#333" />
+              </TouchableOpacity>
+              <Text style={styles.modalTitle}>Conversation History</Text>
+              <View style={{ width: 28 }} />
+            </View>
+
+            <ScrollView style={styles.historyScroll}>
+              {conversationHistory.map((item) => (
+                <View
+                  key={item.id}
+                  style={[
+                    styles.historyItem,
+                    item.sender === "Natalie"
+                      ? styles.userMessage
+                      : styles.ayaMessage,
+                  ]}
+                >
+                  <Text style={styles.senderName}>{item.sender}</Text>
+                  <Text style={styles.historyText}>{item.message}</Text>
+                  <Text style={styles.timestamp}>{item.timestamp}</Text>
+                </View>
+              ))}
+            </ScrollView>
+          </SafeAreaView>
+        </Modal>
+
+        {/* Main Screen */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => setShowHistory(true)}>
+            <Ionicons name="menu" size={28} color="#333" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>AYA Therapist</Text>
+          <View style={{ width: 28 }} />
+        </View>
+
+        <View style={styles.inner}>
+          {/* Lottie Voice Orb */}
+          <TouchableOpacity
+            onPressIn={startRecording}
+            onPressOut={stopRecording}
+            activeOpacity={0.8}
+          >
+            <Animated.View
+              style={[styles.lottieWrapper, { shadowColor: glowInterpolation }]}
+            >
+              <LottieView
+                ref={lottieRef}
+                source={require("../assets/animations/AYA.json")}
+                autoPlay
+                loop
+                style={styles.lottie}
+              />
+            </Animated.View>
+          </TouchableOpacity>
+
+          {/* AI Response */}
+          {loading && (
+            <ActivityIndicator
+              size="large"
+              color="#dc006eff"
+              style={{ marginTop: 30 }}
+            />
+          )}
+          {!loading && aiResponse && (
+            <Animated.View
+              style={{ opacity: fadeAnim, marginTop: 30, width: "90%" }}
+            >
+              <Text style={styles.aiText}>{aiResponse}</Text>
+            </Animated.View>
+          )}
+
+          {/* Text input with icon button */}
+          {/* Changed inner KeyboardAvoidingView -> plain View because top-level KeyboardAvoidingView now handles keyboard */}
+          <View style={styles.inputWrapper}>
+            <TextInput
+              style={styles.input}
+              placeholder="Share what's on your mind..."
+              placeholderTextColor="#aaa"
+              value={message}
+              onChangeText={setMessage}
+              onSubmitEditing={sendTextToAI}
+              multiline
+            />
+            <TouchableOpacity
+              style={styles.sendBtn}
+              onPress={sendTextToAI}
+              disabled={!message.trim()}
+            >
+              <Ionicons name="send" size={22} color="#fff" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </SafeAreaView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -347,7 +425,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingVertical: 20,
+    paddingVertical: 50,
     borderBottomWidth: 1,
     borderBottomColor: "#f0f0f0",
   },
@@ -360,15 +438,18 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    padding: 20,
   },
   lottieWrapper: {
+    width: 320,
+    height: 320,
     borderRadius: 160,
     justifyContent: "center",
     alignItems: "center",
     shadowOpacity: 0.6,
     shadowOffset: { width: 0, height: 0 },
   },
-  lottie: { width: 250, height: 150 },
+  lottie: { width: 400, height: 400 },
   aiText: {
     color: "#2c2c2c",
     fontSize: 18,
@@ -462,5 +543,59 @@ const styles = StyleSheet.create({
   timestamp: {
     fontSize: 12,
     color: "#999",
+  },
+  centerContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#666',
+  },
+  lockedContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 30,
+  },
+  lockedTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    marginTop: 24,
+    marginBottom: 12,
+  },
+  lockedDescription: {
+    fontSize: 16,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 32,
+  },
+  upgradeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#de0973ff',
+    paddingHorizontal: 32,
+    paddingVertical: 16,
+    borderRadius: 12,
+    gap: 8,
+    marginBottom: 16,
+  },
+  upgradeButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  backButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+  },
+  backButtonText: {
+    color: '#6B7280',
+    fontSize: 16,
+    fontWeight: '500',
   },
 });
