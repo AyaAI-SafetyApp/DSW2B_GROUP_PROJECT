@@ -78,7 +78,7 @@ export async function registerForPushNotifications() {
       Constants.easConfig?.projectId;
     
     token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
-    console.log("✅ Expo Push Token:", token);
+    console.log("Expo Push Token:", token);
 
     // Android: set notification channel
     if (Platform.OS === "android") {
@@ -176,7 +176,7 @@ export async function saveNotification(notification) {
     const trimmed = notifications.slice(0, 50);
     
     await AsyncStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(trimmed));
-    console.log("✅ Notification saved to storage");
+    console.log("Notification saved to storage");
     
     return trimmed;
   } catch (error) {
@@ -216,7 +216,7 @@ export async function markNotificationAsRead(notificationId) {
     );
     
     await AsyncStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(updated));
-    console.log("✅ Notification marked as read");
+    console.log("Notification marked as read");
     
     return updated.filter(n => n.deviceId === Constants.deviceId);
   } catch (error) {
@@ -236,7 +236,7 @@ export async function markAllNotificationsAsRead() {
     );
     
     await AsyncStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(updated));
-    console.log("✅ All notifications marked as read for this device");
+    console.log("All notifications marked as read for this device");
     
     return updated.filter(n => n.deviceId === Constants.deviceId);
   } catch (error) {
@@ -264,7 +264,7 @@ export function setupNotificationListeners(
   // Listener for when notification is received
   const receivedListener =
     Notifications.addNotificationReceivedListener(async (notification) => {
-      console.log("📬 Notification received:", notification);
+      console.log("Notification received:", notification);
       
       // Save notification to storage with device ID
       await saveNotification(notification);
@@ -277,7 +277,7 @@ export function setupNotificationListeners(
   // Listener for when user taps notification
   const responseListener =
     Notifications.addNotificationResponseReceivedListener(async (response) => {
-      console.log(" Notification tapped:", response);
+      console.log("Notification tapped:", response);
       
       // Mark as read when tapped 
       const notificationId = response.notification.request?.identifier;
@@ -334,7 +334,7 @@ export async function clearAllNotifications() {
     await AsyncStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(filteredNotifications));
     await Notifications.dismissAllNotificationsAsync();
     await setBadgeCount(0);
-    console.log("✅ All notifications cleared for this device");
+    console.log("All notifications cleared for this device");
   } catch (error) {
     console.warn("Error clearing notifications:", error);
   }
@@ -352,7 +352,7 @@ export async function deleteNotification(notificationId) {
     );
     
     await AsyncStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(filteredNotifications));
-    console.log("✅ Notification deleted for this device");
+    console.log("Notification deleted for this device");
     
     return filteredNotifications.filter(n => n.deviceId === Constants.deviceId);
   } catch (error) {
@@ -364,7 +364,7 @@ export async function deleteNotification(notificationId) {
 //   ========= INITIALIZE ALL NOTIFICATION SERVICES ===========
 export async function initializeAllNotificationServices() {
   try {
-    console.log('🚀 Initializing all notification services...');
+    console.log('Initializing all notification services...');
     
     // Clear any existing scheduled notifications to prevent defaults
     await Notifications.cancelAllScheduledNotificationsAsync();
@@ -413,7 +413,7 @@ export async function sendLocationRiskNotification(location, crimeProbability, r
       timestamp: new Date().toISOString()
     });
 
-    console.log(`📍 Location risk notification sent: ${location} - ${riskLevel}`);
+    console.log(`Location risk notification sent: ${location} - ${riskLevel}`);
     return true;
   } catch (error) {
     console.error('Error sending location risk notification:', error);
