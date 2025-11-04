@@ -22,7 +22,7 @@ const AnimatedTabBar = React.memo(({ state, navigation, scrollY }) => {
   
   // Debug: Log safe area insets (remove this in production)
   useEffect(() => {
-    console.log('🔍 Safe Area Insets:', insets);
+    console.log('Safe Area Insets:', insets);
   }, [insets]);
 
   // Animate tab bar based on scroll direction
