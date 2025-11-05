@@ -16,7 +16,6 @@ const GBV_KEYWORDS = [
 
 export async function fetchNews(userQuery = "") {
   try {
-    // Check cache first and use if less than 1 hour old
     const cachedData = await AsyncStorage.getItem("cachedNews");
     const cacheTimestamp = await AsyncStorage.getItem("cacheTimestamp");
     

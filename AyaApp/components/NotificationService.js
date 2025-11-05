@@ -1,4 +1,3 @@
-// ==================== FORMAT EXACT TIME ====================
 export function formatExactTime(dateString) {
   if (!dateString) return "";
   const date = new Date(dateString);
@@ -10,7 +9,6 @@ export function formatExactTime(dateString) {
   return `${month} ${day}, ${year} ${hours}:${minutes}`;
 }
 
-// ==================== FORMAT TIME AGO ====================
 export function formatTimeAgo(dateString) {
   if (!dateString) return "Just now";
   const now = new Date();
@@ -34,7 +32,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 const NOTIFICATIONS_STORAGE_KEY = "@saved_notifications";
 const API_BASE_URL = "https://ayabackgroundservices-production.up.railway.app";
 
-// ==================== NOTIFICATION HANDLER CONFIGURATION ====================
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -43,7 +40,6 @@ Notifications.setNotificationHandler({
   }),
 });
 
-// ==================== PUSH TOKEN REGISTRATION ====================
 export async function registerForPushNotifications() {
   let token;
   
@@ -72,7 +68,6 @@ export async function registerForPushNotifications() {
       return null;
     }
 
-    // Get push token
     const projectId =
       Constants.expoConfig?.extra?.eas?.projectId ??
       Constants.easConfig?.projectId;
@@ -80,7 +75,6 @@ export async function registerForPushNotifications() {
     token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
     console.log("Expo Push Token:", token);
 
-    // Android: set notification channel
     if (Platform.OS === "android") {
       await Notifications.setNotificationChannelAsync("default", {
         name: "Safety Alerts",
@@ -98,12 +92,10 @@ export async function registerForPushNotifications() {
   }
 }
 
-// ==================== SEND TOKEN TO BACKEND ====================
 export async function sendTokenToBackend(token) {
   if (!token) return;
 
   try {
-    // Get user session from AsyncStorage
     const sessionData = await AsyncStorage.getItem("@user_session");
     let userId = "anonymous";
     if (sessionData) {
@@ -133,7 +125,6 @@ export async function sendTokenToBackend(token) {
   }
 }
 
-//   ========== SCHEDULE LOCAL NOTIFICATION ================
 export async function scheduleLocalNotification(title, body, data = {}) {
   try {
     await Notifications.scheduleNotificationAsync({
@@ -151,9 +142,7 @@ export async function scheduleLocalNotification(title, body, data = {}) {
   }
 }
 
-// ========= NOTIFICATION STORAGE FUNCTIONS ================
 
-// Save notification to local storage
 export async function saveNotification(notification) {
   try {
     const stored = await AsyncStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
@@ -168,11 +157,9 @@ export async function saveNotification(notification) {
       data: notification.request?.content?.data || {},
       deviceId: Constants.deviceId,
     };
-    
-    // Add to beginning of array 
+
     notifications.unshift(newNotification);
-    
-    // Keep only last 50 notifications
+
     const trimmed = notifications.slice(0, 50);
     
     await AsyncStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(trimmed));
@@ -185,13 +172,11 @@ export async function saveNotification(notification) {
   }
 }
 
-// Get stored notifications for current device only
 export async function getStoredNotifications() {
   try {
     const stored = await AsyncStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
     const allNotifications = stored ? JSON.parse(stored) : [];
-    
-    // Filter notifications to only show those from current device
+
     const deviceNotifications = allNotifications.filter(
       notification => notification.deviceId === Constants.deviceId
     );
@@ -203,7 +188,6 @@ export async function getStoredNotifications() {
   }
 }
 
-// Mark notification as read (only if it belongs to current device)
 export async function markNotificationAsRead(notificationId) {
   try {
     const stored = await AsyncStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
@@ -225,7 +209,6 @@ export async function markNotificationAsRead(notificationId) {
   }
 }
 
-// Mark all notifications as read for current device only
 export async function markAllNotificationsAsRead() {
   try {
     const stored = await AsyncStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
@@ -245,7 +228,6 @@ export async function markAllNotificationsAsRead() {
   }
 }
 
-// Get unread count for current device only
 export async function getUnreadCount() {
   try {
     const notifications = await getStoredNotifications();
@@ -256,17 +238,14 @@ export async function getUnreadCount() {
   }
 }
 
-// ==================== SETUP NOTIFICATION LISTENERS ====================
 export function setupNotificationListeners(
   onNotificationReceived,
   onNotificationResponse
 ) {
-  // Listener for when notification is received
   const receivedListener =
     Notifications.addNotificationReceivedListener(async (notification) => {
       console.log("Notification received:", notification);
       
-      // Save notification to storage with device ID
       await saveNotification(notification);
       
       if (onNotificationReceived) {
@@ -274,12 +253,10 @@ export function setupNotificationListeners(
       }
     });
 
-  // Listener for when user taps notification
   const responseListener =
     Notifications.addNotificationResponseReceivedListener(async (response) => {
       console.log("Notification tapped:", response);
       
-      // Mark as read when tapped 
       const notificationId = response.notification.request?.identifier;
       if (notificationId) {
         await markNotificationAsRead(notificationId);
@@ -290,7 +267,6 @@ export function setupNotificationListeners(
       }
     });
 
-  // Return cleanup function
   return () => {
     if (receivedListener) {
       receivedListener.remove();
@@ -301,7 +277,6 @@ export function setupNotificationListeners(
   };
 }
 
-// ==================== GET NOTIFICATION BADGE COUNT ====================
 export async function getBadgeCount() {
   try {
     return await Notifications.getBadgeCountAsync();
@@ -311,7 +286,6 @@ export async function getBadgeCount() {
   }
 }
 
-// ==================== SET NOTIFICATION BADGE COUNT ====================
 export async function setBadgeCount(count) {
   try {
     await Notifications.setBadgeCountAsync(count);
@@ -320,13 +294,11 @@ export async function setBadgeCount(count) {
   }
 }
 
-// ==================== CLEAR ALL NOTIFICATIONS FOR CURRENT DEVICE ====================
 export async function clearAllNotifications() {
   try {
     const stored = await AsyncStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
     const allNotifications = stored ? JSON.parse(stored) : [];
-    
-    // Keep only notifications from other devices
+
     const filteredNotifications = allNotifications.filter(
       notification => notification.deviceId !== Constants.deviceId
     );
@@ -340,13 +312,11 @@ export async function clearAllNotifications() {
   }
 }
 
-//          ===== DELETE SINGLE NOTIFICATION ======
 export async function deleteNotification(notificationId) {
   try {
     const stored = await AsyncStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
     const allNotifications = stored ? JSON.parse(stored) : [];
     
-    // Remove only if it belongs to current device
     const filteredNotifications = allNotifications.filter(
       notification => !(notification.id === notificationId && notification.deviceId === Constants.deviceId)
     );
@@ -361,16 +331,13 @@ export async function deleteNotification(notificationId) {
   }
 }
 
-//   ========= INITIALIZE ALL NOTIFICATION SERVICES ===========
 export async function initializeAllNotificationServices() {
   try {
     console.log('Initializing all notification services...');
     
-    // Clear any existing scheduled notifications to prevent defaults
     await Notifications.cancelAllScheduledNotificationsAsync();
     await Notifications.dismissAllNotificationsAsync();
     
-    // 1. Register for push notifications
     const token = await registerForPushNotifications();
     if (token) {
       await sendTokenToBackend(token);
@@ -384,12 +351,11 @@ export async function initializeAllNotificationServices() {
   }
 }
 
-// ==================== LOCATION RISK NOTIFICATION ====================
+
 export async function sendLocationRiskNotification(location, crimeProbability, riskLevel, dangerPercentage) {
   try {
     let title, body, priority;
     
-    // Customize notification based on risk level
     if (riskLevel === 'High Risk') {
       title = 'High Crime Risk Alert';
       body = `You are currently in ${location}. An area with ${dangerPercentage}% crime rate - ${riskLevel} area. Stay vigilant!`;

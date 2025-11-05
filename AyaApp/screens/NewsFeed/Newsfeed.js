@@ -60,9 +60,6 @@ try {
 
 const { width, height } = Dimensions.get("window");
 
-// ---------------------------------------------------------------
-// ANIMATED FLATLIST (needed for scrollY)
-// ---------------------------------------------------------------
 const AnimatedFlatList = Animated.createAnimatedComponent(RNFlatList);
 
 const COLORS = {
@@ -134,7 +131,6 @@ const isVideoUrl = (uri) => {
   }
 };
 
-// ============ OFFLINE QUEUE HELPERS ============
 async function getOpsQueue() {
   try {
     const raw = await AsyncStorage.getItem(OFFLINE_CRUD_QUEUE_KEY);
@@ -274,7 +270,6 @@ async function uploadMediaUrisToPostsBucket(uris = []) {
   return uploadedUrls;
 }
 
-// ============ AVATAR COMPONENT ============
 const UserAvatar = React.memo(({ username, avatarUrl, size = 40, style }) => {
   const getInitial = (name) => {
     if (!name) return "?";
@@ -384,7 +379,6 @@ const StoryItem = React.memo(({ story, index, onPress }) => {
   );
 });
 
-// ============ POST CARD COMPONENT ============
 const PostCard = React.memo(
   ({
     post,
@@ -602,7 +596,6 @@ const PostCard = React.memo(
   }
 );
 
-// ============ COMMENTS MODAL ============
 const CommentsModal = ({
   visible,
   post,
@@ -625,7 +618,6 @@ const CommentsModal = ({
     if (commentText.trim()) {
       onAddComment(post.id, commentText.trim());
       setCommentText("");
-      // ensure list scrolls to bottom after adding
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
       }, 120);
@@ -633,7 +625,6 @@ const CommentsModal = ({
   };
   if (!post) return null;
 
-  // keep offset so keyboard doesn't cover input
   const keyboardVerticalOffset =
     Platform.OS === "ios" ? 80 : (StatusBar.currentHeight || 0) + 80;
 
@@ -651,7 +642,6 @@ const CommentsModal = ({
       useNativeDriver={true}
       useNativeDriverForBackdrop={true}
     >
-      {/* Change: ensure modal content anchors to bottom inside KeyboardAvoidingView */}
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={keyboardVerticalOffset}
@@ -669,7 +659,6 @@ const CommentsModal = ({
             </TouchableOpacity>
           </View>
 
-          {/* comments list should take available space inside the sheet */}
           <AnimatedFlatList
             ref={flatListRef}
             data={post.comments || []}
@@ -757,7 +746,6 @@ const CommentsModal = ({
   );
 };
 
-// ============ NEW: Likes Modal ============
 const LikesModal = ({ visible, likes, onClose }) => {
   const items = Array.isArray(likes)
     ? likes.map((l, idx) => {
@@ -814,7 +802,6 @@ const LikesModal = ({ visible, likes, onClose }) => {
   );
 };
 
-// ============ STORY VIEWER ============
 const StoryViewer = ({
   visible,
   stories,
@@ -930,7 +917,6 @@ const StoryViewer = ({
   );
 };
 
-// ============ HELPER FUNCTIONS ============
 const getTimeAgo = (timestamp) => {
   let ts = timestamp;
   if (typeof ts === "string") {
@@ -955,11 +941,8 @@ const getTimeAgo = (timestamp) => {
   return "Just now";
 };
 
-// ============ MAIN COMPONENT ============
 const Newsfeed = ({ scrollY: externalScrollY }) => {
-  // -----------------------------------------------------------------
-  // scrollY – shared with AnimatedTabBar
-  // -----------------------------------------------------------------
+  
   const scrollY = externalScrollY || useRef(new Animated.Value(0)).current;
 
   const [posts, setPosts] = useState([]);
@@ -1795,7 +1778,6 @@ const Newsfeed = ({ scrollY: externalScrollY }) => {
         barStyle="dark-content"
         backgroundColor={COLORS.cardBackground}
       />
-      {/* header with centered app name and call icon */}
       <View style={styles.header}>
         <View style={styles.headerLeft} />
         <View style={styles.headerTitleContainer}>
@@ -1849,9 +1831,7 @@ const Newsfeed = ({ scrollY: externalScrollY }) => {
           removeClippedSubviews={Platform.OS === "android"}
           onViewableItemsChanged={onViewableItemsChanged}
           viewabilityConfig={viewabilityConfig}
-          // -------------------------------------------------
-          // SCROLL → TAB BAR HIDE / SHOW
-          // -------------------------------------------------
+
           scrollEventThrottle={16}
           onScroll={Animated.event(
             [{ nativeEvent: { contentOffset: { y: scrollY } } }],
@@ -1868,7 +1848,6 @@ const Newsfeed = ({ scrollY: externalScrollY }) => {
         small
       />
 
-      {/* Call modal */}
       <Modal
         isVisible={callModalVisible}
         onBackdropPress={() => setCallModalVisible(false)}
@@ -1906,8 +1885,7 @@ const Newsfeed = ({ scrollY: externalScrollY }) => {
         animationOut="slideOutDown"
         avoidKeyboard={true}
       >
-        {/* Ensure KeyboardAvoidingView prevents keyboard from covering input.
-            Increased keyboardVerticalOffset so the input remains visible on both platforms. */}
+       
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           keyboardVerticalOffset={
@@ -1934,7 +1912,6 @@ const Newsfeed = ({ scrollY: externalScrollY }) => {
               </TouchableOpacity>
             </View>
 
-            {/* Make ScrollView contentContainer have extra bottom padding so typed text remains visible above keyboard */}
             <ScrollView
               style={styles.modalBody}
               keyboardShouldPersistTaps="handled"
@@ -2091,7 +2068,6 @@ const Newsfeed = ({ scrollY: externalScrollY }) => {
   );
 };
 
-// ============ STYLES ============
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -2118,23 +2094,19 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 12,
-    // ensure header icon is not cut under status bar / notch on Android
     paddingTop:
       Platform.OS === "android" ? (StatusBar.currentHeight || 0) + 8 : 12,
     paddingBottom: 10,
     backgroundColor: COLORS.cardBackground,
-    // ensure header tall enough so content won't be cut
     minHeight:
       Platform.OS === "android" ? (StatusBar.currentHeight || 24) + 56 : 64,
     borderBottomWidth: 0.5,
     borderBottomColor: COLORS.border,
   },
   headerLeft: {
-    // placeholder to balance the right icon so title stays centered
     width: 44,
     height: 44,
   },
-  /* header title container - updated styling for nicer app name */
   headerTitleContainer: {
     flex: 1,
     flexDirection: "row",
@@ -2425,7 +2397,6 @@ const styles = StyleSheet.create({
   modalActionBtn: {
     padding: 8,
   },
-  /* moved FAB slightly higher so it doesn't conflict with navigation pane */
   fab: {
     position: "absolute",
     right: 20,
@@ -2631,7 +2602,6 @@ const styles = StyleSheet.create({
     padding: 4,
   },
 
-  /* Likes modal styles */
   likesModal: {
     margin: 0,
     justifyContent: "flex-end",
@@ -2678,8 +2648,6 @@ const styles = StyleSheet.create({
   emptyLikesText: {
     color: COLORS.textSecondary,
   },
-
-  /* Call modal styles */
   callModal: {
     margin: 0,
     justifyContent: "center",

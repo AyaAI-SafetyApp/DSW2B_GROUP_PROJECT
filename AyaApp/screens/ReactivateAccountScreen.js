@@ -16,20 +16,18 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabaseClient';
 
 export default function ReactivateAccountScreen({ navigation }) {
-  const [step, setStep] = useState(1); // 1: Enter email, 2: Enter code
+  const [step, setStep] = useState(1); 
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
 
-  // Generate random 6-digit code
   const generateCode = () => {
     return Math.floor(100000 + Math.random() * 900000).toString();
   };
 
-  // Start resend cooldown timer
   const startCooldown = () => {
-    setResendCooldown(60); // 60 seconds cooldown
+    setResendCooldown(60);
     const interval = setInterval(() => {
       setResendCooldown((prev) => {
         if (prev <= 1) {
@@ -50,7 +48,6 @@ export default function ReactivateAccountScreen({ navigation }) {
     try {
       setLoading(true);
 
-      // Check if account exists and is deactivated
       const { data: profile, error: profileError } = await supabase
         .from('user_profiles')
         .select('email, is_active, full_name')
@@ -77,7 +74,6 @@ export default function ReactivateAccountScreen({ navigation }) {
         return;
       }
 
-      // If resending, invalidate all previous unused codes for this email
       if (isResend) {
         await supabase
           .from('reactivation_codes')
@@ -88,10 +84,8 @@ export default function ReactivateAccountScreen({ navigation }) {
         console.log('♻️ Previous codes invalidated for resend');
       }
 
-      // Generate reactivation code
       const reactivationCode = generateCode();
 
-      // Save code to database
       const { error: codeError } = await supabase
         .from('reactivation_codes')
         .insert([
@@ -99,7 +93,7 @@ export default function ReactivateAccountScreen({ navigation }) {
             user_email: email.toLowerCase(),
             code: reactivationCode,
             is_used: false,
-            expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
+            expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
           },
         ]);
 
@@ -109,9 +103,8 @@ export default function ReactivateAccountScreen({ navigation }) {
         return;
       }
 
-      // Send reactivation code via email using Supabase Edge Function
+
       try {
-        // Get email from the profile or use the entered email
         const emailToUse = profile.email || email.toLowerCase();
         
         const { data: emailResult, error: emailError } = await supabase.functions.invoke('dynamic-api', {
@@ -125,7 +118,6 @@ export default function ReactivateAccountScreen({ navigation }) {
 
         if (emailError || !emailResult?.success) {
           console.warn('⚠️ Email sending failed:', emailError || emailResult?.error);
-          // Still show the code in development mode if email fails
           Alert.alert(
             'Code Generated',
             `Email service unavailable. Here's your code:\n\n${reactivationCode}\n\nDeploy the Supabase Edge Function to enable emails.`,
@@ -143,7 +135,6 @@ export default function ReactivateAccountScreen({ navigation }) {
         }
       } catch (emailError) {
         console.error('❌ Email service error:', emailError);
-        // Fallback: show code in alert for development
         Alert.alert(
           'Code Generated',
           `⚠️ Email service unavailable.\n\nDevelopment Mode - Your code: ${reactivationCode}`,
@@ -151,7 +142,6 @@ export default function ReactivateAccountScreen({ navigation }) {
         );
       }
 
-      // Start cooldown timer to prevent spam
       startCooldown();
       
       setStep(2);
@@ -172,7 +162,6 @@ export default function ReactivateAccountScreen({ navigation }) {
     try {
       setLoading(true);
 
-      // Verify code
       const { data: codeRecord, error: codeError } = await supabase
         .from('reactivation_codes')
         .select('*')
@@ -195,7 +184,6 @@ export default function ReactivateAccountScreen({ navigation }) {
         return;
       }
 
-      // Mark code as used
       const { error: updateCodeError } = await supabase
         .from('reactivation_codes')
         .update({
@@ -208,7 +196,6 @@ export default function ReactivateAccountScreen({ navigation }) {
         console.error('Update code error:', updateCodeError);
       }
 
-      // Reactivate the account
       const { error: reactivateError } = await supabase
         .from('user_profiles')
         .update({
@@ -249,7 +236,6 @@ export default function ReactivateAccountScreen({ navigation }) {
         style={styles.keyboardView}
       >
         <ScrollView contentContainerStyle={styles.scrollContent}>
-          {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity
               onPress={() => navigation.goBack()}
@@ -260,7 +246,6 @@ export default function ReactivateAccountScreen({ navigation }) {
             <Text style={styles.headerTitle}>Reactivate Account</Text>
           </View>
 
-          {/* Content */}
           <View style={styles.content}>
             <View style={styles.iconContainer}>
               <Ionicons name="refresh-circle" size={80} color="#FFFFFF" />

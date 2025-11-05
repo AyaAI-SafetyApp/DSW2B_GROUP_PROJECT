@@ -37,7 +37,7 @@ export default function EmergencyChat() {
   const [showSuggestions, setShowSuggestions] = useState(true);
   const [typing, setTyping] = useState(false);
   const flatListRef = useRef(null);
-  const navigation = useNavigation(); // ✅ initialize navigation
+  const navigation = useNavigation(); 
 
   const sendMessage = async (text) => {
     if (!text.trim()) return;
@@ -113,9 +113,8 @@ export default function EmergencyChat() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
       >
-        {/* Header */}
+
         <View style={styles.header}>
-          {/* ✅ Back button added here */}
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
             <Icon name="arrow-left" size={24} color="#d32f2f" />
           </TouchableOpacity>
@@ -124,7 +123,6 @@ export default function EmergencyChat() {
           <Text style={styles.headerTitle}>Emergency Chat</Text>
         </View>
 
-        {/* Chat Messages */}
         <FlatList
           ref={flatListRef}
           data={chat}
@@ -135,7 +133,6 @@ export default function EmergencyChat() {
           inverted
         />
 
-        {/* Typing Indicator */}
         {typing && (
           <View style={styles.typingIndicator}>
             <ActivityIndicator size="small" color="#d32f2f" />
@@ -143,7 +140,6 @@ export default function EmergencyChat() {
           </View>
         )}
 
-        {/* Suggested Prompts Section */}
         {showSuggestions && !loading && (
           <View style={styles.promptSection}>
             <Text style={styles.promptSectionTitle}>Emergency Prompts</Text>
@@ -153,7 +149,6 @@ export default function EmergencyChat() {
           </View>
         )}
 
-        {/* Input Container */}
         <View style={styles.inputContainer}>
           <TextInput
             style={styles.input}

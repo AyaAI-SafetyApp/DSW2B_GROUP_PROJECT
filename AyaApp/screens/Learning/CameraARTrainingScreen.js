@@ -21,48 +21,42 @@ const { width, height } = Dimensions.get("window");
 
 export default function CameraARTrainingScreen({ route, navigation }) {
   const { training, type } = route.params;
-  
-  // Camera permissions
+
   const [permission, requestPermission] = useCameraPermissions();
   const [cameraReady, setCameraReady] = useState(false);
-  
-  // Training state
+
   const [isTrainingActive, setIsTrainingActive] = useState(false);
   const [currentMoveIndex, setCurrentMoveIndex] = useState(0);
   const [score, setScore] = useState(0);
   const [countdown, setCountdown] = useState(3);
   const [repsCompleted, setRepsCompleted] = useState(0);
-  const [totalReps] = useState(training.moves.length * 3); // 3 reps per move (more manageable)
-  const [currentRep, setCurrentRep] = useState(1); // Track current rep (1-3)
+  const [totalReps] = useState(training.moves.length * 3); 
+  const [currentRep, setCurrentRep] = useState(1); 
   const [sessionData, setSessionData] = useState({
     startTime: null,
     movements: [],
     accuracy: [],
   });
   
-  // Sensor data for movement detection
+
   const [motionData, setMotionData] = useState({ x: 0, y: 0, z: 0 });
   const [gyroData, setGyroData] = useState({ x: 0, y: 0, z: 0 });
   const [movementIntensity, setMovementIntensity] = useState(0);
   
-  // Animation values
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const glowAnim = useRef(new Animated.Value(0)).current;
   const overlayOpacity = useRef(new Animated.Value(0.5)).current;
   
-  // Sensor subscriptions
   const accelerometerRef = useRef(null);
   const gyroscopeRef = useRef(null);
   const cameraRef = useRef(null);
 
-  // Request camera permission on mount
   useEffect(() => {
     if (!permission?.granted) {
       requestPermission();
     }
   }, []);
 
-  // Define functions before useEffect
   const startSensors = () => {
     Accelerometer.setUpdateInterval(100);
     Gyroscope.setUpdateInterval(100);
@@ -87,8 +81,7 @@ export default function CameraARTrainingScreen({ route, navigation }) {
 
     const magnitude = Math.sqrt(data.x ** 2 + data.y ** 2 + data.z ** 2);
     setMovementIntensity(magnitude);
-    
-    // Different thresholds for different training types
+
     let threshold = 1.5;
     let accuracyThreshold = 2.0;
     
@@ -102,7 +95,6 @@ export default function CameraARTrainingScreen({ route, navigation }) {
     }
 
     if (magnitude > threshold) {
-      // Calculate accuracy based on movement intensity
       const accuracy = magnitude >= accuracyThreshold ? "Perfect" : "Good";
       onMoveDetected(accuracy, magnitude);
     }
@@ -114,8 +106,7 @@ export default function CameraARTrainingScreen({ route, navigation }) {
         ? Haptics.ImpactFeedbackStyle.Heavy 
         : Haptics.ImpactFeedbackStyle.Medium
     );
-    
-    // Flash animation
+
     Animated.sequence([
       Animated.timing(glowAnim, {
         toValue: 1,
@@ -129,11 +120,9 @@ export default function CameraARTrainingScreen({ route, navigation }) {
       }),
     ]).start();
 
-    // Get current move details
     const currentMove = training.moves[currentMoveIndex];
     const moveName = typeof currentMove === 'string' ? currentMove : currentMove.name;
-    
-    // Record movement data
+
     const movementRecord = {
       moveIndex: currentMoveIndex,
       moveName: moveName,
@@ -150,20 +139,16 @@ export default function CameraARTrainingScreen({ route, navigation }) {
       accuracy: [...prev.accuracy, accuracy],
     }));
 
-    // Update progress
     const newReps = repsCompleted + 1;
     setRepsCompleted(newReps);
-    
-    // Update current rep (1-3)
+
     const newCurrentRep = currentRep + 1;
-    
-    // Points based on accuracy
+
     const points = accuracy === "Perfect" ? 15 : 10;
     setScore(score + points);
 
-    // Check if move is complete (3 reps)
     if (newCurrentRep > 3) {
-      setCurrentRep(1); // Reset rep counter
+      setCurrentRep(1);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       
       if (currentMoveIndex < training.moves.length - 1) {
@@ -181,14 +166,12 @@ export default function CameraARTrainingScreen({ route, navigation }) {
     stopSensors();
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-    // Calculate session statistics
     const endTime = new Date();
-    const duration = Math.round((endTime - sessionData.startTime) / 1000); // seconds
+    const duration = Math.round((endTime - sessionData.startTime) / 1000); 
     const perfectMoves = sessionData.accuracy.filter(a => a === "Perfect").length;
     const goodMoves = sessionData.accuracy.filter(a => a === "Good").length;
     const accuracyPercentage = Math.round((perfectMoves / sessionData.accuracy.length) * 100);
 
-    // Save to database
     await saveTrainingSession({
       duration,
       perfectMoves,
@@ -213,13 +196,12 @@ export default function CameraARTrainingScreen({ route, navigation }) {
 
   const saveTrainingSession = async (stats) => {
     try {
-      // Get user info from AsyncStorage
+
       const sessionData = await AsyncStorage.getItem("userSession");
       if (!sessionData) return;
 
       const { userId, email } = JSON.parse(sessionData);
 
-      // Save to Supabase
       const trainingRecord = {
         user_id: userId,
         user_email: email,
@@ -294,7 +276,6 @@ export default function CameraARTrainingScreen({ route, navigation }) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   };
 
-  // useEffect hooks
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
@@ -311,7 +292,6 @@ export default function CameraARTrainingScreen({ route, navigation }) {
       ])
     ).start();
 
-    // Auto-start countdown after camera is ready
     if (cameraReady && countdown === 3) {
       const autoStartTimer = setTimeout(() => {
         startCountdown();
@@ -341,7 +321,6 @@ export default function CameraARTrainingScreen({ route, navigation }) {
     outputRange: ["rgba(79, 70, 229, 0.3)", "rgba(34, 197, 94, 0.8)"],
   });
 
-  // Check camera permission
   if (!permission) {
     return (
       <View style={styles.container}>
@@ -363,14 +342,12 @@ export default function CameraARTrainingScreen({ route, navigation }) {
 
   return (
     <View style={styles.container}>
-      {/* Camera View */}
       <CameraView
         ref={cameraRef}
         style={styles.camera}
         facing="front"
         onCameraReady={() => setCameraReady(true)}
       >
-        {/* Overlay for AR effect */}
         <Animated.View style={[styles.overlay, { opacity: overlayOpacity }]}>
           <LinearGradient
             colors={["rgba(31, 41, 55, 0.7)", "rgba(17, 24, 39, 0.9)"]}
@@ -378,7 +355,6 @@ export default function CameraARTrainingScreen({ route, navigation }) {
           />
         </Animated.View>
 
-        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
             onPress={() => navigation.goBack()}
@@ -392,7 +368,6 @@ export default function CameraARTrainingScreen({ route, navigation }) {
           </View>
         </View>
 
-        {/* Progress Bar */}
         <View style={styles.progressContainer}>
           <View style={styles.progressBar}>
             <View style={[styles.progressFill, { width: `${progress}%` }]} />
@@ -402,7 +377,6 @@ export default function CameraARTrainingScreen({ route, navigation }) {
           </Text>
         </View>
 
-        {/* AR Overlay Content */}
         <View style={styles.content}>
           {countdown > 0 && !isTrainingActive ? (
             <Animated.View
@@ -414,7 +388,6 @@ export default function CameraARTrainingScreen({ route, navigation }) {
             </Animated.View>
           ) : isTrainingActive ? (
             <>
-              {/* Current Move Display */}
               <Animated.View style={[styles.moveCard, { backgroundColor: glowColor }]}>
                 <Text style={styles.moveNumber}>
                   Move {currentMoveIndex + 1}/{training.moves.length}
@@ -432,7 +405,6 @@ export default function CameraARTrainingScreen({ route, navigation }) {
                 </Text>
               </Animated.View>
 
-              {/* Movement Intensity Indicator */}
               <View style={styles.intensityContainer}>
                 <Text style={styles.intensityLabel}>Movement Intensity</Text>
                 <View style={styles.intensityBar}>
@@ -452,7 +424,6 @@ export default function CameraARTrainingScreen({ route, navigation }) {
                 </Text>
               </View>
 
-              {/* Pose Guide Overlay */}
               <View style={styles.poseGuideContainer}>
                 <View style={styles.bodyOutline}>
                   <View style={styles.jointDot} />
@@ -469,7 +440,6 @@ export default function CameraARTrainingScreen({ route, navigation }) {
           )}
         </View>
 
-        {/* Control Buttons */}
         <View style={styles.controls}>
           {isTrainingActive ? (
             <TouchableOpacity

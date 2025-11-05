@@ -158,8 +158,12 @@ export default function AboutUsScreen({ navigation }) {
         showsVerticalScrollIndicator={false}
       />
 
-      {/* Modal */}
-      <Modal transparent animationType="fade" visible={modalVisible} onRequestClose={closeModal}>
+      <Modal
+        transparent
+        animationType="fade"
+        visible={modalVisible}
+        onRequestClose={closeModal}
+      >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             {selectedMember && (
@@ -251,6 +255,7 @@ const styles = StyleSheet.create({
   name: { fontSize: 18, fontWeight: "600", color: "#1e293b" },
   features: { marginTop: 4 },
   featureItem: { color: "#374151", fontSize: 14, marginBottom: 2 },
+
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",

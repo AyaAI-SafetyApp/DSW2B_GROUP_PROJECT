@@ -34,7 +34,6 @@ export default function NotificationModal({
     >
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent} accessibilityViewIsModal>
-          {/* Header */}
           <View style={styles.modalHeader}>
             <View style={styles.headerLeft}>
               <Ionicons name="notifications" size={24} color={PRIMARY} />
@@ -52,7 +51,6 @@ export default function NotificationModal({
             </TouchableOpacity>
           </View>
 
-          {/* Loading State */}
           {loading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={PRIMARY} />
@@ -60,7 +58,6 @@ export default function NotificationModal({
             </View>
           ) : (
             <>
-              {/* Notification List */}
               <ScrollView
                 style={styles.notificationsList}
                 showsVerticalScrollIndicator={false}
@@ -79,7 +76,6 @@ export default function NotificationModal({
                   </View>
                 ) : (
                   notifications.map((notification, index) => {
-                    // Handle both string and object notifications
                     const message = typeof notification === 'string' 
                       ? notification 
                       : notification.message;
@@ -155,7 +151,6 @@ export default function NotificationModal({
                 )}
               </ScrollView>
 
-              {/* Action Buttons */}
               <View style={styles.actionButtons}>
                 {notifications.length > 0 && onClearAll && (
                   <TouchableOpacity

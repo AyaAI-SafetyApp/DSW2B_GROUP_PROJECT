@@ -5,14 +5,13 @@ import { supabase, getCurrentUser } from "./supabaseClient";
  * - Table assumed: "sos_contacts" with columns: id (uuid), user_id (text), phone (text), created_at (timestamp)
  */
 
-/** helper to resolve current user id */
+
 async function resolveUserId(userId) {
   if (userId) return userId;
   const user = await getCurrentUser();
   return user?.id ?? null;
 }
 
-/** fetch all contacts for a user */
 export async function fetchContacts(userId = null) {
   const uid = await resolveUserId(userId);
   if (!uid) return [];
@@ -33,7 +32,6 @@ export async function fetchContacts(userId = null) {
   }
 }
 
-/** add a contact (phone) for user — returns current contact list on success */
 export async function addContact(userId = null, phone) {
   if (!phone || !/^\+?\d{10,15}$/.test(phone)) {
     throw new Error("Invalid phone");
@@ -42,7 +40,6 @@ export async function addContact(userId = null, phone) {
   if (!uid) throw new Error("Not authenticated");
 
   try {
-    // avoid duplicate inserts
     const { data: existing } = await supabase
       .from("sos_contacts")
       .select("id")
@@ -71,7 +68,6 @@ export async function addContact(userId = null, phone) {
   }
 }
 
-/** remove a contact (phone) for user — returns current contact list on success */
 export async function removeContact(userId = null, phone) {
   const uid = await resolveUserId(userId);
   if (!uid) throw new Error("Not authenticated");

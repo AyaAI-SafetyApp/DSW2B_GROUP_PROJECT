@@ -40,7 +40,6 @@ export default function AyaTherapistScreen() {
   const glowAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  // Fake conversation history
   const conversationHistory = [
     {
       id: 1,
@@ -100,12 +99,10 @@ export default function AyaTherapistScreen() {
     },
   ];
 
-  // Check feature access
   useEffect(() => {
     checkAccess();
   }, []);
 
-  // Re-check access when screen gains focus (after returning from subscription)
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
       checkAccess();
@@ -125,7 +122,6 @@ export default function AyaTherapistScreen() {
     }
   };
 
-  // Reactive Lottie glow animation
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
@@ -183,7 +179,6 @@ export default function AyaTherapistScreen() {
     }).start(() => setAIResponse(""));
   };
 
-  // Voice recording
   const startRecording = async () => {
     try {
       const { status } = await Audio.requestPermissionsAsync();
@@ -261,7 +256,6 @@ export default function AyaTherapistScreen() {
     }
   };
 
-  // Show loading or locked screen
   if (checkingAccess) {
     return (
       <SafeAreaView style={styles.container}>
@@ -301,7 +295,6 @@ export default function AyaTherapistScreen() {
     );
   }
 
-  // keyboardVerticalOffset should match header height so the input isn't covered by the keyboard
   const keyboardVerticalOffset = Platform.OS === "ios" ? 90 : 80;
 
   return (
@@ -311,7 +304,6 @@ export default function AyaTherapistScreen() {
       keyboardVerticalOffset={keyboardVerticalOffset}
     >
       <SafeAreaView style={styles.container}>
-        {/* History Modal */}
         <Modal
           visible={showHistory}
           animationType="slide"
@@ -347,7 +339,6 @@ export default function AyaTherapistScreen() {
           </SafeAreaView>
         </Modal>
 
-        {/* Main Screen */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => setShowHistory(true)}>
             <Ionicons name="menu" size={28} color="#333" />
@@ -357,7 +348,7 @@ export default function AyaTherapistScreen() {
         </View>
 
         <View style={styles.inner}>
-          {/* Lottie Voice Orb */}
+
           <TouchableOpacity
             onPressIn={startRecording}
             onPressOut={stopRecording}
@@ -376,7 +367,6 @@ export default function AyaTherapistScreen() {
             </Animated.View>
           </TouchableOpacity>
 
-          {/* AI Response */}
           {loading && (
             <ActivityIndicator
               size="large"
@@ -392,8 +382,6 @@ export default function AyaTherapistScreen() {
             </Animated.View>
           )}
 
-          {/* Text input with icon button */}
-          {/* Changed inner KeyboardAvoidingView -> plain View because top-level KeyboardAvoidingView now handles keyboard */}
           <View style={styles.inputWrapper}>
             <TextInput
               style={styles.input}

@@ -18,7 +18,6 @@ import { Accelerometer, Gyroscope } from "expo-sensors";
 
 const { width } = Dimensions.get("window");
 
-// Sample Data
 const videos = [
   {
     id: 1,
@@ -141,7 +140,6 @@ export default function LearningScreen() {
   };
 
   const handleTrainingPress = (tutorial) => {
-    // Navigate to Camera-based AR training for visual movement detection
     navigation.navigate("CameraARTraining", { 
       training: tutorial,
       type: tutorial.trainingType 
@@ -259,7 +257,6 @@ export default function LearningScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: "#fff" }}>
-      {/* Navbar */}
       <View style={styles.navbar}>
         <View style={styles.navButtons}>
           <TouchableOpacity
@@ -301,15 +298,12 @@ export default function LearningScreen() {
         </View>
       </View>
 
-      {/* Content */}
       {renderContent()}
     </View>
   );
 }
 
-// Styles
 const styles = StyleSheet.create({
-  // Navbar
   navbar: {
     width: "100%",
     paddingVertical: 60,
@@ -339,7 +333,6 @@ const styles = StyleSheet.create({
   },
   activeTab: { backgroundColor: "#E5E7EB" },
 
-  // Horizontal Cards (for videos if needed)
   videoCard: {
     width: width * 0.9,
     marginBottom: 20,
@@ -357,7 +350,6 @@ const styles = StyleSheet.create({
     margin: 10,
   },
 
-  // Vertical Cards (Training & Games)
   verticalCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -379,8 +371,7 @@ const styles = StyleSheet.create({
   },
   verticalCardContent: { flex: 1 },
   trainingStatus: { fontSize: 12, fontWeight: "600", marginTop: 4 },
-  
-  // AR/VR Training Card Styles
+
   arTrainingCard: {
     backgroundColor: "#FFFFFF",
     borderRadius: 16,
@@ -447,7 +438,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 
-  // Games Cards
   card: {
     flexDirection: "row",
     alignItems: "center",

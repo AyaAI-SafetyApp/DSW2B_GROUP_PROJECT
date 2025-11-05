@@ -19,14 +19,13 @@ import * as LocalAuthentication from "expo-local-authentication";
 import { useNavigation } from "@react-navigation/native";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import { supabase } from "../../lib/supabaseClient";
-import "react-native-get-random-values"; // Import polyfill for crypto.getRandomValues
+import "react-native-get-random-values"; 
 
 const CONFETTI_COUNT = 10;
 
 export default function CreateCredentials({ route }) {
   const navigation = useNavigation();
-  
-  // Get data from previous screen (AccountForm)
+
   const { userID: passedUserID, initialFullName, userEmail } = route?.params || {};
   
   const [fullName, setFullName] = useState(initialFullName || "");
@@ -37,7 +36,7 @@ export default function CreateCredentials({ route }) {
   const [inputFocused, setInputFocused] = useState(false);
   const [nameFocused, setNameFocused] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [selectedProvider, setSelectedProvider] = useState(null); // 'Apple' or 'Google'
+  const [selectedProvider, setSelectedProvider] = useState(null);
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const successScale = useRef(new Animated.Value(0)).current;
@@ -150,7 +149,6 @@ export default function CreateCredentials({ route }) {
     animateButton();
 
     try {
-      // First authenticate with biometrics
       const bioAuth = await LocalAuthentication.authenticateAsync({
         promptMessage: `Authenticate with ${selectedProvider}`,
         fallbackLabel: "Use PIN",
@@ -160,7 +158,6 @@ export default function CreateCredentials({ route }) {
         throw new Error("Biometric authentication failed");
       }
 
-      // Generate unique passkey credentials using cryptographically secure random bytes
       const timestamp = Date.now();
   const randomBytes = new Uint8Array(16);
   crypto.getRandomValues(randomBytes);
@@ -168,7 +165,6 @@ export default function CreateCredentials({ route }) {
       const credentialId = `cred_${userID}_${timestamp}_${randomString}`;
       const publicKey = `key_${userID}_${timestamp}_${randomString}`;
 
-      // Store passkey directly in Supabase
       const { data, error } = await supabase
         .from("passkeys")
         .insert([
@@ -189,10 +185,9 @@ export default function CreateCredentials({ route }) {
 
       console.log("Passkey stored successfully:", data);
 
-      // Get email from session if not provided via route params
       let emailToUse = email;
       if (!emailToUse || !emailToUse.includes('@')) {
-        // Try to get email from Supabase session
+
         const { data: { user } } = await supabase.auth.getUser();
         if (user?.email) {
           emailToUse = user.email;
@@ -203,7 +198,6 @@ export default function CreateCredentials({ route }) {
         }
       }
 
-      // Send welcome email with passkey if user provided an email address
       if (emailToUse && emailToUse.includes('@')) {
         try {
           console.log('📧 Attempting to send welcome email...');
@@ -229,8 +223,7 @@ export default function CreateCredentials({ route }) {
             console.error("Error message:", emailError.message);
             console.error("Error context:", emailError.context);
             console.error("Full email error:", JSON.stringify(emailError, null, 2));
-            
-            // Show user-friendly error
+
             Alert.alert(
               "Email Error",
               "Passkey created successfully but welcome email failed to send. Please check Supabase function logs.",
@@ -262,12 +255,10 @@ export default function CreateCredentials({ route }) {
         }
       }
 
-      // Show success animation
       setSuccess(true);
       setLoading(false);
       showSuccess();
 
-      // Navigate to subscription screen after success animation
       setTimeout(() => navigation.navigate("SubscriptionScreen", { 
         userID 
       }), 1800);
@@ -290,7 +281,6 @@ export default function CreateCredentials({ route }) {
         <View style={styles.container}>
           <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
-          {/* Back Arrow */}
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => navigation.goBack()}
@@ -299,7 +289,6 @@ export default function CreateCredentials({ route }) {
             <Ionicons name="arrow-back" size={26} color="#1C1C1E" />
           </TouchableOpacity>
 
-          {/* Header */}
           <View style={styles.headerSection}>
             <Image
               source={require("../../assets/Logos/Aya_AI_Logo.png")}
@@ -308,7 +297,6 @@ export default function CreateCredentials({ route }) {
             <Text style={styles.title}>Create Your Passkey</Text>
           </View>
 
-          {/* Form */}
           <View style={styles.formSection}>
             <View style={styles.inputContainer}>
               <TextInput
@@ -367,7 +355,6 @@ export default function CreateCredentials({ route }) {
               )}
             </View>
 
-            {/* Provider Selection Buttons */}
             <View style={styles.buttonContainer}>
               <TouchableOpacity
                 style={[
@@ -428,7 +415,6 @@ export default function CreateCredentials({ route }) {
               </TouchableOpacity>
             </View>
 
-            {/* Create Passkey Button - Only show when provider is selected */}
             {selectedProvider && (
               <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
                 <TouchableOpacity
@@ -454,14 +440,12 @@ export default function CreateCredentials({ route }) {
               </Animated.View>
             )}
 
-            {/* Error */}
             {message ? (
               <View style={styles.errorContainer}>
                 <Text style={styles.errorText}>{message}</Text>
               </View>
             ) : null}
 
-            {/* Fingerprint Pulse */}
             {loading && !success && (
               <Animated.View
                 style={[
@@ -476,7 +460,6 @@ export default function CreateCredentials({ route }) {
               </Animated.View>
             )}
 
-            {/* Success Check */}
             {success && (
               <Animated.View
                 style={[
@@ -510,7 +493,6 @@ export default function CreateCredentials({ route }) {
             )}
           </View>
 
-          {/* Footer */}
           <View style={styles.footerSection}>
             <Text style={styles.disclaimerText}>
               Your passkey will be saved to your device and synced{"\n"}across

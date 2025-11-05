@@ -19,26 +19,22 @@ const Tab = createBottomTabNavigator();
 const AnimatedTabBar = React.memo(({ state, navigation, scrollY }) => {
   const translateY = useRef(new Animated.Value(0)).current;
   const insets = useSafeAreaInsets();
-  
-  // Debug: Log safe area insets (remove this in production)
+
   useEffect(() => {
     console.log('Safe Area Insets:', insets);
   }, [insets]);
 
-  // Animate tab bar based on scroll direction
   useEffect(() => {
     if (!scrollY) return;
     let lastOffset = 0;
 
     const listener = scrollY.addListener(({ value }) => {
       if (value > lastOffset + 5) {
-        // Scroll down -> hide
         Animated.spring(translateY, {
           toValue: 100,
           useNativeDriver: true,
         }).start();
       } else if (value < lastOffset - 5) {
-        // Scroll up -> show
         Animated.spring(translateY, {
           toValue: 0,
           useNativeDriver: true,
@@ -56,8 +52,8 @@ const AnimatedTabBar = React.memo(({ state, navigation, scrollY }) => {
         styles.tabWrapper, 
         { 
           transform: [{ translateY }],
-          bottom: Math.max(insets.bottom + 15, 25), // Ensure minimum 25px from bottom, more if safe area requires it
-          paddingBottom: Platform.OS === 'android' ? 5 : 0, // Extra padding for Android
+          bottom: Math.max(insets.bottom + 15, 25), 
+          paddingBottom: Platform.OS === 'android' ? 5 : 0, 
         }
       ]}
     >
@@ -66,7 +62,7 @@ const AnimatedTabBar = React.memo(({ state, navigation, scrollY }) => {
         tint="light"
         style={styles.tabBar}
       >
-        {/* Add a more opaque overlay to reduce transparency further */}
+
         <View style={styles.tabBarOverlay} />
         {state.routes.map((route, index) => {
           const isFocused = state.index === index;
@@ -115,7 +111,7 @@ export default function MainTabs({ scrollY }) {
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarHideOnKeyboard: Platform.OS === 'android', // Hide tab bar when keyboard appears on Android
+        tabBarHideOnKeyboard: Platform.OS === 'android', 
       }}
       tabBar={(props) => <AnimatedTabBar {...props} scrollY={scrollY} />}
     >
@@ -152,14 +148,14 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "rgba(255, 255, 255, 0.75)", // Much more opaque white overlay
+    backgroundColor: "rgba(255, 255, 255, 0.75)", 
     borderRadius: 40,
   },
   tabItem: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    zIndex: 2, // Ensure tab items are above the overlay
+    zIndex: 2, 
   },
   iconContainer: {
     width: 44,
@@ -169,6 +165,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   iconContainerActive: {
-    backgroundColor: "rgba(0,0,0,0.12)", // Slightly more opaque for better visibility
+    backgroundColor: "rgba(0,0,0,0.12)", 
   },
 });

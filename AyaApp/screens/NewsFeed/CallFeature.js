@@ -23,9 +23,8 @@ const APP_ID = "a2291d57f2e94713b80d8f7b28de2fba";
 const CHANNEL_NAME = "ayatest";
 const TOKEN = "";
 
-// Modern color palette
 const COLORS = {
-  primary: "#FF69B4", // Light pink
+  primary: "#FF69B4",
   primaryLight: "#FFB6C1",
   primaryDark: "#DB7093",
   background: "#FFF8FB",
@@ -46,12 +45,10 @@ export default function VoiceCall() {
   const [isJoining, setIsJoining] = useState(false);
   const [users, setUsers] = useState([]);
   const [callDuration, setCallDuration] = useState(0);
-  
-  // Animation values
+
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  // Pulse animation for call button
   const startPulse = () => {
     Animated.loop(
       Animated.sequence([
@@ -83,7 +80,6 @@ export default function VoiceCall() {
     }
   }, [joined]);
 
-  // Call timer
   useEffect(() => {
     let interval;
     if (joined) {
@@ -260,14 +256,12 @@ export default function VoiceCall() {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
-      
-      {/* Header */}
+
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Voice Safety</Text>
         <Text style={styles.headerSubtitle}>Stay connected with your safety network</Text>
       </View>
 
-      {/* Main Content */}
       <View style={styles.content}>
         {!joined ? (
           <View style={styles.joinSection}>
@@ -307,14 +301,12 @@ export default function VoiceCall() {
           </View>
         ) : (
           <View style={styles.activeCallSection}>
-            {/* Call Header */}
             <View style={styles.callHeader}>
               <Text style={styles.callTitle}>Safety Call Active</Text>
               <Text style={styles.callDuration}>{formatTime(callDuration)}</Text>
               <Text style={styles.channelInfo}>Channel: {CHANNEL_NAME}</Text>
             </View>
 
-            {/* Participants */}
             <View style={styles.participantsSection}>
               <Text style={styles.participantsTitle}>
                 Connected ({users.length + 1})
@@ -328,12 +320,10 @@ export default function VoiceCall() {
               />
             </View>
 
-            {/* Call Controls */}
             {renderCallControls()}
           </View>
         )}
 
-        {/* Error Display */}
         {error && (
           <View style={styles.errorContainer}>
             <Ionicons name="warning" size={20} color={COLORS.error} />

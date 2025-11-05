@@ -21,7 +21,6 @@ export default function Mt() {
   const [civilians, setCivilians] = useState([]);
   const [gameOver, setGameOver] = useState(false);
 
-  // Spawn hazards & civilians randomly
   useEffect(() => {
     if (gameOver) return;
     const interval = setInterval(() => {
@@ -45,7 +44,6 @@ export default function Mt() {
     return () => clearInterval(interval);
   }, [gameOver]);
 
-  // Check game over
   useEffect(() => {
     if (health <= 0) setGameOver(true);
   }, [health]);

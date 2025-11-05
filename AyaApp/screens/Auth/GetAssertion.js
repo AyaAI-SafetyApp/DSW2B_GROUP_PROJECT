@@ -44,7 +44,6 @@ export default function GetAssertion() {
     setLoading(true);
     setStatusMessage("");
     try {
-      // Check if biometric hardware is available
       const compatible = await LocalAuthentication.hasHardwareAsync();
       const enrolled = await LocalAuthentication.isEnrolledAsync();
 
@@ -54,7 +53,6 @@ export default function GetAssertion() {
         return;
       }
 
-      // Authenticate with biometrics
       const bioAuth = await LocalAuthentication.authenticateAsync({
         promptMessage: "Authenticate to login",
         fallbackLabel: "Enter PIN",
@@ -69,7 +67,6 @@ export default function GetAssertion() {
 
       showStatus("Verifying passkey...");
 
-      // Fetch user's passkeys directly from Supabase
       const { data: passkeys, error } = await supabase
         .from("passkeys")
         .select("*")
@@ -89,17 +86,14 @@ export default function GetAssertion() {
         return;
       }
 
-      // Use the most recent passkey
       const latestPasskey = passkeys[0];
       console.log("Login successful with passkey:", latestPasskey.credential_id);
 
-      // Update last_used_at timestamp
       await supabase
         .from("passkeys")
         .update({ last_used_at: new Date().toISOString() })
         .eq("id", latestPasskey.id);
 
-      // Load full user profile from Supabase
       const { getUserProfile, updateLastLogin } = require('../../lib/profileService');
       console.log('🔍 Loading profile for user:', userID);
       
@@ -111,7 +105,6 @@ export default function GetAssertion() {
         console.warn('⚠️ Could not load profile:', profileError);
       }
 
-      // Store comprehensive user session data
       const userData = {
         email: userID,
         userId: latestPasskey.user_id,
@@ -130,11 +123,9 @@ export default function GetAssertion() {
       console.log('💾 Saving session data:', userData);
       await AsyncStorage.setItem("@user_session", JSON.stringify(userData));
       
-      // Verify session was saved
       const savedSession = await AsyncStorage.getItem("@user_session");
       console.log('✅ Session verified:', savedSession ? 'Saved successfully' : 'Failed to save');
 
-      // Update last login timestamp in profile
       if (userProfile) {
         try {
           await updateLastLogin(userID);
@@ -145,7 +136,6 @@ export default function GetAssertion() {
 
       showStatus("Login successful!");
 
-      // Navigate to main app
       setTimeout(() => {
         navigation.reset({
           index: 0,

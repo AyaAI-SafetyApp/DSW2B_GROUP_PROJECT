@@ -22,7 +22,6 @@ import * as WebBrowser from "expo-web-browser";
 import { supabaseAuth } from "../lib/supabaseClient";
 import { supabase } from "../lib/supabaseClient";
 
-// Important for OAuth flow
 WebBrowser.maybeCompleteAuthSession();
 
 export default function LoginScreen({ navigation }) {
@@ -185,7 +184,6 @@ export default function LoginScreen({ navigation }) {
 
       console.log('✅ Google Sign-In initiated:', data);
 
-      // Open the OAuth URL in browser
       if (data?.url) {
         const result = await WebBrowser.openAuthSessionAsync(
           data.url,
@@ -195,17 +193,13 @@ export default function LoginScreen({ navigation }) {
         console.log('📱 Browser result:', result);
 
         if (result.type === 'success') {
-          // Extract the URL with auth code
           const { url } = result;
-          
-          // Supabase will handle the session automatically
-          // Let's check for the session
+
           const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
           
           if (sessionData?.session) {
             console.log('✅ Session created:', sessionData.session.user.email);
-            
-            // Check if account is deactivated
+
             const { getUserProfile } = require('../lib/profileService');
             const userProfile = await getUserProfile(sessionData.session.user.email);
             
@@ -220,8 +214,7 @@ export default function LoginScreen({ navigation }) {
               setLoading(false);
               return;
             }
-            
-            // Create user session data
+
             const userData = {
               email: sessionData.session.user.email,
               userId: sessionData.session.user.id,
@@ -266,7 +259,6 @@ export default function LoginScreen({ navigation }) {
 
       console.log('✅ Facebook Sign-In initiated:', data);
 
-      // Open the OAuth URL in browser
       if (data?.url) {
         const result = await WebBrowser.openAuthSessionAsync(
           data.url,
@@ -276,13 +268,12 @@ export default function LoginScreen({ navigation }) {
         console.log('📱 Browser result:', result);
 
         if (result.type === 'success') {
-          // Check for the session
+
           const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
           
           if (sessionData?.session) {
             console.log('✅ Session created:', sessionData.session.user.email);
-            
-            // Check if account is deactivated
+
             const { getUserProfile } = require('../lib/profileService');
             const userProfile = await getUserProfile(sessionData.session.user.email);
             
@@ -297,8 +288,7 @@ export default function LoginScreen({ navigation }) {
               setLoading(false);
               return;
             }
-            
-            // Create user session data
+
             const userData = {
               email: sessionData.session.user.email,
               userId: sessionData.session.user.id,

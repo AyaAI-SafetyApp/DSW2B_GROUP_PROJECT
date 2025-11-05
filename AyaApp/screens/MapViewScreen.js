@@ -18,7 +18,6 @@ import { Accelerometer } from "expo-sensors";
 
 const { width, height } = Dimensions.get("window");
 
-/* ----------------------------- Small helpers ----------------------------- */
 
 const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
 
@@ -37,7 +36,6 @@ const haversine = (a, b) => {
 };
 
 const bearingBetween = (a, b) => {
-  // 0-360 heading from point a to b
   const dLon = toRad(b.longitude - a.longitude);
   const y = Math.sin(dLon) * Math.cos(toRad(b.latitude));
   const x =
@@ -57,10 +55,9 @@ const scoreColor = (score) => {
 
 const labelForScore = (s) => (s >= 75 ? "Best" : s >= 55 ? "Caution" : "Risky");
 
-/* ----------------------------- TomTom API Integration -------------------- */
 
 const TOMTOM_API_KEY = "RAsJTESPENvIz1X04u2Wct3fA7fTjwU6";
-let useSimulation = false; // Flag to switch to simulation when API fails
+let useSimulation = false; 
 
 /**
  * Fetch real-time traffic data from TomTom Traffic API
@@ -103,18 +100,16 @@ function estimatePeopleFromTrafficData(trafficData) {
   const freeFlowSpeed = flowData.freeFlowSpeed || 50;
   const confidence = flowData.confidence || 0.5;
   
-  // Calculate congestion ratio (lower speed = more congestion = more people)
   const congestionRatio = 1 - (currentSpeed / freeFlowSpeed);
   
-  // Estimate people based on congestion
-  // Higher congestion = more vehicles/people
-  const basePeople = Math.floor(congestionRatio * 500); // Up to 500 people per segment
+
+  const basePeople = Math.floor(congestionRatio * 500);
   const adjustedPeople = Math.floor(basePeople * confidence);
   
   return {
     peopleCount: adjustedPeople,
     congestionLevel: congestionRatio,
-    isHotspot: congestionRatio > 0.6, // Over 60% congestion = hotspot
+    isHotspot: congestionRatio > 0.6, 
     confidence: confidence,
     currentSpeed: currentSpeed,
     freeFlowSpeed: freeFlowSpeed
@@ -129,8 +124,7 @@ async function fetchTomTomRoute(start, end, routeType = 'fastest') {
   try {
     const startCoords = `${start.latitude},${start.longitude}`;
     const endCoords = `${end.latitude},${end.longitude}`;
-    
-    // TomTom Routing API - supports multiple route types
+
     const url = `https://api.tomtom.com/routing/1/calculateRoute/${startCoords}:${endCoords}/json?key=${TOMTOM_API_KEY}&routeType=${routeType}&traffic=true&travelMode=car`;
     
     const response = await fetch(url);
@@ -155,8 +149,8 @@ async function fetchTomTomRoute(start, end, routeType = 'fastest') {
       
       return {
         points,
-        distance: route.summary.lengthInMeters / 1000, // km
-        duration: route.summary.travelTimeInSeconds / 60, // minutes
+        distance: route.summary.lengthInMeters / 1000, 
+        duration: route.summary.travelTimeInSeconds / 60, 
         trafficDelay: route.summary.trafficDelayInSeconds || 0
       };
     }
@@ -168,15 +162,12 @@ async function fetchTomTomRoute(start, end, routeType = 'fastest') {
   }
 }
 
-/**
- * Fetch multiple alternative routes from TomTom
- */
+
 async function fetchMultipleTomTomRoutes(start, end) {
   try {
     const startCoords = `${start.latitude},${start.longitude}`;
     const endCoords = `${end.latitude},${end.longitude}`;
     
-    // Request up to 5 alternative routes
     const url = `https://api.tomtom.com/routing/1/calculateRoute/${startCoords}:${endCoords}/json?key=${TOMTOM_API_KEY}&maxAlternatives=4&traffic=true&travelMode=car&alternativeType=anyRoute`;
     
     const response = await fetch(url);
@@ -198,8 +189,8 @@ async function fetchMultipleTomTomRoutes(start, end) {
         
         return {
           points,
-          distance: route.summary.lengthInMeters / 1000, // km
-          duration: route.summary.travelTimeInSeconds / 60, // minutes
+          distance: route.summary.lengthInMeters / 1000, 
+          duration: route.summary.travelTimeInSeconds / 60, 
           trafficDelay: route.summary.trafficDelayInSeconds || 0,
           routeType: ['Main Route', 'Alternative 1', 'Alternative 2', 'Alternative 3', 'Alternative 4'][index] || `Route ${index + 1}`
         };
@@ -212,8 +203,6 @@ async function fetchMultipleTomTomRoutes(start, end) {
     return null;
   }
 }
-
-/* --------------------------------- UX kit -------------------------------- */
 
 const StepDot = ({ active, done }) => (
   <View
@@ -246,12 +235,7 @@ const GhostButton = ({ title, onPress, style }) => (
   </TouchableOpacity>
 );
 
-/* ------------------------------ Mocked world ----------------------------- */
 
-/**
- * Johannesburg base (CBD-ish). We’ll center camera here by default
- * if we don't have a GPS fix yet.
- */
 const JHB_CENTER = {
   latitude: -26.2041,
   longitude: 28.0473,
@@ -259,18 +243,12 @@ const JHB_CENTER = {
   longitudeDelta: 0.03,
 };
 
-/**
- * Generate 5 "road-like" routes by following different city paths:
- *  - Various combinations of east/west and north/south movements
- *  - Insert extra bends to feel like streets, not straight lines
- */
 function genGridRoutes(start, end) {
   if (!start || !end) return [];
 
   const dx = end.longitude - start.longitude;
   const dy = end.latitude - start.latitude;
 
-  // midpoints with tiny offsets to create different street-like alternatives
   const mid1 = {
     latitude: start.latitude,
     longitude: start.longitude + dx * 0.55,
@@ -284,11 +262,10 @@ function genGridRoutes(start, end) {
     longitude: start.longitude + dx * 0.7,
   };
 
-  const altBend = 0.0022; // ~200-250m bend
+  const altBend = 0.0022; 
   const altBend2 = 0.0016;
   const altBend3 = 0.0018;
 
-  // Route A: E/W → N/S with extra jogs (Main route)
   const routeA = [
     start,
     { latitude: start.latitude, longitude: start.longitude + dx * 0.3 },
@@ -304,7 +281,6 @@ function genGridRoutes(start, end) {
     end,
   ];
 
-  // Route B: N/S → E/W with extra jogs (Highway route)
   const routeB = [
     start,
     { latitude: start.latitude + dy * 0.35, longitude: start.longitude },
@@ -320,7 +296,6 @@ function genGridRoutes(start, end) {
     end,
   ];
 
-  // Route C: snake-ish path to simulate avoiding blocks (Scenic route)
   const routeC = [
     start,
     {
@@ -342,7 +317,6 @@ function genGridRoutes(start, end) {
     end,
   ];
 
-  // Route D: Diagonal approach (Business district route)
   const routeD = [
     start,
     {
@@ -361,7 +335,6 @@ function genGridRoutes(start, end) {
     end,
   ];
 
-  // Route E: Outer perimeter route (Residential route)
   const routeE = [
     start,
     {
@@ -411,8 +384,7 @@ const generateTrafficData = async (points) => {
     let finalSegmentPeople;
     let isHotspot;
     let dataSource = 'simulation';
-    
-    // Try TomTom API first if not in simulation mode
+
     if (!useSimulation) {
       const trafficData = await fetchTrafficData(midPoint.latitude, midPoint.longitude);
       
@@ -428,19 +400,15 @@ const generateTrafficData = async (points) => {
         apiCallsFailed++;
       }
     }
-    
-    // Fallback to simulation if API failed or we're in simulation mode
+
     if (!finalSegmentPeople && finalSegmentPeople !== 0) {
-      // Base people count based on segment distance
-      const basePeople = Math.floor(segmentDistance * 100); // ~100 people per km base
-      
-      // Add randomness to simulate real traffic variations
-      const variation = Math.random() * 0.8 + 0.6; // 0.6 to 1.4 multiplier
+      const basePeople = Math.floor(segmentDistance * 100); 
+     
+      const variation = Math.random() * 0.8 + 0.6; 
       const segmentPeople = Math.floor(basePeople * variation);
-      
-      // Add some hotspots (simulate busy intersections, markets, etc.)
-      isHotspot = Math.random() < 0.2; // 20% chance of hotspot
-      const hotspotMultiplier = isHotspot ? 2 + Math.random() * 3 : 1; // 2-5x more people
+
+      isHotspot = Math.random() < 0.2; 
+      const hotspotMultiplier = isHotspot ? 2 + Math.random() * 3 : 1;
       
       finalSegmentPeople = Math.floor(segmentPeople * hotspotMultiplier);
     }
@@ -455,8 +423,7 @@ const generateTrafficData = async (points) => {
       dataSource
     });
   }
-  
-  // Log API usage stats
+
   if (apiCallsSuccessful > 0 || apiCallsFailed > 0) {
     console.log('TomTom API Stats:', {
       successful: apiCallsSuccessful,
@@ -478,49 +445,31 @@ const generateTrafficData = async (points) => {
   };
 };
 
-/**
- * Enhanced safety scoring based on people/device detection:
- * - Fewer people = safer route
- * - Consider route distance
- * - Factor in hotspots and congestion
- */
 const scoreRoute = async (points) => {
-  // Get traffic data for this route (now async with TomTom API)
   const trafficData = await generateTrafficData(points);
   
-  // Calculate total route distance
   let totalDistance = 0;
   for (let i = 1; i < points.length; i++) {
     totalDistance += haversine(points[i - 1], points[i]);
   }
   
-  // Base score calculation
   const peoplePerKm = trafficData.averagePeoplePerKm;
   
-  // Safety score logic:
-  // - Start with 100 points
-  // - Subtract points based on people density
-  // - Subtract extra points for hotspots
   let safetyScore = 100;
-  
-  // Penalty for people density (more people = less safe)
-  const densityPenalty = Math.min(peoplePerKm / 10, 40); // Max 40 points penalty
+
+  const densityPenalty = Math.min(peoplePerKm / 10, 40); 
   safetyScore -= densityPenalty;
-  
-  // Penalty for hotspots
+
   const hotspotCount = trafficData.segmentData.filter(s => s.isHotspot).length;
-  const hotspotPenalty = hotspotCount * 8; // 8 points per hotspot
+  const hotspotPenalty = hotspotCount * 8; 
   safetyScore -= hotspotPenalty;
   
-  // Slight penalty for longer routes (efficiency factor)
-  const distancePenalty = Math.min(totalDistance * 2, 10); // Max 10 points penalty
+  const distancePenalty = Math.min(totalDistance * 2, 10); 
   safetyScore -= distancePenalty;
   
-  // Add small randomness for real-world variations
-  const randomFactor = (Math.random() - 0.5) * 6; // ±3 points
+  const randomFactor = (Math.random() - 0.5) * 6; 
   safetyScore += randomFactor;
-  
-  // Ensure score is between 20 and 98
+
   const finalScore = Math.max(20, Math.min(98, Math.round(safetyScore)));
   
   return {
@@ -532,18 +481,15 @@ const scoreRoute = async (points) => {
   };
 };
 
-/* ------------------------------- Main Screen ------------------------------ */
 
 export default function SafeRouteScreen() {
-  const [step, setStep] = useState(0); // 0: caution, 1: start, 2: dest, 3: routes, 4: navigating
+  const [step, setStep] = useState(0); 
   const [region, setRegion] = useState(JHB_CENTER);
   const mapRef = useRef(null);
 
-  // Start & Destination
   const [start, setStart] = useState(null);
   const [dest, setDest] = useState(null);
 
-  // Image analysis (mock)
   const [photo, setPhoto] = useState(null);
   const [aiModalVisible, setAiModalVisible] = useState(false);
   const [flags, setFlags] = useState({
@@ -553,30 +499,25 @@ export default function SafeRouteScreen() {
     brokenLights: false,
   });
 
-  // Routes + selection
   const [routes, setRoutes] = useState([]);
   const [scored, setScored] = useState([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  // "Car" animation state
   const [carCoord, setCarCoord] = useState(null);
   const [carHeading, setCarHeading] = useState(0);
   const animTimer = useRef(null);
   const [isRunning, setIsRunning] = useState(false);
 
-  // Sensors (accelerometer) for tiny heading wobble
   useEffect(() => {
     Accelerometer.setUpdateInterval(250);
     const sub = Accelerometer.addListener(({ x, y }) => {
-      // tiny wobble
       const wobble = clamp((x + y) * 10, -8, 8);
       setCarHeading((h) => (h + wobble + 360) % 360);
     });
     return () => sub && sub.remove();
   }, []);
 
-  // Ask for location permission once
   useEffect(() => {
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -595,7 +536,6 @@ export default function SafeRouteScreen() {
     })();
   }, []);
 
-  // Camera helper
   const goTo = (coord) => {
     if (!mapRef.current || !coord) return;
     mapRef.current.animateCamera(
@@ -609,14 +549,11 @@ export default function SafeRouteScreen() {
     );
   };
 
-  // Build routes when both points chosen
   useEffect(() => {
     if (start && dest) {
-      // Async function to handle route scoring with TomTom API
       const analyzeRoutes = async () => {
         setIsAnalyzing(true);
-        
-        // Try to get real routes from TomTom Routing API first
+
         console.log('Fetching routes from TomTom Routing API...');
         const tomtomRoutes = await fetchMultipleTomTomRoutes(start, dest);
         
@@ -624,21 +561,17 @@ export default function SafeRouteScreen() {
         let usingRealRoutes = false;
         
         if (tomtomRoutes && tomtomRoutes.length > 0) {
-          // Use real TomTom routes
           console.log(`✅ Got ${tomtomRoutes.length} real routes from TomTom`);
           rts = tomtomRoutes.map(r => r.points);
           usingRealRoutes = true;
         } else {
-          // Fallback to simulated grid routes
           console.log('⚠️ Using simulated routes');
           rts = genGridRoutes(start, dest);
         }
         
-        // Score all routes (async with TomTom API calls)
         const scoringPromises = rts.map(async (pts, index) => {
           const routeData = await scoreRoute(pts);
           
-          // If using real TomTom routes, use their metadata
           const routeInfo = usingRealRoutes && tomtomRoutes[index] ? tomtomRoutes[index] : null;
           
           return {
@@ -655,8 +588,7 @@ export default function SafeRouteScreen() {
         });
         
         const withScores = await Promise.all(scoringPromises);
-        
-        // Sort by safety score (best first - least people detected)
+
         withScores.sort((a, b) => b.score - a.score);
         
         setRoutes(rts);
@@ -665,7 +597,6 @@ export default function SafeRouteScreen() {
         setIsAnalyzing(false);
         setStep(3);
         
-        // Show route analysis in console for debugging
         console.log('Route Analysis:');
         console.log('Route Source:', usingRealRoutes ? 'TomTom Real Routes' : 'Simulated Routes');
         console.log('Data Source:', useSimulation ? 'Simulation Mode' : 'TomTom Traffic API');
@@ -678,8 +609,7 @@ export default function SafeRouteScreen() {
             dataSource: route.dataSource
           });
         });
-        
-        // frame routes
+
         setTimeout(() => fitAllRoutes(withScores.map((r) => r.points)), 200);
       };
       
@@ -708,8 +638,6 @@ export default function SafeRouteScreen() {
     );
   };
 
-  /* --------------------------- Step actions (UX) -------------------------- */
-
   const onPickCurrentStart = async () => {
     try {
       const loc = await Location.getCurrentPositionAsync({
@@ -732,14 +660,14 @@ export default function SafeRouteScreen() {
     Alert.alert("Pick Start", "Tap on the map to set your start point.", [
       { text: "OK" },
     ]);
-    setStep(1); // stay on step 1; enable tap-select
+    setStep(1);
   };
 
   const onPickDestOnMap = () => {
     Alert.alert("Pick Destination", "Tap on the map to set your destination.", [
       { text: "OK" },
     ]);
-    setStep(2); // enable tap-select for dest
+    setStep(2);
   };
 
   const onUploadPhoto = async () => {
@@ -761,11 +689,9 @@ export default function SafeRouteScreen() {
 
   const confirmPhotoAI = () => {
     setAiModalVisible(false);
-    // In a real system, flags would influence scoring,
-    // here we just close modal; scoring already has randomness.
+
   };
 
-  /* ------------------------- Real-time GPS Navigation ---------------------- */
 
   const startDrive = async () => {
     if (!scored[selectedIndex]) return;
@@ -776,7 +702,6 @@ export default function SafeRouteScreen() {
     setIsRunning(true);
 
     try {
-      // Request location permission for navigation
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert('Permission Required', 'Location permission is needed for real-time navigation.');
@@ -784,7 +709,6 @@ export default function SafeRouteScreen() {
         return;
       }
 
-      // Get initial position
       const initialLocation = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.High,
       });
@@ -794,12 +718,11 @@ export default function SafeRouteScreen() {
         longitude: initialLocation.coords.longitude,
       });
 
-      // Start watching position in real-time
       const locationSubscription = await Location.watchPositionAsync(
         {
           accuracy: Location.Accuracy.High,
-          timeInterval: 1000, // Update every 1 second
-          distanceInterval: 5, // Or every 5 meters
+          timeInterval: 1000,
+          distanceInterval: 5, 
         },
         (location) => {
           if (!isRunningRef.current) return;
@@ -811,12 +734,10 @@ export default function SafeRouteScreen() {
 
           setCarCoord(currentPos);
 
-          // Calculate heading based on movement direction
           if (location.coords.heading !== null && location.coords.heading !== undefined) {
             setCarHeading(location.coords.heading);
           }
 
-          // Follow user with camera
           mapRef.current?.animateCamera(
             {
               center: currentPos,
@@ -827,8 +748,7 @@ export default function SafeRouteScreen() {
             { duration: 500 }
           );
 
-          // Check if destination reached (within 20 meters)
-          const distToDest = haversine(currentPos, points[points.length - 1]) * 1000; // meters
+          const distToDest = haversine(currentPos, points[points.length - 1]) * 1000; 
           if (distToDest < 20) {
             Alert.alert('Destination Reached', 'You have arrived at your destination!');
             locationSubscription.remove();
@@ -837,7 +757,6 @@ export default function SafeRouteScreen() {
         }
       );
 
-      // Store subscription in ref so we can clean it up
       animTimer.current = locationSubscription;
     } catch (error) {
       console.error('Navigation error:', error);
@@ -853,7 +772,6 @@ export default function SafeRouteScreen() {
 
   useEffect(() => {
     return () => {
-      // Cleanup location subscription
       if (animTimer.current && typeof animTimer.current.remove === 'function') {
         animTimer.current.remove();
       } else if (animTimer.current) {
@@ -861,8 +779,6 @@ export default function SafeRouteScreen() {
       }
     };
   }, []);
-
-  /* ------------------------------- Map taps ------------------------------- */
 
   const onMapPress = (e) => {
     const coord = e.nativeEvent.coordinate;
@@ -876,9 +792,6 @@ export default function SafeRouteScreen() {
     }
   };
 
-  /* ------------------------------ Street snaps ---------------------------- */
-
-  // Free, generic street-like images from Unsplash (no API key needed for direct image CDN).
   const streetShots = [
     "https://images.unsplash.com/photo-1508057198894-247b23fe5ade?q=80&w=1200&auto=format&fit=crop",
     "https://images.unsplash.com/photo-1495603889488-42d1d66e5523?q=80&w=1200&auto=format&fit=crop",
@@ -892,8 +805,6 @@ export default function SafeRouteScreen() {
       Math.floor((Date.now() / 2500) % streetShots.length) % streetShots.length;
     return streetShots[idx];
   }, [carCoord, selectedIndex]);
-
-  /* --------------------------------- UI ---------------------------------- */
 
   const StepHeader = () => (
     <View style={styles.stepBar}>
@@ -935,7 +846,6 @@ export default function SafeRouteScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Map */}
       <MapView
         ref={mapRef}
         style={styles.map}
@@ -988,7 +898,6 @@ export default function SafeRouteScreen() {
         )}
       </MapView>
 
-      {/* Street snapshot overlay */}
       {step >= 3 && (
         <View style={styles.streetSnap}>
           <Image
@@ -999,7 +908,6 @@ export default function SafeRouteScreen() {
         </View>
       )}
 
-      {/* Bottom sheet card (no scrolling; each step fits) */}
       <View style={styles.sheet}>
         <StepHeader />
 
@@ -1036,7 +944,6 @@ export default function SafeRouteScreen() {
               onPress={onPickDestOnMap}
             />
             <View style={{ height: 8 }} />
-            {/* Quick picks: a couple of Johannesburg spots */}
             <View style={styles.quickRow}>
               <TouchableOpacity
                 onPress={() =>
@@ -1077,8 +984,7 @@ export default function SafeRouteScreen() {
               📊 Analyzed {scored.length} routes • {useSimulation ? '🔧 Simulation Mode' : '🌐 Live Traffic Data'}
             </Text>
             <View style={{ height: 8 }} />
-            
-            {/* Show top 3 routes in pills */}
+
             <View
               style={{
                 flexDirection: "row",
@@ -1099,8 +1005,7 @@ export default function SafeRouteScreen() {
                 />
               ))}
             </View>
-            
-            {/* Selected route details */}
+
             {scored[selectedIndex] && (
               <View style={styles.routeDetails}>
                 <Text style={styles.routeDetailsTitle}>
@@ -1164,7 +1069,6 @@ export default function SafeRouteScreen() {
               title="End Navigation"
               onPress={() => {
                 setIsRunning(false);
-                // Stop location tracking
                 if (animTimer.current && typeof animTimer.current.remove === 'function') {
                   animTimer.current.remove();
                 } else if (animTimer.current) {
@@ -1179,7 +1083,6 @@ export default function SafeRouteScreen() {
         )}
       </View>
 
-      {/* AI Photo Explanation Modal */}
       <Modal visible={aiModalVisible} transparent animationType="slide">
         <View style={styles.modalWrap}>
           <View style={styles.modalCard}>
@@ -1209,10 +1112,7 @@ export default function SafeRouteScreen() {
   );
 }
 
-/* ------------------------------ Apple-ish map ---------------------------- */
-
 const appleLikeMapStyle = [
-  // light, clean look
   { elementType: "geometry", stylers: [{ color: "#f5f5f5" }] },
   { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
   { elementType: "labels.text.fill", stylers: [{ color: "#616161" }] },
@@ -1283,8 +1183,6 @@ const appleLikeMapStyle = [
     stylers: [{ color: "#9e9e9e" }],
   },
 ];
-
-/* --------------------------------- Styles -------------------------------- */
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#ffffff" },

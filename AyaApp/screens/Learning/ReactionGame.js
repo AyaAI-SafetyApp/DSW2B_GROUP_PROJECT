@@ -13,17 +13,14 @@ const SelfDefenseGame = () => {
   const [techniqueFeedback, setTechniqueFeedback] = useState('');
   const [connectionError, setConnectionError] = useState(false);
   
-  // Animation values
   const playerAnim = useRef(new Animated.Value(0)).current;
   const opponentAnim = useRef(new Animated.Value(0)).current;
   const techniqueAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  
-  // Character states
+
   const [playerAction, setPlayerAction] = useState('idle');
   const [opponentAction, setOpponentAction] = useState('approaching');
   
-  // Game elements
   const techniques = [
     { 
       id: 1, 
@@ -83,7 +80,6 @@ const SelfDefenseGame = () => {
     },
   ];
 
-  // Character icons
   const characterIcons = {
     player: {
       idle: '🙂',
@@ -105,7 +101,6 @@ const SelfDefenseGame = () => {
     }
   };
 
-  // Technique icons
   const techniqueIcons = {
     1: '👊',
     2: '🦶',
@@ -113,14 +108,12 @@ const SelfDefenseGame = () => {
     4: '🖐️'
   };
 
-  // Check connection on app start
   useEffect(() => {
     checkConnection();
   }, []);
 
   const checkConnection = async () => {
     try {
-      // Simulate connection check
       await new Promise(resolve => setTimeout(resolve, 2000));
       setConnectionError(false);
     } catch (error) {
@@ -128,7 +121,6 @@ const SelfDefenseGame = () => {
     }
   };
 
-  // Start the game
   const startGame = () => {
     setGameState('playing');
     setScore(0);
@@ -141,13 +133,11 @@ const SelfDefenseGame = () => {
     startLevel();
   };
 
-  // Generate a random technique to perform - FIXED THIS FUNCTION
   const generateNewTechnique = () => {
     const randomIndex = Math.floor(Math.random() * techniques.length);
     setCurrentTechnique(techniques[randomIndex]);
     setTechniqueFeedback('Perform: ' + techniques[randomIndex].name);
-    
-    // Flash the technique name - FIXED THE ANIMATION SEQUENCE
+
     const animationSequence = Animated.sequence([
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -164,17 +154,14 @@ const SelfDefenseGame = () => {
       }),
     ]);
     
-    animationSequence.start(); // Correctly calling start on the sequence
+    animationSequence.start(); 
   };
 
-  // Start a level with specific opponent
   const startLevel = () => {
     const currentOpponent = opponents[level - 1] || opponents[0];
-    
-    // Reset animations
+
     opponentAnim.setValue(0);
-    
-    // Animate opponent approach
+
     Animated.timing(opponentAnim, {
       toValue: 1,
       duration: 2000 / currentOpponent.speed,
@@ -182,7 +169,6 @@ const SelfDefenseGame = () => {
       useNativeDriver: true,
     }).start(({ finished }) => {
       if (finished && gameState === 'playing') {
-        // Opponent reached you - lose a life
         setOpponentAction('grabbing');
         Vibration.vibrate(500);
         setLives(prev => {
@@ -198,7 +184,6 @@ const SelfDefenseGame = () => {
     });
   };
 
-  // Reset opponent position
   const resetOpponent = () => {
     opponentAnim.setValue(0);
     setOpponentAction('approaching');
@@ -207,12 +192,9 @@ const SelfDefenseGame = () => {
     }
   };
 
-  // Animate technique performance
   const animateTechnique = (technique, success) => {
-    // Player performs the technique
     setPlayerAction(technique.playerAnimation);
-    
-    // Animate the technique motion
+
     Animated.sequence([
       Animated.timing(techniqueAnim, {
         toValue: 1,
@@ -229,17 +211,14 @@ const SelfDefenseGame = () => {
     ]).start();
     
     if (success) {
-      // Show opponent reaction
       setOpponentAction(technique.opponentReaction);
-      
-      // Push opponent back
+
       Animated.timing(opponentAnim, {
         toValue: 0,
         duration: 500,
         easing: Easing.elastic(1),
         useNativeDriver: true,
       }).start(() => {
-        // Return to idle after successful technique
         setTimeout(() => {
           setPlayerAction('idle');
           setOpponentAction('approaching');
@@ -252,21 +231,18 @@ const SelfDefenseGame = () => {
         }, 1000);
       });
     } else {
-      // Wrong technique - opponent continues approach
       setTimeout(() => {
         setPlayerAction('idle');
       }, 1000);
     }
   };
 
-  // Handle player performing a technique
   const performTechnique = (techniqueId) => {
     if (gameState !== 'playing') return;
     
     const selectedTechnique = techniques.find(t => t.id === techniqueId);
     
     if (selectedTechnique.id === currentTechnique.id) {
-      // Correct technique
       const pointsEarned = currentTechnique.points + (combo * 2);
       setScore(prev => prev + pointsEarned);
       setCombo(prev => prev + 1);
@@ -274,7 +250,6 @@ const SelfDefenseGame = () => {
       
       animateTechnique(selectedTechnique, true);
     } else {
-      // Wrong technique
       setCombo(0);
       setTechniqueFeedback('Wrong technique! Perform ' + currentTechnique.name);
       Vibration.vibrate(200);
@@ -283,7 +258,6 @@ const SelfDefenseGame = () => {
     }
   };
 
-  // Level up
   const levelUp = () => {
     if (level < opponents.length) {
       setLevel(prev => prev + 1);
@@ -295,7 +269,6 @@ const SelfDefenseGame = () => {
         startLevel();
       }, 2000);
     } else {
-      // Game completed
       setPlayerAction('victory');
       setOpponentAction('defeated');
       setTechniqueFeedback('You mastered all self-defense techniques!');
@@ -305,18 +278,15 @@ const SelfDefenseGame = () => {
     }
   };
 
-  // End the game
   const endGame = () => {
     setGameState('gameOver');
     opponentAnim.setValue(0);
   };
 
-  // Get current opponent
   const getCurrentOpponent = () => {
     return opponents[level - 1] || opponents[0];
   };
 
-  // Show connection help
   const showConnectionHelp = () => {
     Alert.alert(
       "Connection Help",
@@ -328,7 +298,6 @@ const SelfDefenseGame = () => {
     );
   };
 
-  // Render connection error screen
   const renderConnectionError = () => (
     <SafeAreaView style={styles.errorContainer}>
       <Text style={styles.errorTitle}>Connection Error</Text>
@@ -349,7 +318,6 @@ const SelfDefenseGame = () => {
     </SafeAreaView>
   );
 
-  // Render game menu
   const renderMenu = () => (
     <SafeAreaView style={styles.menuContainer}>
       <Text style={styles.title}>Self-Defense Trainer</Text>
@@ -384,7 +352,6 @@ const SelfDefenseGame = () => {
     </SafeAreaView>
   );
 
-  // Render game screen
   const renderGame = () => {
     const currentOpponent = getCurrentOpponent();
     
@@ -486,7 +453,6 @@ const SelfDefenseGame = () => {
     );
   };
 
-  // Render game over screen
   const renderGameOver = () => (
     <SafeAreaView style={styles.menuContainer}>
       <Text style={styles.title}>Training Complete</Text>

@@ -207,7 +207,6 @@ export const sendPasskeyEmail = async (email, credentialId, provider, userName) 
       emailValid: email?.includes('@')
     });
 
-    // Validate email before sending
     if (!email || !email.includes('@')) {
       console.error('❌ Invalid email address:', email);
       throw new Error('Invalid email address');

@@ -12,7 +12,7 @@ export default function Hazard({ x, y }) {
 
 const styles = StyleSheet.create({
   hazard: {
-    width: 40,
+    width: 40, 
     height: 40,
     position: "absolute",
   },

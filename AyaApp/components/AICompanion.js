@@ -21,16 +21,15 @@ export default function AICompanion() {
       const randomMsg = messages[Math.floor(Math.random() * messages.length)];
       setMessage(randomMsg.text);
 
-      
       switch (randomMsg.type) {
         case "urgent":
-          setColor("#ff9800");
+          setColor("#ff9800"); 
           break;
         case "danger":
-          setColor("#f44336");
+          setColor("#f44336"); 
           break;
         case "praise":
-          setColor("#4caf50"); 
+          setColor("#4caf50");
           break;
         default:
           setColor("#2196f3");
@@ -68,18 +67,18 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 2,
     maxWidth: 250,
-    alignItems: "center", 
+    alignItems: "center",
   },
   text: {
     fontSize: 16,
     fontWeight: "bold",
-    textAlign: "center",
+    textAlign: "center", 
   },
   triangle: {
     position: "absolute",
     bottom: -10,
-    left: "50%",
-    marginLeft: -10,
+    left: "50%", 
+    marginLeft: -10, 
     width: 0,
     height: 0,
     borderLeftWidth: 10,

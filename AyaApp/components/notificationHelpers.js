@@ -16,8 +16,8 @@ export function createNotification(message, options = {}) {
     message: message,
     timestamp: options.timestamp || new Date().toISOString(),
     isRead: options.isRead || false,
-    priority: options.priority || "normal", // "low", "normal", "high"
-    type: options.type || "general", // "safety_tip", "alert", "general", "news"
+    priority: options.priority || "normal", 
+    type: options.type || "general", 
     data: options.data || {},
   };
 }

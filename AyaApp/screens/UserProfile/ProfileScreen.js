@@ -292,31 +292,24 @@ const ProfileScreen = () => {
   const handleOptionPress = (option) => {
     switch (option.id) {
       case 1:
-        // Account Details
         navigation.navigate('AccountDetailsScreen');
         break;
       case 2:
-        // Safety Preferences
         navigation.navigate('SafetyPreferencesScreen');
         break;
       case 3:
-        // Privacy & Security
         navigation.navigate('PrivacySecurityScreen');
         break;
       case 4:
-        // Help & Support
         navigation.navigate('HelpSupportScreen');
         break;
       case 5:
-        // Achievements
         navigation.navigate('AchievementsScreen');
         break;
       case 6:
-        // Upgrade
         navigation.navigate('SubscriptionUpgrade');
         break;
       case 7:
-        // About Us
         navigation.navigate('AboutUsScreen');
         break;
       

@@ -122,7 +122,6 @@ const OnboardingScreen = () => {
         extrapolate: "clamp",
       });
 
-      // Circular rotation + scale
       const rotateY = scrollX.interpolate({
         inputRange,
         outputRange: ["60deg", "0deg", "-60deg"],

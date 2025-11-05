@@ -259,15 +259,15 @@ export default function AyaEmergencyApp() {
   return (
     <ScrollView>
       <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      <WebView
-        ref={webview}
-        originWhitelist={["*"]}
-        source={{ html: webviewHtml }}
-        onMessage={() => triggerSOS()}
-        javaScriptEnabled
-        style={{ flex: 0, height: 0 }}
-      />
+        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+        <WebView
+          ref={webview}
+          originWhitelist={["*"]}
+          source={{ html: webviewHtml }}
+          onMessage={() => triggerSOS()}
+          javaScriptEnabled
+          style={{ flex: 0, height: 0 }}
+        />
 
         <View style={styles.topContainer}>
           <View style={styles.alertContainer}>
@@ -292,7 +292,6 @@ export default function AyaEmergencyApp() {
             style={[styles.progressRing, { transform: [{ scale: progressAnim }] }]}
           />
         </View>
-     
 
         <View style={styles.contactsContainer}>
           <Text style={styles.contactsHeader}>Emergency Contacts</Text>
@@ -309,14 +308,13 @@ export default function AyaEmergencyApp() {
               </View>
             )}
           />
-          <TouchableOpacity
+            <TouchableOpacity
             onPress={addContact}
             style={[
               styles.addButton,
               !newContact && { backgroundColor: "#E5E5EA" },
             ]}
-            disabled={!newContact}
-          />
+            disabled={!newContact}/>
             <Ionicons
               name="add"
               size={24}
@@ -330,8 +328,7 @@ export default function AyaEmergencyApp() {
               <Ionicons name="add" size={24} color={newContact ? "#FFFFFF" : "#999"} />
             </TouchableOpacity>
           </View>
-         
-    </SafeAreaView>
+      </SafeAreaView>
     </ScrollView>
   );
 }
