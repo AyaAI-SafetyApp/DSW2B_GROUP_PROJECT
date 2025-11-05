@@ -62,7 +62,7 @@ const Stack = createNativeStackNavigator();
 
 export default function App() {
   const [loading, setLoading] = useState(true);
-  const [initialRoute, setInitialRoute] = useState("OnboardingScreen");
+  const [initialRoute, setInitialRoute] = useState("MainTabs");
 
   useEffect(() => {
     console.log("App.js: App Mounted (similar to onCreate)");
