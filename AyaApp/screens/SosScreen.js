@@ -259,15 +259,15 @@ export default function AyaEmergencyApp() {
   return (
     <ScrollView>
       <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-        <WebView
-          ref={webview}
-          originWhitelist={["*"]}
-          source={{ html: webviewHtml }}
-          onMessage={() => triggerSOS()}
-          javaScriptEnabled
-          style={{ flex: 0, height: 0 }}
-        />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <WebView
+        ref={webview}
+        originWhitelist={["*"]}
+        source={{ html: webviewHtml }}
+        onMessage={() => triggerSOS()}
+        javaScriptEnabled
+        style={{ flex: 0, height: 0 }}
+      />
 
         <View style={styles.topContainer}>
           <View style={styles.alertContainer}>
@@ -291,18 +291,8 @@ export default function AyaEmergencyApp() {
           <Animated.View
             style={[styles.progressRing, { transform: [{ scale: progressAnim }] }]}
           />
-          <TouchableOpacity
-            style={[styles.sosButton, sosCountdown > 0 && styles.sosButtonActive]}
-            onPress={startSOSCountdown}
-          >
-            {sosCountdown > 0 ? (
-              <Text style={styles.sosCountdownText}>{sosCountdown}</Text>
-            ) : (
-              <FontAwesome name="phone" size={40} color="#FFFFFF" />
-            )}
-          </TouchableOpacity>
-          <Text style={styles.sosInstruction}>Press or say "Aya"</Text>
         </View>
+      </View>
 
         <View style={styles.contactsContainer}>
           <Text style={styles.contactsHeader}>Emergency Contacts</Text>
@@ -319,15 +309,18 @@ export default function AyaEmergencyApp() {
               </View>
             )}
           />
-          <View style={styles.addContactContainer}>
-            <TextInput
-              placeholder="+27..."
-              placeholderTextColor="#999"
-              style={styles.input}
-              value={newContact}
-              onChangeText={setNewContact}
-              keyboardType="phone-pad"
-              onSubmitEditing={addContact}
+          <TouchableOpacity
+            onPress={addContact}
+            style={[
+              styles.addButton,
+              !newContact && { backgroundColor: "#E5E5EA" },
+            ]}
+            disabled={!newContact}
+          >
+            <Ionicons
+              name="add"
+              size={24}
+              color={newContact ? "#FFFFFF" : "#999"}
             />
             <TouchableOpacity
               onPress={addContact}
@@ -338,7 +331,8 @@ export default function AyaEmergencyApp() {
             </TouchableOpacity>
           </View>
         </View>
-      </SafeAreaView>
+      </View>
+    </SafeAreaView>
     </ScrollView>
   );
 }

@@ -1,21 +1,28 @@
 import React, { useEffect, useState } from "react";
-import { View, StyleSheet, StatusBar, Platform } from "react-native";
+import {
+  View,
+  StyleSheet,
+  StatusBar,
+  Platform,
+  AppState,
+} from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import LottieView from "lottie-react-native";
+
+// Utils and services
 import { getSession } from "./utils/session";
-import MainTabs from "./navigation/TabsNavigator";
 import { initializeAllNotificationServices } from "./components/NotificationService";
 
+// Navigation
+import MainTabs from "./navigation/TabsNavigator";
 
-// Initialize debugging tools
+// Debugging (only runs in development mode)
 if (__DEV__) {
-  import('./utils/reactotron');
-
-  console.log('Development mode enabled - Debugging available');
-  // Enable network debugging safely
-  if (typeof global !== 'undefined') {
+  import("./utils/reactotron");
+  console.log("Development mode enabled - Debugging available");
+  if (typeof global !== "undefined") {
     global.XMLHttpRequest = global.originalXMLHttpRequest || global.XMLHttpRequest;
     global.FormData = global.originalFormData || global.FormData;
   }
@@ -47,8 +54,8 @@ import PrivacySecurityScreen from "./screens/UserProfile/PrivacySecurityScreen";
 import HelpSupportScreen from "./screens/UserProfile/HelpSupportScreen";
 import AchievementsScreen from "./screens/UserProfile/AchievementsScreen";
 import EditProfile from "./screens/UserProfile/EditProfile";
-import SubscriptionUpgrade from "./screens/Subscription/SubscriptionUpgrade.js";
-import AboutUsScreen from "./screens/UserProfile/AboutUsScreen.js";
+import SubscriptionUpgrade from "./screens/Subscription/SubscriptionUpgrade";
+import AboutUsScreen from "./screens/UserProfile/AboutUsScreen";
 import ReactivateAccountScreen from "./screens/ReactivateAccountScreen";
 
 const Stack = createNativeStackNavigator();
@@ -58,24 +65,39 @@ export default function App() {
   const [initialRoute, setInitialRoute] = useState("MainTabs");
 
   useEffect(() => {
-    const init = async () => {
-      const session = await getSession();
-      setInitialRoute(session ? "MainTabs" : "MainTabs");
+    console.log("App.js: App Mounted (similar to onCreate)");
 
-      // Initialize notification services ONCE at app startup
-      console.log('App.js: Starting notification initialization...');
+    // App state listener (foreground/background)
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      console.log(`App.js: App state changed to ${nextState}`);
+    });
+
+    // Initialization sequence
+    const init = async () => {
+      console.log("App.js: Initializing session and notifications...");
+
+      const session = await getSession();
+      setInitialRoute(session ? "MainTabs" : "OnboardingScreen");
+
       try {
         const notificationInit = await initializeAllNotificationServices();
-        console.log('App.js: Notification services:', notificationInit ? 'Initialized' : 'Failed');
+        console.log("App.js: Notification services initialized:", notificationInit);
       } catch (error) {
-        console.error('App.js: Failed to initialize notification services:', error);
+        console.error("App.js: Notification initialization failed:", error);
       }
 
       setTimeout(() => setLoading(false), 1800);
     };
+
     init();
+
+    return () => {
+      subscription.remove();
+      console.log("App.js: App Unmounted (similar to onDestroy)");
+    };
   }, []);
 
+  // Splash screen while initializing
   if (loading) {
     return (
       <View style={styles.splash}>
@@ -105,10 +127,7 @@ export default function App() {
           <Stack.Screen name="OnboardingScreen" component={OnboardingScreen} />
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="Signup" component={SignupScreen} />
-          <Stack.Screen
-            name="SubscriptionScreen"
-            component={SubscriptionScreen}
-          />
+          <Stack.Screen name="SubscriptionScreen" component={SubscriptionScreen} />
           <Stack.Screen name="ReactivateAccount" component={ReactivateAccountScreen} />
           <Stack.Screen name="Health" component={HealthScreen} />
           <Stack.Screen name="ReactionGame" component={ReactionGame} />
@@ -116,16 +135,8 @@ export default function App() {
           <Stack.Screen name="SafetyGame" component={SafetyGame} />
           <Stack.Screen name="NewsFeed" component={NewsFeed} />
           <Stack.Screen name="Safety" component={Safety} />
-          <Stack.Screen
-            name="ARTraining"
-            component={ARTrainingScreen}
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen
-            name="CameraARTraining"
-            component={CameraARTrainingScreen}
-            options={{ headerShown: false }}
-          />
+          <Stack.Screen name="ARTraining" component={ARTrainingScreen} />
+          <Stack.Screen name="CameraARTraining" component={CameraARTrainingScreen} />
           <Stack.Screen name="ArticleScreen" component={ArticleScreen} />
           <Stack.Screen name="EmergencyScreen" component={EmergencyScreen} />
           <Stack.Screen name="AccountForm" component={AccountForm} />
@@ -133,28 +144,13 @@ export default function App() {
           <Stack.Screen name="CreateCredential" component={CreateCredential} />
           <Stack.Screen name="MapViewScreen" component={MapViewScreen} />
           <Stack.Screen name="ProfileScreen" component={ProfileScreen} />
-          <Stack.Screen
-            name="AccountDetailsScreen"
-            component={AccountDetailsScreen}
-          />
-          <Stack.Screen
-            name="SafetyPreferencesScreen"
-            component={SafetyPreferencesScreen}
-          />
-          <Stack.Screen
-            name="PrivacySecurityScreen"
-            component={PrivacySecurityScreen}
-          />
+          <Stack.Screen name="AccountDetailsScreen" component={AccountDetailsScreen} />
+          <Stack.Screen name="SafetyPreferencesScreen" component={SafetyPreferencesScreen} />
+          <Stack.Screen name="PrivacySecurityScreen" component={PrivacySecurityScreen} />
           <Stack.Screen name="HelpSupportScreen" component={HelpSupportScreen} />
-          <Stack.Screen
-            name="AchievementsScreen"
-            component={AchievementsScreen}
-          />
+          <Stack.Screen name="AchievementsScreen" component={AchievementsScreen} />
           <Stack.Screen name="EditProfileScreen" component={EditProfile} />
-          <Stack.Screen
-            name="SubscriptionUpgrade"
-            component={SubscriptionUpgrade}
-          />
+          <Stack.Screen name="SubscriptionUpgrade" component={SubscriptionUpgrade} />
           <Stack.Screen name="AboutUsScreen" component={AboutUsScreen} />
         </Stack.Navigator>
       </NavigationContainer>
