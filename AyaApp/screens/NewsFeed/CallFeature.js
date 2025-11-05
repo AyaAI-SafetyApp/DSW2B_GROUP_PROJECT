@@ -20,7 +20,7 @@ export default function VoiceCall() {
   const [joined, setJoined] = useState(false);
   const [error, setError] = useState(null);
   const [isJoining, setIsJoining] = useState(false);
-  const [users, setUsers] = useState([]); // track joined users
+  const [users, setUsers] = useState([]); 
 
   useEffect(() => {
     const init = async () => {

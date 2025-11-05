@@ -22,7 +22,7 @@ export async function pickMedia(type = 'image') {
   return null;
 }
 
-// Upload to Supabase Storage (optional, or use direct links)
+
 export async function uploadMedia(uri, fileName) {
   const response = await fetch(uri);
   const blob = await response.blob();

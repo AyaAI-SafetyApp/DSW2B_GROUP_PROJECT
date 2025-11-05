@@ -1,4 +1,3 @@
-// ...existing code...
 import React, {
   useState,
   useCallback,
@@ -60,9 +59,6 @@ try {
 
 const { width, height } = Dimensions.get("window");
 
-// ---------------------------------------------------------------
-// ANIMATED FLATLIST (needed for scrollY)
-// ---------------------------------------------------------------
 const AnimatedFlatList = Animated.createAnimatedComponent(RNFlatList);
 
 const COLORS = {
@@ -134,7 +130,6 @@ const isVideoUrl = (uri) => {
   }
 };
 
-// ============ OFFLINE QUEUE HELPERS ============
 async function getOpsQueue() {
   try {
     const raw = await AsyncStorage.getItem(OFFLINE_CRUD_QUEUE_KEY);
@@ -274,7 +269,6 @@ async function uploadMediaUrisToPostsBucket(uris = []) {
   return uploadedUrls;
 }
 
-// ============ AVATAR COMPONENT ============
 const UserAvatar = React.memo(({ username, avatarUrl, size = 40, style }) => {
   const getInitial = (name) => {
     if (!name) return "?";
@@ -384,7 +378,6 @@ const StoryItem = React.memo(({ story, index, onPress }) => {
   );
 });
 
-// ============ POST CARD COMPONENT ============
 const PostCard = React.memo(
   ({
     post,
@@ -602,7 +595,6 @@ const PostCard = React.memo(
   }
 );
 
-// ============ COMMENTS MODAL ============
 const CommentsModal = ({
   visible,
   post,
@@ -625,15 +617,12 @@ const CommentsModal = ({
     if (commentText.trim()) {
       onAddComment(post.id, commentText.trim());
       setCommentText("");
-      // ensure list scrolls to bottom after adding
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
       }, 120);
     }
   };
   if (!post) return null;
-
-  // keep offset so keyboard doesn't cover input
   const keyboardVerticalOffset =
     Platform.OS === "ios" ? 80 : (StatusBar.currentHeight || 0) + 80;
 
@@ -651,7 +640,7 @@ const CommentsModal = ({
       useNativeDriver={true}
       useNativeDriverForBackdrop={true}
     >
-      {/* Change: ensure modal content anchors to bottom inside KeyboardAvoidingView */}
+      {}
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={keyboardVerticalOffset}
@@ -669,7 +658,7 @@ const CommentsModal = ({
             </TouchableOpacity>
           </View>
 
-          {/* comments list should take available space inside the sheet */}
+          {}
           <AnimatedFlatList
             ref={flatListRef}
             data={post.comments || []}
@@ -757,7 +746,6 @@ const CommentsModal = ({
   );
 };
 
-// ============ NEW: Likes Modal ============
 const LikesModal = ({ visible, likes, onClose }) => {
   const items = Array.isArray(likes)
     ? likes.map((l, idx) => {
@@ -814,7 +802,6 @@ const LikesModal = ({ visible, likes, onClose }) => {
   );
 };
 
-// ============ STORY VIEWER ============
 const StoryViewer = ({
   visible,
   stories,
@@ -930,7 +917,6 @@ const StoryViewer = ({
   );
 };
 
-// ============ HELPER FUNCTIONS ============
 const getTimeAgo = (timestamp) => {
   let ts = timestamp;
   if (typeof ts === "string") {
@@ -955,11 +941,8 @@ const getTimeAgo = (timestamp) => {
   return "Just now";
 };
 
-// ============ MAIN COMPONENT ============
 const Newsfeed = ({ scrollY: externalScrollY }) => {
-  // -----------------------------------------------------------------
-  // scrollY – shared with AnimatedTabBar
-  // -----------------------------------------------------------------
+  
   const scrollY = externalScrollY || useRef(new Animated.Value(0)).current;
 
   const [posts, setPosts] = useState([]);
