@@ -16,16 +16,12 @@ import {
 import * as Location from "expo-location";
 import { Accelerometer } from "expo-sensors";
 import { WebView } from "react-native-webview";
-import { Ionicons, MaterialIcons, FontAwesome } from "@expo/vector-icons";
-// persist contacts to Supabase
+import { Ionicons, FontAwesome } from "@expo/vector-icons";
 import * as contactsService from "../SosCRUD/contactsService";
 import { supabase } from "../SosCRUD/supabaseClient";
 
 const FALL_THRESHOLD = 2.5;
 const SOS_COUNTDOWN = 5;
-
-// DEV: test credentials for automatic sign-in (create this user in Supabase for local testing)
-// Remove or replace for production and use a real auth flow.
 const DEV_EMAIL = "dev@local";
 const DEV_PASSWORD = "DevPass123!";
 
@@ -34,62 +30,38 @@ export default function AyaEmergencyApp() {
   const [offlineQueue, setOfflineQueue] = useState([]);
   const [fallDetectionEnabled, setFallDetectionEnabled] = useState(false);
   const [contacts, setContacts] = useState(["+27712233272"]);
-  const [status, setStatus] = useState("⚠️ Alerts inactive");
+  const [status, setStatus] = useState("Alerts inactive");
   const [sosCountdown, setSosCountdown] = useState(0);
   const [newContact, setNewContact] = useState("");
   const countdownRef = useRef(null);
   const webview = useRef(null);
   const progressAnim = useRef(new Animated.Value(0)).current;
 
-  // helper to ensure a session exists (DEV convenience)
-  // Updated: if sign-in fails, attempt sign-up (dev only). Returns true if session exists.
   const ensureDevSignedIn = async () => {
     try {
       const { data: current } = await supabase.auth.getUser();
       if (current?.user) return true;
 
-      // try sign-in
       const { data: signInData, error: signInError } =
         await supabase.auth.signInWithPassword({
           email: DEV_EMAIL,
           password: DEV_PASSWORD,
         });
+      if (!signInError && signInData?.user) return true;
 
-      if (!signInError && signInData?.user) {
-        return true;
-      }
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email: DEV_EMAIL,
+        password: DEV_PASSWORD,
+      });
+      if (signUpError) return false;
 
-      // sign-in failed — attempt sign-up (DEV convenience)
-      // NOTE: signUp may require email confirmation depending on your Supabase settings.
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp(
-        {
-          email: DEV_EMAIL,
-          password: DEV_PASSWORD,
-        }
-      );
-
-      if (signUpError) {
-        console.warn("Dev sign-up failed", signUpError);
-        return false;
-      }
-
-      // If signUp returns a user, try signing in again
       const { data: signInAfter, error: signInAfterErr } =
         await supabase.auth.signInWithPassword({
           email: DEV_EMAIL,
           password: DEV_PASSWORD,
         });
-
-      if (signInAfterErr) {
-        console.warn("Dev sign-in after sign-up failed", signInAfterErr);
-        // If your Supabase requires email confirmation, the session won't be active yet.
-        // Return false so caller can show a helpful message.
-        return false;
-      }
-
       return !!signInAfter?.user;
-    } catch (e) {
-      console.warn("ensureDevSignedIn error", e);
+    } catch {
       return false;
     }
   };
@@ -106,19 +78,15 @@ export default function AyaEmergencyApp() {
     })();
   }, []);
 
-  // load contacts from database on mount (with optional DEV auto sign-in)
   useEffect(() => {
     (async () => {
       try {
-        // attempt to have a session (DEV)
         await ensureDevSignedIn();
-
         const dbContacts = await contactsService.fetchContacts();
         if (Array.isArray(dbContacts) && dbContacts.length > 0) {
           setContacts(dbContacts);
         }
       } catch (e) {
-        // non-fatal: keep local contacts
         Alert.alert("Error", e?.message || "Failed to load contacts");
       }
     })();
@@ -156,7 +124,7 @@ export default function AyaEmergencyApp() {
         body: JSON.stringify(payload),
       });
       setStatus(`${type.toUpperCase()} alert sent`);
-    } catch (err) {
+    } catch {
       setOfflineQueue((prev) => [...prev, { type, payload }]);
       setStatus("Alert queued");
     }
@@ -166,8 +134,7 @@ export default function AyaEmergencyApp() {
     const interval = setInterval(() => {
       offlineQueue.forEach(async (item, index) => {
         try {
-          const endpoint =
-            "https://dsw2b-backend.onrender.com/api/send-location";
+          const endpoint = "https://dsw2b-backend.onrender.com/api/send-location";
           await fetch(endpoint, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -175,7 +142,7 @@ export default function AyaEmergencyApp() {
           });
           setOfflineQueue((prev) => prev.filter((_, i) => i !== index));
           setStatus(`Queued ${item.type} alert sent`);
-        } catch {}
+        } catch { }
       });
     }, 30000);
     return () => clearInterval(interval);
@@ -202,33 +169,21 @@ export default function AyaEmergencyApp() {
     </html>
   `;
 
-  // persist new contact to Supabase via contactsService
   const addContact = async () => {
-    if (
-      newContact &&
-      !contacts.includes(newContact) &&
-      newContact.match(/^\+?\d{10,15}$/)
-    ) {
+    if (newContact && !contacts.includes(newContact) && newContact.match(/^\+?\d{10,15}$/)) {
       try {
         const signed = await ensureDevSignedIn();
-        if (!signed) throw new Error("Not authenticated (create test user or enable auth)");
-
+        if (!signed) throw new Error("Not authenticated");
         const updated = await contactsService.addContact(null, newContact);
-        if (Array.isArray(updated) && updated.length > 0) {
-          setContacts(updated);
-        } else {
-          setContacts((prev) => [...prev, newContact]);
-        }
+        if (Array.isArray(updated) && updated.length > 0) setContacts(updated);
+        else setContacts((prev) => [...prev, newContact]);
         setNewContact("");
       } catch (e) {
-        const msg = (e && e.message) ? e.message : "Failed to add contact";
-        Alert.alert("Error", msg);
+        Alert.alert("Error", e?.message || "Failed to add contact");
       }
-    } else if (newContact)
-      Alert.alert("Invalid Number", "Please enter a valid phone number");
+    } else if (newContact) Alert.alert("Invalid Number", "Please enter a valid phone number");
   };
 
-  // remove contact from Supabase via contactsService
   const removeContact = (contact) => {
     Alert.alert("Remove Contact", `Remove ${contact}?`, [
       { text: "Cancel", style: "cancel" },
@@ -238,17 +193,12 @@ export default function AyaEmergencyApp() {
         onPress: async () => {
           try {
             const signed = await ensureDevSignedIn();
-            if (!signed) throw new Error("Not authenticated (create test user or enable auth)");
-
+            if (!signed) throw new Error("Not authenticated");
             const updated = await contactsService.removeContact(null, contact);
-            if (Array.isArray(updated)) {
-              setContacts(updated);
-            } else {
-              setContacts((prev) => prev.filter((c) => c !== contact));
-            }
+            if (Array.isArray(updated)) setContacts(updated);
+            else setContacts((prev) => prev.filter((c) => c !== contact));
           } catch (e) {
-            const msg = (e && e.message) ? e.message : "Failed to remove contact";
-            Alert.alert("Error", msg);
+            Alert.alert("Error", e?.message || "Failed to remove contact");
           }
         },
       },
@@ -259,24 +209,17 @@ export default function AyaEmergencyApp() {
     if (sosCountdown > 0) {
       clearInterval(countdownRef.current);
       setSosCountdown(0);
-      Animated.timing(progressAnim, {
-        toValue: 0,
-        duration: 0,
-        useNativeDriver: false,
-      }).start();
-      setStatus("⚠️ SOS cancelled");
+      Animated.timing(progressAnim, { toValue: 0, duration: 0, useNativeDriver: false }).start();
+      setStatus("SOS cancelled");
       return;
     }
-    if (contacts.length === 0)
-      return Alert.alert("No Contacts", "Add emergency contacts first");
+    if (contacts.length === 0) return Alert.alert("No Contacts", "Add emergency contacts first");
+
     setSosCountdown(SOS_COUNTDOWN);
-    setStatus("⚠️ SOS countdown started...");
+    setStatus("SOS countdown started...");
     progressAnim.setValue(0);
-    Animated.timing(progressAnim, {
-      toValue: 1,
-      duration: SOS_COUNTDOWN * 1000,
-      useNativeDriver: false,
-    }).start();
+    Animated.timing(progressAnim, { toValue: 1, duration: SOS_COUNTDOWN * 1000, useNativeDriver: false }).start();
+
     countdownRef.current = setInterval(() => {
       setSosCountdown((prev) => {
         if (prev === 1) {
@@ -291,8 +234,26 @@ export default function AyaEmergencyApp() {
 
   const triggerSOS = async () => {
     const loc = location || (await Location.getCurrentPositionAsync({}));
-    setStatus("🚨 SOS triggered!");
+    setStatus("SOS triggered!");
+
     sendAlert("sos", loc);
+
+    // Trigger call to first contact via backend
+    if (contacts.length > 0) {
+      try {
+        const response = await fetch("http://172.16.26.108:3000/call", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ to: contacts[0] }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Call failed");
+        setStatus("SOS call initiated to " + contacts[0]);
+      } catch (e) {
+        Alert.alert("Call Error", e.message);
+        setStatus("SOS call failed");
+      }
+    }
   };
 
   return (
@@ -312,7 +273,6 @@ export default function AyaEmergencyApp() {
           <View style={styles.alertContainer}>
             <Text style={styles.alertText}>{status}</Text>
           </View>
-
           <View style={styles.switchContainer}>
             <Text style={styles.switchLabel}>Alerts</Text>
             <Switch
@@ -329,10 +289,7 @@ export default function AyaEmergencyApp() {
 
         <View style={styles.sosWrapper}>
           <Animated.View
-            style={[
-              styles.progressRing,
-              { transform: [{ scale: progressAnim }] },
-            ]}
+            style={[styles.progressRing, { transform: [{ scale: progressAnim }] }]}
           />
           <TouchableOpacity
             style={[styles.sosButton, sosCountdown > 0 && styles.sosButtonActive]}
@@ -356,10 +313,7 @@ export default function AyaEmergencyApp() {
             renderItem={({ item }) => (
               <View style={styles.contactRow}>
                 <Text style={styles.contactNumber}>{item}</Text>
-                <TouchableOpacity
-                  onPress={() => removeContact(item)}
-                  style={styles.contactRemove}
-                >
+                <TouchableOpacity onPress={() => removeContact(item)} style={styles.contactRemove}>
                   <Ionicons name="close-circle" size={24} color="#FF3B30" />
                 </TouchableOpacity>
               </View>
@@ -377,17 +331,10 @@ export default function AyaEmergencyApp() {
             />
             <TouchableOpacity
               onPress={addContact}
-              style={[
-                styles.addButton,
-                !newContact && { backgroundColor: "#E5EEA" },
-              ]}
+              style={[styles.addButton, !newContact && { backgroundColor: "#E5EEA" }]}
               disabled={!newContact}
             >
-              <Ionicons
-                name="add"
-                size={24}
-                color={newContact ? "#FFFFFF" : "#999"}
-              />
+              <Ionicons name="add" size={24} color={newContact ? "#FFFFFF" : "#999"} />
             </TouchableOpacity>
           </View>
         </View>
@@ -399,94 +346,23 @@ export default function AyaEmergencyApp() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F9F9F9" },
   topContainer: { paddingHorizontal: 20, paddingTop: 20 },
-  alertContainer: {
-    paddingVertical: 12,
-    backgroundColor: "#FFF3F3",
-    borderRadius: 12,
-    alignItems: "center",
-    marginBottom: 12,
-  },
+  alertContainer: { paddingVertical: 12, backgroundColor: "#FFF3F3", borderRadius: 12, alignItems: "center", marginBottom: 12 },
   alertText: { fontSize: 16, color: "#FF3B30", fontWeight: "600" },
-  switchContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-  },
+  switchContainer: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
   switchLabel: { fontSize: 18, fontWeight: "600", color: "#1C1C1E" },
   sosWrapper: { flex: 1, justifyContent: "center", alignItems: "center" },
-  sosButton: {
-    backgroundColor: "#FF3B30",
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#FF3B3030",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-  },
+  sosButton: { backgroundColor: "#FF3B30", width: 160, height: 160, borderRadius: 80, justifyContent: "center", alignItems: "center", shadowColor: "#FF3B3030", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 12 },
   sosButtonActive: { backgroundColor: "#FF9500" },
   sosCountdownText: { color: "#FFFFFF", fontSize: 48, fontWeight: "700" },
   sosInstruction: { marginTop: 12, color: "#999", fontSize: 14 },
-  progressRing: {
-    position: "absolute",
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    borderWidth: 4,
-    borderColor: "#FF9500",
-  },
+  progressRing: { position: "absolute", width: 180, height: 180, borderRadius: 90, borderWidth: 4, borderColor: "#FF9500" },
   contactsContainer: { paddingHorizontal: 20, paddingBottom: 40 },
-  contactsHeader: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#1C1C1E",
-    marginBottom: 12,
-  },
+  contactsHeader: { fontSize: 18, fontWeight: "700", color: "#1C1C1E", marginBottom: 12 },
   contactsList: { maxHeight: 180 },
-  contactRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 10,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    marginBottom: 8,
-    paddingHorizontal: 12,
-    shadowColor: "#00000010",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-  },
+  contactRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 10, backgroundColor: "#FFFFFF", borderRadius: 12, marginBottom: 8, paddingHorizontal: 12, shadowColor: "#00000010", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4 },
   contactNumber: { fontSize: 16, color: "#1C1C1E" },
   contactRemove: {},
-  addContactContainer: {
-    flexDirection: "row",
-    marginTop: 12,
-    alignItems: "center",
-  },
-  input: {
-    flex: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    fontSize: 16,
-    color: "#000",
-    shadowColor: "#00000010",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-  },
-  addButton: {
-    marginLeft: 12,
-    backgroundColor: "#007AFF",
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: "center",
-    alignItems: "center",
-  },
+  addContactContainer: { flexDirection: "row", marginTop: 12, alignItems: "center" },
+  input: { flex: 1, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: "#FFFFFF", borderRadius: 12, fontSize: 16, color: "#000", shadowColor: "#00000010", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4 },
+  addButton: { marginLeft: 12, backgroundColor: "#007AFF", width: 48, height: 48, borderRadius: 24, justifyContent: "center", alignItems: "center" },
 });

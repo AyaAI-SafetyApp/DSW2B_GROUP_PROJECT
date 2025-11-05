@@ -12,7 +12,7 @@ import { initializeAllNotificationServices } from "./components/NotificationServ
 // Initialize debugging tools
 if (__DEV__) {
   import('./utils/reactotron');
-  
+
   console.log('Development mode enabled - Debugging available');
   // Enable network debugging safely
   if (typeof global !== 'undefined') {
@@ -55,13 +55,13 @@ const Stack = createNativeStackNavigator();
 
 export default function App() {
   const [loading, setLoading] = useState(true);
-  const [initialRoute, setInitialRoute] = useState("OnboardingScreen");
+  const [initialRoute, setInitialRoute] = useState("MainTabs");
 
   useEffect(() => {
     const init = async () => {
       const session = await getSession();
-      setInitialRoute(session ? "MainTabs" : "OnboardingScreen");
-      
+      setInitialRoute(session ? "MainTabs" : "MainTabs");
+
       // Initialize notification services ONCE at app startup
       console.log('App.js: Starting notification initialization...');
       try {
@@ -70,7 +70,7 @@ export default function App() {
       } catch (error) {
         console.error('App.js: Failed to initialize notification services:', error);
       }
-      
+
       setTimeout(() => setLoading(false), 1800);
     };
     init();
@@ -91,9 +91,9 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <StatusBar 
-        barStyle="dark-content" 
-        backgroundColor="transparent" 
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor="transparent"
         translucent={Platform.OS === "android"}
       />
       <NavigationContainer>
@@ -116,13 +116,13 @@ export default function App() {
           <Stack.Screen name="SafetyGame" component={SafetyGame} />
           <Stack.Screen name="NewsFeed" component={NewsFeed} />
           <Stack.Screen name="Safety" component={Safety} />
-          <Stack.Screen 
-            name="ARTraining" 
+          <Stack.Screen
+            name="ARTraining"
             component={ARTrainingScreen}
             options={{ headerShown: false }}
           />
-          <Stack.Screen 
-            name="CameraARTraining" 
+          <Stack.Screen
+            name="CameraARTraining"
             component={CameraARTrainingScreen}
             options={{ headerShown: false }}
           />
