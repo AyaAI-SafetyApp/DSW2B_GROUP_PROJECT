@@ -1,4 +1,3 @@
-// ...existing code...
 import React, {
   useState,
   useCallback,
@@ -60,9 +59,7 @@ try {
 
 const { width, height } = Dimensions.get("window");
 
-// ---------------------------------------------------------------
-// ANIMATED FLATLIST (needed for scrollY)
-// ---------------------------------------------------------------
+
 const AnimatedFlatList = Animated.createAnimatedComponent(RNFlatList);
 
 const COLORS = {
@@ -134,7 +131,7 @@ const isVideoUrl = (uri) => {
   }
 };
 
-// ============ OFFLINE QUEUE HELPERS ============
+
 async function getOpsQueue() {
   try {
     const raw = await AsyncStorage.getItem(OFFLINE_CRUD_QUEUE_KEY);
@@ -757,7 +754,7 @@ const CommentsModal = ({
   );
 };
 
-// ============ NEW: Likes Modal ============
+
 const LikesModal = ({ visible, likes, onClose }) => {
   const items = Array.isArray(likes)
     ? likes.map((l, idx) => {
@@ -957,9 +954,7 @@ const getTimeAgo = (timestamp) => {
 
 // ============ MAIN COMPONENT ============
 const Newsfeed = ({ scrollY: externalScrollY }) => {
-  // -----------------------------------------------------------------
-  // scrollY – shared with AnimatedTabBar
-  // -----------------------------------------------------------------
+  
   const scrollY = externalScrollY || useRef(new Animated.Value(0)).current;
 
   const [posts, setPosts] = useState([]);
@@ -1849,9 +1844,7 @@ const Newsfeed = ({ scrollY: externalScrollY }) => {
           removeClippedSubviews={Platform.OS === "android"}
           onViewableItemsChanged={onViewableItemsChanged}
           viewabilityConfig={viewabilityConfig}
-          // -------------------------------------------------
-          // SCROLL → TAB BAR HIDE / SHOW
-          // -------------------------------------------------
+          
           scrollEventThrottle={16}
           onScroll={Animated.event(
             [{ nativeEvent: { contentOffset: { y: scrollY } } }],
@@ -1906,8 +1899,7 @@ const Newsfeed = ({ scrollY: externalScrollY }) => {
         animationOut="slideOutDown"
         avoidKeyboard={true}
       >
-        {/* Ensure KeyboardAvoidingView prevents keyboard from covering input.
-            Increased keyboardVerticalOffset so the input remains visible on both platforms. */}
+        {}
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           keyboardVerticalOffset={
@@ -2091,7 +2083,6 @@ const Newsfeed = ({ scrollY: externalScrollY }) => {
   );
 };
 
-// ============ STYLES ============
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -2123,18 +2114,18 @@ const styles = StyleSheet.create({
       Platform.OS === "android" ? (StatusBar.currentHeight || 0) + 8 : 12,
     paddingBottom: 10,
     backgroundColor: COLORS.cardBackground,
-    // ensure header tall enough so content won't be cut
+    
     minHeight:
       Platform.OS === "android" ? (StatusBar.currentHeight || 24) + 56 : 64,
     borderBottomWidth: 0.5,
     borderBottomColor: COLORS.border,
   },
   headerLeft: {
-    // placeholder to balance the right icon so title stays centered
+    
     width: 44,
     height: 44,
   },
-  /* header title container - updated styling for nicer app name */
+  
   headerTitleContainer: {
     flex: 1,
     flexDirection: "row",
@@ -2425,7 +2416,7 @@ const styles = StyleSheet.create({
   modalActionBtn: {
     padding: 8,
   },
-  /* moved FAB slightly higher so it doesn't conflict with navigation pane */
+  
   fab: {
     position: "absolute",
     right: 20,
