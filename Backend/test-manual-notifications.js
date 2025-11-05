@@ -1,7 +1,6 @@
-// Test notification flow manually
+
 const axios = require("axios");
 
-// Use the token from your app logs
 const EXPO_PUSH_TOKEN = "ExponentPushToken[CwNtYqDQPrtwcCDPQuo2bQ]";
 
 async function testSubscriptionNotification() {
@@ -103,7 +102,6 @@ async function testLocationRiskNotification() {
   }
 }
 
-// Run all tests
 (async () => {
   console.log("🧪 Starting manual notification tests...\n");
   

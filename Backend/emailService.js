@@ -1,33 +1,19 @@
-/**
- * Email Service using Resend API
- * 
- * This service handles all transactional emails for the Aya app:
- * - Account reactivation codes
- * - Account deactivation notifications
- * - Account deletion confirmations
- * 
- * Setup:
- * 1. Install Resend: npm install resend
- * 2. Add RESEND_API_KEY to .env file
- * 3. Verify sender domain in Resend dashboard
- */
+
 
 require('dotenv').config();
 const { Resend } = require('resend');
 
-// Initialize Resend client
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// Default sender email (must be verified in Resend)
 const FROM_EMAIL = process.env.FROM_EMAIL || 'Aya Safety App <noreply@ayaapp.com>';
 const APP_NAME = 'Aya Safety App';
 
 /**
  * Send account reactivation code email
- * @param {string} email - Recipient email address
- * @param {string} code - 6-digit verification code
- * @param {string} userName - User's name (optional)
- * @returns {Promise<object>} - Resend API response
+ * @param {string} email
+ * @param {string} code
+ * @param {string} userName 
+ * @returns {Promise<object>} 
  */
 async function sendReactivationCode(email, code, userName = 'User') {
   try {

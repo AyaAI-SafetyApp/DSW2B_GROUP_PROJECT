@@ -6,10 +6,10 @@
 // ==================== CREATE NOTIFICATION OBJECT ====================
 /**
  * Creates a standardized notification object
- * @param {string} message - The notification message
- * @param {Object} options - Additional options
- * @returns {Object} Notification object
- */
+ @param {string} message - The notification message
+ @param {Object} options - Additional options
+ @returns {Object} Notification object
+
 export function createNotification(message, options = {}) {
   return {
     id: options.id || `notif_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,

@@ -7,98 +7,97 @@ import {
   StyleSheet,
   SafeAreaView,
   Modal,
+  Image,
 } from "react-native";
-import { Ionicons, MaterialIcons, FontAwesome } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 
 const teamMembers = [
   {
     id: "1",
     firstName: "Emmanuel",
     lastName: "Starkio",
-    commits: 64,
+    contribution: Math.round((74 / 217) * 100),
     Role: "Group Leader",
     attendence: 11,
     commitment: "100%",
-    features: [
-      "Wake word Detection",
-    ],
-    icon: <Ionicons name="person-circle-outline" size={60} color="#DE0973" />,
+    features: ["Wake word Detection"],
+    image: "https://media.licdn.com/dms/image/v2/D4D03AQFW8YUejsz3XQ/profile-displayphoto-shrink_800_800/B4DZYnWpB0GwAg-/0/1744416970318?e=1764201600&v=beta&t=yaRlWXNdpPlV3Y3M2fjSfTsBEa-oALNaUuzuxchkLhs", // Example LinkedIn photo URL
   },
   {
     id: "2",
     firstName: "Lethabo Scofield",
     lastName: "Makonto",
     Role: "Project Leader",
-    commits: 68,
+    contribution: Math.round((72 / 217) * 100),
     attendence: 10,
     features: ["Call AI Agent"],
-    icon: <MaterialIcons name="person-pin" size={60} color="#7c3aed" />,
+    image: "https://media.licdn.com/dms/image/v2/D4D03AQFsYGNn5Qh0sA/profile-displayphoto-crop_800_800/B4DZn7B2.2G8AI-/0/1760853193668?e=1764201600&v=beta&t=U7OaAVYjmzGahvGFsqW1Pm4ZhFUdaVJbXwTVdepSknk",
   },
   {
     id: "3",
     firstName: "Masego",
     lastName: "Motsamai",
     Role: "Business Analyst",
-    commits: 2,
+    contribution: Math.round((2 / 217) * 100),
     attendence: 8,
     commitment: "50%",
     features: ["Real-Time Communication"],
-    icon: <FontAwesome name="user-circle-o" size={60} color="#DE0973" />,
+    image: "https://media.licdn.com/dms/image/v2/D4D03AQFwD0IxL04n6Q/profile-displayphoto-shrink_800_800/profile-displayphoto-shrink_800_800/0/1718271518207?e=1764201600&v=beta&t=NcqaehEOIv1C-RjIhsdNoJBOG0bEg4T-R8OBPeIbPmw",
   },
   {
     id: "4",
     firstName: "Zamokuhle",
     lastName: "Mazibuko",
     Role: "Database Administrator",
-    commits: 24,
+    contribution: Math.round((34 / 217) * 100),
     attendence: 11,
     commitment: "100%",
     features: ["Newsfeed/Aya Social Media"],
-    icon: <Ionicons name="person-circle-outline" size={60} color="#9333ea" />,
+    image: "https://media.licdn.com/dms/image/v2/D4D35AQGowALcCn3tjg/profile-framedphoto-shrink_800_800/B4DZjjplQcHwAg-/0/1756165985646?e=1762966800&v=beta&t=fAKI5e1rltjakIr8AVBZO_n-CRRyA0lIQwq9NJ--Dd8",
   },
   {
     id: "5",
     firstName: "Mbongeni",
     lastName: "Qwabe",
     Role: "Co-Database Administrator",
-    commits: 17,
+    contribution: Math.round((17 / 217) * 100),
     attendence: 8,
     commitment: "70%",
     features: ["Computer Vision"],
-    icon: <MaterialIcons name="person-pin" size={60} color="#DE0973" />,
+    image: "https://media.licdn.com/dms/image/v2/D5603AQGA7NcHFrxS5w/profile-displayphoto-crop_800_800/B56Zgi.6WqG4AM-/0/1752933579945?e=1764201600&v=beta&t=TQ8GpMJaTXBg_bMMO_rHSEt6ou8B3LvDB5LwcwPfI_E",
   },
   {
     id: "6",
     firstName: "Natalie",
     lastName: "Mashele",
     Role: "UI/UX Designer",
-    commits: 10,
+    contribution: Math.round((17 / 217) * 100),
     attendence: 11,
     commitment: "100%",
     features: ["Overall Frontend Design"],
-    icon: <FontAwesome name="user-circle-o" size={60} color="#8b5cf6" />,
+    image: "https://media.licdn.com/dms/image/v2/D5603AQHDfERxAH341w/profile-displayphoto-shrink_800_800/profile-displayphoto-shrink_800_800/0/1723582099688?e=1764201600&v=beta&t=6FmIPeqSFoGGGhOYqapxAUJqHxWE3hnJn5yE9ZhCMRw",
   },
   {
     id: "7",
     firstName: "Ntswaki",
     lastName: "Mphelo",
     Role: "UI/UX Designer & Meeting Scribe",
-    commits: 10,
+    contribution: Math.round((12 / 217) * 100),
     attendence: 11,
     commitment: "100%",
     features: ["Integrating Games"],
-    icon: <Ionicons name="person-circle-outline" size={60} color="#DE0973" />,
+    image: "https://media.licdn.com/dms/image/v2/D4E03AQFnhHGTZdTJzw/profile-displayphoto-crop_800_800/B4EZjOWyAnGwAY-/0/1755808736499?e=1764201600&v=beta&t=dM60SnUAMksRyeglFq8GUUYFsrSiBOoZzh_LwyjN8u0",
   },
   {
     id: "8",
     firstName: "Nkosiyethu",
     lastName: "Ngubane",
     Role: "Security Specialist",
-    commits: 20,
+    contribution: Math.round((20 / 217) * 100),
     attendence: 11,
     commitment: "100%",
     features: ["Fall detection"],
-    icon: <MaterialIcons name="person-pin" size={60} color="#8b5cf6" />,
+    image: "https://media.licdn.com/dms/image/v2/D4D03AQFSGdovz0mxgA/profile-displayphoto-crop_800_800/B4DZpU7yukGgAM-/0/1762361553423?e=1764201600&v=beta&t=yMC2P3ykV2XoEXynqiznuDjGyZL8d1OSPFgem9YplnE",
   },
 ];
 
@@ -120,7 +119,7 @@ export default function AboutUsScreen({ navigation }) {
     <TouchableOpacity activeOpacity={0.9} onPress={() => openMemberModal(item)}>
       <View style={styles.card}>
         <View style={styles.avatarSection}>
-          <View style={styles.avatarContainer}>{item.icon}</View>
+          <Image source={{ uri: item.image }} style={styles.avatarImage} />
           <Text style={styles.Role}>{item.Role}</Text>
         </View>
 
@@ -128,7 +127,6 @@ export default function AboutUsScreen({ navigation }) {
           <Text style={styles.name}>
             {item.firstName} {item.lastName}
           </Text>
-          <Text style={styles.commits}>{item.commits} commits</Text>
 
           <View style={styles.features}>
             {item.features.slice(0, 3).map((f, i) => (
@@ -170,14 +168,14 @@ export default function AboutUsScreen({ navigation }) {
           <View style={styles.modalContent}>
             {selectedMember && (
               <>
-                <View style={styles.modalIcon}>{selectedMember.icon}</View>
+                <Image source={{ uri: selectedMember.image }} style={styles.modalImage} />
                 <Text style={styles.modalName}>
                   {selectedMember.firstName} {selectedMember.lastName}
                 </Text>
                 <Text style={styles.modalRole}>{selectedMember.Role}</Text>
 
                 <Text style={styles.modalText}>
-                  Commits: {selectedMember.commits}
+                  Contribution: {selectedMember.contribution}%
                 </Text>
                 <Text style={styles.modalText}>
                   Attendance: {selectedMember.attendence}
@@ -244,21 +242,17 @@ const styles = StyleSheet.create({
     borderColor: "#DE0973",
   },
   avatarSection: { alignItems: "center", marginRight: 14, width: 100 },
-  avatarContainer: {
+  avatarImage: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: "#eef2ff",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 6,
+    borderWidth: 2,
     borderColor: "#FF1493",
-    borderWidth: 1,
+    marginBottom: 6,
   },
   Role: { fontSize: 13, textAlign: "center", color: "#6b7280" },
   infoContainer: { flex: 1 },
   name: { fontSize: 18, fontWeight: "600", color: "#1e293b" },
-  commits: { fontSize: 14, fontWeight: "500", color: "#2563eb", marginVertical: 6 },
   features: { marginTop: 4 },
   featureItem: { color: "#374151", fontSize: 14, marginBottom: 2 },
 
@@ -267,9 +261,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "center",
     alignItems: "center",
-
   },
- 
   modalContent: {
     backgroundColor: "#fff",
     width: "85%",
@@ -277,7 +269,14 @@ const styles = StyleSheet.create({
     padding: 20,
     alignItems: "center",
   },
-  modalIcon: { marginBottom: 10 },
+  modalImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderColor: "#DE0973",
+    borderWidth: 2,
+    marginBottom: 10,
+  },
   modalName: { fontSize: 20, fontWeight: "700", color: "#DE0973" },
   modalRole: { fontSize: 16, color: "#555", marginBottom: 8 },
   modalText: { fontSize: 15, color: "#1e293b", marginBottom: 5 },

@@ -1,6 +1,5 @@
 const axios = require("axios");
 
-// Your current active token from the logs
 const expoPushToken = "ExponentPushToken[CwNtYqDQPrtwcCDPQuo2bQ]";
 
 async function sendPushNotification(token, title, body, data = {}) {
@@ -41,22 +40,20 @@ async function sendPushNotification(token, title, body, data = {}) {
   }
 }
 
-// Test different notification types
+
 async function runTests() {
   console.log("🧪 Starting manual push notification tests...\n");
 
-  // Test 1: Basic notification
   console.log("=== Test 1: Basic Notification ===");
   await sendPushNotification(
     expoPushToken, 
     "Hello from Backend!", 
     "This is a manual test notification from the backend server! 👋"
   );
-  
-  // Wait 2 seconds between tests
+
   await new Promise(resolve => setTimeout(resolve, 2000));
 
-  // Test 2: Subscription notification
+
   console.log("\n=== Test 2: Subscription Notification ===");
   await sendPushNotification(
     expoPushToken, 
@@ -65,10 +62,8 @@ async function runTests() {
     { type: "subscription", tier: "personal" }
   );
 
-  // Wait 2 seconds
-  await new Promise(resolve => setTimeout(resolve, 2000));
 
-  // Test 3: Safety alert
+  await new Promise(resolve => setTimeout(resolve, 2000));
   console.log("\n=== Test 3: Safety Alert ===");
   await sendPushNotification(
     expoPushToken, 
@@ -77,10 +72,8 @@ async function runTests() {
     { type: "safety_alert", riskLevel: "high" }
   );
 
-  // Wait 2 seconds
   await new Promise(resolve => setTimeout(resolve, 2000));
 
-  // Test 4: Emergency notification
   console.log("\n=== Test 4: Emergency Notification ===");
   await sendPushNotification(
     expoPushToken, 
@@ -92,6 +85,5 @@ async function runTests() {
   console.log("\n✅ All tests completed! Check your phone for notifications.");
 }
 
-// Run the tests
 runTests();
 
