@@ -1,29 +1,10 @@
-import React, {
-  useState,
-  useEffect,
-  useRef,
-  useMemo,
-  useCallback,
-} from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Dimensions,
-  ScrollView,
-  StatusBar,
-  Platform,
-  Image,
-  RefreshControl,
-  Animated,
-  AppState,
-} from "react-native";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, ScrollView, StatusBar, Platform, Image, RefreshControl, Animated, AppState } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import * as Location from "expo-location";
 import { Ionicons } from "@expo/vector-icons";
 import Svg, { Circle } from "react-native-svg";
-import { useNavigation } from "@react-navigation/native";
 import * as Haptics from "expo-haptics";
 import * as Speech from "expo-speech";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -32,11 +13,7 @@ import { supabaseAuth } from "../lib/supabaseClient";
 import { hasFeatureAccess, FEATURES, showUpgradePrompt } from "../utils/subscriptionUtils";
 import { fetchNews } from "./GBVNews/newsService";
 import NotificationModal from "../components/NotificationModal";
-import {
-  setupNotificationListeners,
-  clearAllNotifications,
-  sendLocationRiskNotification,
-} from "../components/NotificationService";
+import { setupNotificationListeners, clearAllNotifications, sendLocationRiskNotification } from "../components/NotificationService";
 
 const { width } = Dimensions.get("window");
 export const PRIMARY = "#D81B60";
@@ -44,6 +21,7 @@ export const API_BASE_URL = "https://dsw2b-backend.onrender.com";
 
 const FadeView = ({ children, delay = 0, style }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
+
   useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: 1,
@@ -52,6 +30,7 @@ const FadeView = ({ children, delay = 0, style }) => {
       useNativeDriver: true,
     }).start();
   }, []);
+
   return (
     <Animated.View style={[{ opacity: fadeAnim }, style]}>
       {children}
@@ -59,18 +38,13 @@ const FadeView = ({ children, delay = 0, style }) => {
   );
 };
 
-const Header = ({
-  notificationsCount,
-  onOpenNotifications,
-  onProfilePress,
-  riskColor,
-}) => (
+const Header = ({ notificationsCount, onOpenNotifications, onProfilePress, riskColor }) => (
   <FadeView style={styles.header} delay={100}>
     <View style={styles.headerLeft}>
-      <Image
-        source={require("../assets/Logos/Aya_AI_Logo.png")}
-        style={styles.logoImage}
-        accessibilityIgnoresInvertColors
+      <Image 
+        source={require("../assets/Logos/Aya_AI_Logo.png")} 
+        style={styles.logoImage} 
+        accessibilityIgnoresInvertColors 
       />
     </View>
     <View style={styles.headerRight}>
@@ -124,9 +98,7 @@ const RiskCard = ({ crimeProbability, riskColor, riskLabel, safetyTip }) => (
             r={52}
             strokeWidth={6}
             strokeDasharray={`${2 * Math.PI * 52} ${2 * Math.PI * 52}`}
-            strokeDashoffset={
-              (2 * Math.PI * 52 * (100 - crimeProbability)) / 100
-            }
+            strokeDashoffset={(2 * Math.PI * 52 * (100 - crimeProbability)) / 100}
             strokeLinecap="round"
             rotation="-90"
             origin="55,55"
@@ -180,7 +152,6 @@ const QuickActions = ({ navigation }) => {
         return;
       }
     }
-
     Haptics.selectionAsync();
     navigation.navigate(action.route);
   };
@@ -255,7 +226,6 @@ const NewsFeed = ({ data, onOpenNews, navigation }) => (
 
 export default function HomeScreen() {
   const navigation = useNavigation();
-
   const [currentLocation, setCurrentLocation] = useState("Loading...");
   const [crimeProbability, setCrimeProbability] = useState(0);
   const [safetyData, setSafetyData] = useState(null);
@@ -277,7 +247,7 @@ export default function HomeScreen() {
     {
       id: "intro",
       message: "Stay safe with real-time alerts.",
-      timestamp: new Date(Date.now() - 60000).toISOString(), 
+      timestamp: new Date(Date.now() - 60000).toISOString(),
       isRead: false,
       priority: "normal",
     },
@@ -286,10 +256,21 @@ export default function HomeScreen() {
   const [loadingNotifications, setLoadingNotifications] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-  
-    console.log(' HomeScreen: Setting up notification listeners...');
+  // Screen focus effect
+  useFocusEffect(
+    useCallback(() => {
+      console.log("HomeScreen: Screen focused (similar to onResume)");
+      // Refresh data when screen comes into focus
+      refreshData();
+      
+      return () => {
+        console.log("HomeScreen: Screen unfocused (similar to onPause)");
+      };
+    }, [])
+  );
 
+  useEffect(() => {
+    console.log('HomeScreen: Setting up notification listeners...');
     const cleanup = setupNotificationListeners(
       (notification) => {
         const content = notification.request.content;
@@ -311,7 +292,6 @@ export default function HomeScreen() {
         );
       }
     );
-
     return cleanup;
   }, []);
 
@@ -332,11 +312,9 @@ export default function HomeScreen() {
     try {
       setLoadingNews(true);
       const articles = await fetchNews("");
-
       const formattedNews = articles.slice(0, 2).map((article, index) => {
         const timeAgo = getTimeAgo(article.published_at);
         const sourceName = article.source || "News Source";
-
         return {
           id: index.toString(),
           title: article.title || "Untitled",
@@ -347,7 +325,6 @@ export default function HomeScreen() {
           url: article.url,
         };
       });
-
       setNewsArticles(formattedNews);
     } catch (error) {
       console.error("Error loading news:", error);
@@ -359,7 +336,6 @@ export default function HomeScreen() {
 
   const getTimeAgo = (dateString) => {
     if (!dateString) return "Recently";
-
     const now = new Date();
     const published = new Date(dateString);
     const diffMs = now - published;
@@ -372,37 +348,47 @@ export default function HomeScreen() {
     return `${diffDays}d`;
   };
 
+  const refreshData = useCallback(async () => {
+    console.log("HomeScreen: Refreshing data...");
+    await fetchLocationAndSafetyData();
+    await loadNewsArticles();
+  }, []);
+
+  const fetchLocationAndSafetyData = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        setCurrentLocation("Permission denied");
+        await fetchSafetyData("Johannesburg");
+        setLoadingSafety(false);
+        return;
+      }
+
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Highest,
+      });
+      const addresses = await Location.reverseGeocodeAsync(loc.coords);
+      
+      const city = addresses[0]?.city || addresses[0]?.subregion || addresses[0]?.region || "Unknown";
+      setCurrentLocation(city);
+      await fetchSafetyData(city, loc.coords.latitude, loc.coords.longitude);
+    } catch {
+      setCurrentLocation("Error fetching location");
+      await fetchSafetyData("Johannesburg");
+    } finally {
+      setLoadingSafety(false);
+    }
+  };
+
   useEffect(() => {
     let mounted = true;
-    const fetchLocation = async () => {
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== "granted") {
-          setCurrentLocation("Permission denied");
-          await fetchSafetyData("Johannesburg");
-          setLoadingSafety(false);
-          return;
-        }
-        const loc = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Highest,
-        });
-        const addresses = await Location.reverseGeocodeAsync(loc.coords);
-        if (!mounted) return;
-        const city =
-          addresses[0]?.city ||
-          addresses[0]?.subregion ||
-          addresses[0]?.region ||
-          "Unknown";
-        setCurrentLocation(city);
-        await fetchSafetyData(city, loc.coords.latitude, loc.coords.longitude);
-      } catch {
-        setCurrentLocation("Error fetching location");
-        await fetchSafetyData("Johannesburg");
-      } finally {
-        if (mounted) setLoadingSafety(false);
-      }
+    
+    const initializeData = async () => {
+      await fetchLocationAndSafetyData();
     };
-    fetchLocation();
+    
+    initializeData();
+    
     return () => (mounted = false);
   }, []);
 
@@ -438,7 +424,6 @@ export default function HomeScreen() {
         checkAndSendRiskNotification();
       }
     });
-
     return () => subscription.remove();
   }, [currentLocation, crimeProbability, riskLabel, lastRiskData]);
 
@@ -463,27 +448,22 @@ export default function HomeScreen() {
       setLoadingSafety(true);
       setShowLottie(true);
       try {
-        const endpoint =
-          lat && lon
-            ? `${API_BASE_URL}/api/safety-status/location/${lat}/${lon}`
-            : `${API_BASE_URL}/api/safety-status/${encodeURIComponent(area)}`;
-
+        const endpoint = lat && lon 
+          ? `${API_BASE_URL}/api/safety-status/location/${lat}/${lon}`
+          : `${API_BASE_URL}/api/safety-status/${encodeURIComponent(area)}`;
+        
         const res = await fetch(endpoint);
-        const data = res.ok
-          ? await res.json()
-          : {
-              Danger_Percentage: 50,
-              safetyTips: ["Data unavailable. Stay alert."],
-            };
+        const data = res.ok 
+          ? await res.json() 
+          : { Danger_Percentage: 50, safetyTips: ["Data unavailable. Stay alert."] };
         
         setSafetyData(data);
         await AsyncStorage.setItem("@safety_last", JSON.stringify(data));
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
         const dangerPercentage = data.Danger_Percentage || 50;
-        const riskLevel = dangerPercentage < 40 ? "Low Risk" : 
-                         dangerPercentage < 70 ? "Moderate Risk" : "High Risk";
-
+        const riskLevel = dangerPercentage < 40 ? "Low Risk" : dangerPercentage < 70 ? "Moderate Risk" : "High Risk";
+        
         const currentRiskData = {
           location: area,
           crimeProbability: dangerPercentage,
@@ -497,7 +477,7 @@ export default function HomeScreen() {
             currentRiskData.location !== lastRiskData.location ||
             Math.abs(currentRiskData.crimeProbability - lastRiskData.crimeProbability) > 15 ||
             currentRiskData.riskLevel !== lastRiskData.riskLevel;
-
+          
           if (riskChanged && area !== "Loading..." && area !== "Error fetching location") {
             await sendLocationRiskNotification(
               currentRiskData.location,
@@ -517,7 +497,6 @@ export default function HomeScreen() {
         }
 
         setLastRiskData(currentRiskData);
-        
       } catch {
         setSafetyData(
           (prev) =>
@@ -538,9 +517,7 @@ export default function HomeScreen() {
     try {
       setLoadingNotifications(true);
       setModalVisible(true);
-
       const backendNotifications = await fetchNotificationsFromBackend();
-
       if (backendNotifications.length > 0) {
         setNotifications((prev) => {
           const existingIds = new Set(prev.map((n) => n.id));
@@ -565,7 +542,9 @@ export default function HomeScreen() {
 
   const handleMarkAsRead = useCallback((notificationId) => {
     setNotifications((prev) =>
-      prev.map((n) => (n.id === notificationId ? { ...n, isRead: true } : n))
+      prev.map((n) =>
+        n.id === notificationId ? { ...n, isRead: true } : n
+      )
     );
   }, []);
 
@@ -610,19 +589,13 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar
-        barStyle="dark-content"
-        translucent
-        backgroundColor="transparent"
-      />
-
+      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
       <Header
         notificationsCount={notifications.length}
         onOpenNotifications={handleOpenNotifications}
         onProfilePress={() => navigation.navigate("ProfileScreen")}
         riskColor={riskColor}
       />
-
       <NotificationModal
         visible={modalVisible}
         notifications={notifications}
@@ -630,7 +603,6 @@ export default function HomeScreen() {
         onClose={() => setModalVisible(false)}
         onClearAll={handleClearAll}
       />
-
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
@@ -690,10 +662,7 @@ export default function HomeScreen() {
           />
         )}
 
-        <FadeView
-          style={{ alignItems: "center", marginTop: 0, marginBottom: 80 }}
-          delay={0}
-        >
+        <FadeView style={{ alignItems: "center", marginTop: 0, marginBottom: 80 }} delay={0}>
           <LottieView
             source={require("../assets/animations/Certified SSL.json")}
             autoPlay
@@ -710,8 +679,13 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#ffffffff" },
-  scrollView: { flex: 1 },
+  container: {
+    flex: 1,
+    backgroundColor: "#ffffffff"
+  },
+  scrollView: {
+    flex: 1
+  },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -726,11 +700,29 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 10,
   },
-  headerLeft: { flexDirection: "row", alignItems: "center" },
-  logoImage: { width: 44, height: 44, resizeMode: "contain" },
-  statusDot: { width: 10, height: 10, borderRadius: 5, marginLeft: 8 },
-  headerRight: { flexDirection: "row", alignItems: "center" },
-  headerButton: { marginLeft: 16, position: "relative" },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center"
+  },
+  logoImage: {
+    width: 44,
+    height: 44,
+    resizeMode: "contain"
+  },
+  statusDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginLeft: 8
+  },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center"
+  },
+  headerButton: {
+    marginLeft: 16,
+    position: "relative"
+  },
   notificationBadge: {
     position: "absolute",
     top: -4,
@@ -768,14 +760,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 24,
   },
-  locationText: { fontSize: 16, fontWeight: "600", color: "#111827" },
+  locationText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#111827"
+  },
   nearestStationText: {
     fontSize: 12,
     fontWeight: "500",
     color: "#6B7280",
     marginTop: 2,
   },
-  liveIndicator: { flexDirection: "row", alignItems: "center" },
+  liveIndicator: {
+    flexDirection: "row",
+    alignItems: "center"
+  },
   liveDot: {
     width: 10,
     height: 10,
@@ -783,7 +782,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#34C759",
     marginRight: 6,
   },
-  liveText: { fontSize: 13, color: "#6B7280", fontWeight: "500" },
+  liveText: {
+    fontSize: 13,
+    color: "#6B7280",
+    fontWeight: "500"
+  },
   riskCard: {
     backgroundColor: "#F9FAFB",
     marginHorizontal: 20,
@@ -806,8 +809,13 @@ const styles = StyleSheet.create({
     color: "#111827",
     marginLeft: 8,
   },
-  riskContent: { alignItems: "center" },
-  progressSection: { position: "relative", marginBottom: 24 },
+  riskContent: {
+    alignItems: "center"
+  },
+  progressSection: {
+    position: "relative",
+    marginBottom: 24
+  },
   progressCenter: {
     position: "absolute",
     top: 0,
@@ -817,7 +825,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  percentageText: { fontSize: 28, fontWeight: "800" },
+  percentageText: {
+    fontSize: 28,
+    fontWeight: "800"
+  },
   riskLabel: {
     fontSize: 14,
     color: "#6B7280",
@@ -836,7 +847,10 @@ const styles = StyleSheet.create({
     marginTop: 28,
     justifyContent: "space-between",
   },
-  quickActionItem: { alignItems: "center", flex: 1 },
+  quickActionItem: {
+    alignItems: "center",
+    flex: 1
+  },
   quickActionIcon: {
     width: 56,
     height: 56,
@@ -865,7 +879,11 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     textAlign: "center",
   },
-  newsSection: { paddingHorizontal: 20, marginTop: 28, marginBottom: 4 },
+  newsSection: {
+    paddingHorizontal: 20,
+    marginTop: 28,
+    marginBottom: 4
+  },
   newsSectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -878,7 +896,10 @@ const styles = StyleSheet.create({
     color: "#1C2526",
     marginLeft: 8,
   },
-  moreButton: { color: PRIMARY, fontWeight: "600" },
+  moreButton: {
+    color: PRIMARY,
+    fontWeight: "600"
+  },
   newsItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -889,16 +910,39 @@ const styles = StyleSheet.create({
     borderWidth: 0.5,
     borderColor: "#E5E7EB",
   },
-  newsIndicator: { width: 4, height: 36, borderRadius: 2, marginRight: 12 },
-  newsLogo: { width: 28, height: 28, marginRight: 8, borderRadius: 6 },
-  newsContent: { flex: 1 },
+  newsIndicator: {
+    width: 4,
+    height: 36,
+    borderRadius: 2,
+    marginRight: 12
+  },
+  newsLogo: {
+    width: 28,
+    height: 28,
+    marginRight: 8,
+    borderRadius: 6
+  },
+  newsContent: {
+    flex: 1
+  },
   newsTitle: {
     fontSize: 15,
     fontWeight: "600",
     color: "#1C2526",
     marginBottom: 4,
   },
-  newsMeta: { flexDirection: "row", alignItems: "center" },
-  newsSource: { fontSize: 13, color: "#8E8E93", fontWeight: "500" },
-  newsTime: { fontSize: 13, color: "#8E8E93", marginLeft: 8 },
+  newsMeta: {
+    flexDirection: "row",
+    alignItems: "center"
+  },
+  newsSource: {
+    fontSize: 13,
+    color: "#8E8E93",
+    fontWeight: "500"
+  },
+  newsTime: {
+    fontSize: 13,
+    color: "#8E8E93",
+    marginLeft: 8
+  },
 });

@@ -17,17 +17,66 @@ import * as Location from "expo-location";
 import { Accelerometer } from "expo-sensors";
 import { WebView } from "react-native-webview";
 import { Ionicons, MaterialIcons, FontAwesome } from "@expo/vector-icons";
-// persist contacts to Supabase
-import * as contactsService from "../SosCRUD/contactsService";
-import { supabase } from "../SosCRUD/supabaseClient";
 
 const FALL_THRESHOLD = 2.5;
 const SOS_COUNTDOWN = 5;
 
-// DEV: test credentials for automatic sign-in (create this user in Supabase for local testing)
-// Remove or replace for production and use a real auth flow.
-const DEV_EMAIL = "dev@local";
-const DEV_PASSWORD = "DevPass123!";
+const isValidSouthAfricanNumber = (phoneNumber) => {
+  const cleanedNumber = phoneNumber.replace(/[\s\-\(\)]/g, '');
+
+  const isValidLength = (
+    cleanedNumber.length === 10 || 
+    (cleanedNumber.startsWith('+27') && cleanedNumber.length === 12) || 
+    (cleanedNumber.startsWith('27') && cleanedNumber.length === 11) 
+  );
+
+  if (!isValidLength) {
+    return false;
+  }
+  const validAreaCodes = [
+    '10', '11', '12', '13', '14', '15', '16', '17', '18',  
+    '21', '22', '23', '24', '27', '28', '31', '32', '33', '34', '35', '36', '39',  
+    '40', '41', '42', '43', '44', '45', '46', '47', '48', '49',  
+    '51', '52', '53', '54', '56', '57', '58',  
+    '60', '61', '62', '63', '64', '65', '66', '67', '68',  
+    '71', '72', '73', '74', '76', '78', '79',  
+    '81', '82', '83', '84', '85', '86', '87'   
+  ];
+
+  let areaCode;
+  if (cleanedNumber.startsWith('+27')) {
+    areaCode = cleanedNumber.substring(3, 5);
+  } else if (cleanedNumber.startsWith('27')) {
+    areaCode = cleanedNumber.substring(2, 4);
+  } else if (cleanedNumber.startsWith('0')) {
+    areaCode = cleanedNumber.substring(1, 3);
+  } else {
+    return false;
+  }
+  if (!validAreaCodes.includes(areaCode)) {
+    return false;
+  }
+  const remainingDigits = cleanedNumber.slice(-8);
+  return /^\d{8}$/.test(remainingDigits);
+};
+
+const formatSouthAfricanNumber = (phoneNumber) => {
+  const cleanedNumber = phoneNumber.replace(/[\s\-\(\)]/g, '');
+  
+  if (!isValidSouthAfricanNumber(cleanedNumber)) {
+    return null;
+  }
+  
+  if (cleanedNumber.startsWith('0')) {
+    return '+27' + cleanedNumber.substring(1);
+  } else if (cleanedNumber.startsWith('27') && !cleanedNumber.startsWith('+27')) {
+    return '+' + cleanedNumber;
+  } else if (cleanedNumber.startsWith('+27')) {
+    return cleanedNumber;
+  }
+  
+  return null;
+};
 
 export default function AyaEmergencyApp() {
   const [location, setLocation] = useState(null);
@@ -41,59 +90,6 @@ export default function AyaEmergencyApp() {
   const webview = useRef(null);
   const progressAnim = useRef(new Animated.Value(0)).current;
 
-  // helper to ensure a session exists (DEV convenience)
-  // Updated: if sign-in fails, attempt sign-up (dev only). Returns true if session exists.
-  const ensureDevSignedIn = async () => {
-    try {
-      const { data: current } = await supabase.auth.getUser();
-      if (current?.user) return true;
-
-      // try sign-in
-      const { data: signInData, error: signInError } =
-        await supabase.auth.signInWithPassword({
-          email: DEV_EMAIL,
-          password: DEV_PASSWORD,
-        });
-
-      if (!signInError && signInData?.user) {
-        return true;
-      }
-
-      // sign-in failed — attempt sign-up (DEV convenience)
-      // NOTE: signUp may require email confirmation depending on your Supabase settings.
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp(
-        {
-          email: DEV_EMAIL,
-          password: DEV_PASSWORD,
-        }
-      );
-
-      if (signUpError) {
-        console.warn("Dev sign-up failed", signUpError);
-        return false;
-      }
-
-      // If signUp returns a user, try signing in again
-      const { data: signInAfter, error: signInAfterErr } =
-        await supabase.auth.signInWithPassword({
-          email: DEV_EMAIL,
-          password: DEV_PASSWORD,
-        });
-
-      if (signInAfterErr) {
-        console.warn("Dev sign-in after sign-up failed", signInAfterErr);
-        // If your Supabase requires email confirmation, the session won't be active yet.
-        // Return false so caller can show a helpful message.
-        return false;
-      }
-
-      return !!signInAfter?.user;
-    } catch (e) {
-      console.warn("ensureDevSignedIn error", e);
-      return false;
-    }
-  };
-
   useEffect(() => {
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -103,24 +99,6 @@ export default function AyaEmergencyApp() {
       }
       const loc = await Location.getCurrentPositionAsync({});
       setLocation(loc);
-    })();
-  }, []);
-
-  // load contacts from database on mount (with optional DEV auto sign-in)
-  useEffect(() => {
-    (async () => {
-      try {
-        // attempt to have a session (DEV)
-        await ensureDevSignedIn();
-
-        const dbContacts = await contactsService.fetchContacts();
-        if (Array.isArray(dbContacts) && dbContacts.length > 0) {
-          setContacts(dbContacts);
-        }
-      } catch (e) {
-        // non-fatal: keep local contacts
-        Alert.alert("Error", e?.message || "Failed to load contacts");
-      }
     })();
   }, []);
 
@@ -202,55 +180,33 @@ export default function AyaEmergencyApp() {
     </html>
   `;
 
-  // persist new contact to Supabase via contactsService
-  const addContact = async () => {
-    if (
-      newContact &&
-      !contacts.includes(newContact) &&
-      newContact.match(/^\+?\d{10,15}$/)
-    ) {
-      try {
-        const signed = await ensureDevSignedIn();
-        if (!signed) throw new Error("Not authenticated (create test user or enable auth)");
-
-        const updated = await contactsService.addContact(null, newContact);
-        if (Array.isArray(updated) && updated.length > 0) {
-          setContacts(updated);
-        } else {
-          setContacts((prev) => [...prev, newContact]);
-        }
+  const addContact = () => {
+    if (newContact && !contacts.includes(newContact)) {
+      if (isValidSouthAfricanNumber(newContact)) {
+        const formattedNumber = formatSouthAfricanNumber(newContact);
+        setContacts([...contacts, formattedNumber]);
         setNewContact("");
-      } catch (e) {
-        const msg = (e && e.message) ? e.message : "Failed to add contact";
-        Alert.alert("Error", msg);
+      } else {
+        Alert.alert(
+          "Invalid Number", 
+          "Please enter a valid South African phone number"
+        );
       }
-    } else if (newContact)
-      Alert.alert("Invalid Number", "Please enter a valid phone number");
+    } else if (newContact) {
+      Alert.alert(
+        "Invalid Number", 
+        "Please enter a valid South African phone number"
+      );
+    }
   };
 
-  // remove contact from Supabase via contactsService
   const removeContact = (contact) => {
     Alert.alert("Remove Contact", `Remove ${contact}?`, [
       { text: "Cancel", style: "cancel" },
       {
         text: "Remove",
         style: "destructive",
-        onPress: async () => {
-          try {
-            const signed = await ensureDevSignedIn();
-            if (!signed) throw new Error("Not authenticated (create test user or enable auth)");
-
-            const updated = await contactsService.removeContact(null, contact);
-            if (Array.isArray(updated)) {
-              setContacts(updated);
-            } else {
-              setContacts((prev) => prev.filter((c) => c !== contact));
-            }
-          } catch (e) {
-            const msg = (e && e.message) ? e.message : "Failed to remove contact";
-            Alert.alert("Error", msg);
-          }
-        },
+        onPress: () => setContacts(contacts.filter((c) => c !== contact)),
       },
     ]);
   };
@@ -298,100 +254,100 @@ export default function AyaEmergencyApp() {
   return (
     <ScrollView>
       <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-        <WebView
-          ref={webview}
-          originWhitelist={["*"]}
-          source={{ html: webviewHtml }}
-          onMessage={() => triggerSOS()}
-          javaScriptEnabled
-          style={{ flex: 0, height: 0 }}
-        />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <WebView
+        ref={webview}
+        originWhitelist={["*"]}
+        source={{ html: webviewHtml }}
+        onMessage={() => triggerSOS()}
+        javaScriptEnabled
+        style={{ flex: 0, height: 0 }}
+      />
 
-        <View style={styles.topContainer}>
-          <View style={styles.alertContainer}>
-            <Text style={styles.alertText}>{status}</Text>
-          </View>
-
-          <View style={styles.switchContainer}>
-            <Text style={styles.switchLabel}>Alerts</Text>
-            <Switch
-              value={fallDetectionEnabled}
-              onValueChange={(v) => {
-                setFallDetectionEnabled(v);
-                setStatus(v ? "⚠️ Alerts active" : "⚠️ Alerts inactive");
-              }}
-              trackColor={{ false: "#E5E5EA", true: "#34C75950" }}
-              thumbColor={fallDetectionEnabled ? "#34C759" : "#FFFFFF"}
-            />
-          </View>
+      <View style={styles.topContainer}>
+        <View style={styles.alertContainer}>
+          <Text style={styles.alertText}>{status}</Text>
         </View>
 
-        <View style={styles.sosWrapper}>
-          <Animated.View
-            style={[
-              styles.progressRing,
-              { transform: [{ scale: progressAnim }] },
-            ]}
+        <View style={styles.switchContainer}>
+          <Text style={styles.switchLabel}>Alerts</Text>
+          <Switch
+            value={fallDetectionEnabled}
+            onValueChange={(v) => {
+              setFallDetectionEnabled(v);
+              setStatus(v ? "⚠️ Alerts active" : "⚠️ Alerts inactive");
+            }}
+            trackColor={{ false: "#E5E5EA", true: "#34C75950" }}
+            thumbColor={fallDetectionEnabled ? "#34C759" : "#FFFFFF"}
+          />
+        </View>
+      </View>
+
+      <View style={styles.sosWrapper}>
+        <Animated.View
+          style={[
+            styles.progressRing,
+            { transform: [{ scale: progressAnim }] },
+          ]}
+        />
+        <TouchableOpacity
+          style={[styles.sosButton, sosCountdown > 0 && styles.sosButtonActive]}
+          onPress={startSOSCountdown}
+        >
+          {sosCountdown > 0 ? (
+            <Text style={styles.sosCountdownText}>{sosCountdown}</Text>
+          ) : (
+            <FontAwesome name="phone" size={40} color="#FFFFFF" />
+          )}
+        </TouchableOpacity>
+        <Text style={styles.sosInstruction}>Press or say "Aya"</Text>
+      </View>
+
+      <View style={styles.contactsContainer}>
+        <Text style={styles.contactsHeader}>Emergency Contacts</Text>
+        <FlatList
+          data={contacts}
+          keyExtractor={(item) => item}
+          style={styles.contactsList}
+          renderItem={({ item }) => (
+            <View style={styles.contactRow}>
+              <Text style={styles.contactNumber}>{item}</Text>
+              <TouchableOpacity
+                onPress={() => removeContact(item)}
+                style={styles.contactRemove}
+              >
+                <Ionicons name="close-circle" size={24} color="#FF3B30" />
+              </TouchableOpacity>
+            </View>
+          )}
+        />
+        <View style={styles.addContactContainer}>
+          <TextInput
+            placeholder="+27...."
+            style={styles.input}
+            value={newContact}
+            onChangeText={setNewContact}
+            keyboardType="phone-pad"
+            onSubmitEditing={addContact}
+            maxLength={15}
           />
           <TouchableOpacity
-            style={[styles.sosButton, sosCountdown > 0 && styles.sosButtonActive]}
-            onPress={startSOSCountdown}
+            onPress={addContact}
+            style={[
+              styles.addButton,
+              !newContact && { backgroundColor: "#E5E5EA" },
+            ]}
+            disabled={!newContact}
           >
-            {sosCountdown > 0 ? (
-              <Text style={styles.sosCountdownText}>{sosCountdown}</Text>
-            ) : (
-              <FontAwesome name="phone" size={40} color="#FFFFFF" />
-            )}
-          </TouchableOpacity>
-          <Text style={styles.sosInstruction}>Press or say "Aya"</Text>
-        </View>
-
-        <View style={styles.contactsContainer}>
-          <Text style={styles.contactsHeader}>Emergency Contacts</Text>
-          <FlatList
-            data={contacts}
-            keyExtractor={(item) => item}
-            style={styles.contactsList}
-            renderItem={({ item }) => (
-              <View style={styles.contactRow}>
-                <Text style={styles.contactNumber}>{item}</Text>
-                <TouchableOpacity
-                  onPress={() => removeContact(item)}
-                  style={styles.contactRemove}
-                >
-                  <Ionicons name="close-circle" size={24} color="#FF3B30" />
-                </TouchableOpacity>
-              </View>
-            )}
-          />
-          <View style={styles.addContactContainer}>
-            <TextInput
-              placeholder="+27..."
-              placeholderTextColor="#999"
-              style={styles.input}
-              value={newContact}
-              onChangeText={setNewContact}
-              keyboardType="phone-pad"
-              onSubmitEditing={addContact}
+            <Ionicons
+              name="add"
+              size={24}
+              color={newContact ? "#FFFFFF" : "#999"}
             />
-            <TouchableOpacity
-              onPress={addContact}
-              style={[
-                styles.addButton,
-                !newContact && { backgroundColor: "#E5EEA" },
-              ]}
-              disabled={!newContact}
-            >
-              <Ionicons
-                name="add"
-                size={24}
-                color={newContact ? "#FFFFFF" : "#999"}
-              />
-            </TouchableOpacity>
-          </View>
+          </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
+    </SafeAreaView>
     </ScrollView>
   );
 }
@@ -474,7 +430,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderRadius: 12,
     fontSize: 16,
-    color: "#000",
     shadowColor: "#00000010",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -488,5 +443,12 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     justifyContent: "center",
     alignItems: "center",
+  },
+  validationText: {
+    fontSize: 12,
+    color: "#666",
+    marginTop: 8,
+    textAlign: "center",
+    fontStyle: "italic",
   },
 });
