@@ -11,14 +11,12 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import LottieView from "lottie-react-native";
 
-// Utils and services
 import { getSession } from "./utils/session";
 import { initializeAllNotificationServices } from "./components/NotificationService";
 
-// Navigation
+
 import MainTabs from "./navigation/TabsNavigator";
 
-// Debugging (only runs in development mode)
 if (__DEV__) {
   import("./utils/reactotron");
   console.log("Development mode enabled - Debugging available");
@@ -28,7 +26,6 @@ if (__DEV__) {
   }
 }
 
-// Screens
 import OnboardingScreen from "./screens/OnboardingScreen";
 import LoginScreen from "./screens/LoginScreen";
 import SignupScreen from "./screens/SignupScreen";
@@ -67,12 +64,10 @@ export default function App() {
   useEffect(() => {
     console.log("App.js: App Mounted (similar to onCreate)");
 
-    // App state listener (foreground/background)
     const subscription = AppState.addEventListener("change", (nextState) => {
       console.log(`App.js: App state changed to ${nextState}`);
     });
 
-    // Initialization sequence
     const init = async () => {
       console.log("App.js: Initializing session and notifications...");
 
@@ -97,7 +92,6 @@ export default function App() {
     };
   }, []);
 
-  // Splash screen while initializing
   if (loading) {
     return (
       <View style={styles.splash}>

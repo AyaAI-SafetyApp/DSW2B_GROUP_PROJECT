@@ -1,7 +1,6 @@
 const { initializeApp } = require("firebase/app");
 const { getFirestore } = require("firebase/firestore");
 
-// Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyC5cHPPXv8nMIOTB2_I4VyrTvCAwcU4J7Q",
   authDomain: "ayaa-1b614.firebaseapp.com",
@@ -12,10 +11,8 @@ const firebaseConfig = {
   measurementId: "G-Q7NK1PVYLN",
 };
 
-// Initialize Firebase App
 const app = initializeApp(firebaseConfig);
 
-// Initialize Firestore
 const db = getFirestore(app);
 
 module.exports = { db };

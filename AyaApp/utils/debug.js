@@ -1,8 +1,8 @@
-// Debug utilities for React Native app
+
 export const debugLog = (message, data = null) => {
   if (__DEV__) {
     console.log(`🐛 DEBUG: ${message}`, data ? data : '');
-    // Also log to Reactotron if available
+
     if (console.tron) {
       console.tron.log(message, data);
     }
@@ -12,7 +12,7 @@ export const debugLog = (message, data = null) => {
 export const debugError = (message, error = null) => {
   if (__DEV__) {
     console.error(`ERROR: ${message}`, error ? error : '');
-    // Also log to Reactotron if available
+
     if (console.tron) {
       console.tron.error(message, error);
     }
@@ -43,7 +43,7 @@ export const debugNavigation = (screen, params = null) => {
   }
 };
 
-// Performance debugging
+
 export const debugPerformance = (label, fn) => {
   if (__DEV__) {
     console.time(label);
@@ -54,7 +54,6 @@ export const debugPerformance = (label, fn) => {
   return fn();
 };
 
-// Storage debugging
 export const debugStorage = (operation, key, value = null) => {
   if (__DEV__) {
     console.log(`STORAGE ${operation.toUpperCase()}: ${key}`, value ? value : '');

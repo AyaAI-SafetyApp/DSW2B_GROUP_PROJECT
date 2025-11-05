@@ -1,8 +1,7 @@
-// Subscription and Feature Access Control Utility
+
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabaseClient';
 
-// Subscription Tiers
 export const SUBSCRIPTION_TIERS = {
   FREE: 'free',
   PERSONAL: 'personal',
@@ -10,9 +9,8 @@ export const SUBSCRIPTION_TIERS = {
   PERSONAL_PRO: 'personal_pro',
 };
 
-// Feature Access Levels
 export const FEATURES = {
-  // Free tier features (always available)
+
   EMERGENCY_SOS: 'emergency_sos',
   BASIC_LOCATION: 'basic_location',
   THREE_CONTACTS: 'three_contacts',
@@ -20,8 +18,7 @@ export const FEATURES = {
   SAFETY_TIPS: 'safety_tips',
   GBV_NEWS: 'gbv_news',
   LEARNING_GAMES: 'learning_games',
-  
-  // Personal tier features (R49.99/month)
+
   REAL_TIME_ALERTS: 'real_time_alerts',
   OFFLINE_SUPPORT: 'offline_support',
   AI_SAFE_ROUTES: 'ai_safe_routes',
@@ -29,15 +26,13 @@ export const FEATURES = {
   ADVANCED_LOCATION: 'advanced_location',
   UNLIMITED_CONTACTS: 'unlimited_contacts',
   FALL_DETECTION: 'fall_detection',
-  
-  // Family tier features (R67.99/month)
+
   FAMILY_TRACKING: 'family_tracking',
   SHARED_ALERTS: 'shared_alerts',
   GROUP_SAFETY_ZONES: 'group_safety_zones',
   CHILD_SAFETY: 'child_safety',
   FAMILY_SUPPORT: 'family_support',
-  
-  // Personal Pro tier features (R99.99/month)
+
   AI_COMPANION: 'ai_companion',
   ADVANCED_ANALYTICS: 'advanced_analytics',
   EXTENDED_MAPS: 'extended_maps',
@@ -46,9 +41,8 @@ export const FEATURES = {
   HEALTH_MONITORING: 'health_monitoring',
 };
 
-// Feature to Tier Mapping
 const FEATURE_ACCESS = {
-  // Free tier
+
   [FEATURES.EMERGENCY_SOS]: [SUBSCRIPTION_TIERS.FREE, SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
   [FEATURES.BASIC_LOCATION]: [SUBSCRIPTION_TIERS.FREE, SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
   [FEATURES.THREE_CONTACTS]: [SUBSCRIPTION_TIERS.FREE, SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
@@ -56,8 +50,7 @@ const FEATURE_ACCESS = {
   [FEATURES.SAFETY_TIPS]: [SUBSCRIPTION_TIERS.FREE, SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
   [FEATURES.GBV_NEWS]: [SUBSCRIPTION_TIERS.FREE, SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
   [FEATURES.LEARNING_GAMES]: [SUBSCRIPTION_TIERS.FREE, SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
-  
-  // Personal tier - NOW UNLOCKS EVERYTHING!
+
   [FEATURES.REAL_TIME_ALERTS]: [SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
   [FEATURES.OFFLINE_SUPPORT]: [SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
   [FEATURES.AI_SAFE_ROUTES]: [SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
@@ -65,15 +58,13 @@ const FEATURE_ACCESS = {
   [FEATURES.ADVANCED_LOCATION]: [SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
   [FEATURES.UNLIMITED_CONTACTS]: [SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
   [FEATURES.FALL_DETECTION]: [SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
-  
-  // Family tier - Also gets everything
+
   [FEATURES.FAMILY_TRACKING]: [SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
   [FEATURES.SHARED_ALERTS]: [SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
   [FEATURES.GROUP_SAFETY_ZONES]: [SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
   [FEATURES.CHILD_SAFETY]: [SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
   [FEATURES.FAMILY_SUPPORT]: [SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
-  
-  // Personal Pro tier - Also gets everything (all tiers now have full access)
+
   [FEATURES.AI_COMPANION]: [SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
   [FEATURES.ADVANCED_ANALYTICS]: [SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
   [FEATURES.EXTENDED_MAPS]: [SUBSCRIPTION_TIERS.PERSONAL, SUBSCRIPTION_TIERS.FAMILY, SUBSCRIPTION_TIERS.PERSONAL_PRO],
@@ -83,12 +74,12 @@ const FEATURE_ACCESS = {
 };
 
 /**
- * Get user's current subscription tier
- * @returns {Promise<string>} Current subscription tier
+
+ * @returns {Promise<string>}
  */
 export const getUserSubscriptionTier = async () => {
   try {
-    // Get current user session first
+
     const sessionData = await AsyncStorage.getItem('@user_session');
     if (!sessionData) {
       console.log('❌ No session found, returning FREE tier');
@@ -98,16 +89,15 @@ export const getUserSubscriptionTier = async () => {
     const { email } = JSON.parse(sessionData);
     console.log('Checking subscription for user:', email);
 
-    // Use user-specific cache key
     const userCacheKey = `@user_subscription_${email}`;
     const cachedSub = await AsyncStorage.getItem(userCacheKey);
     
     if (cachedSub) {
       const { tier, expiresAt, userEmail } = JSON.parse(cachedSub);
       
-      // Verify cache is for the current user
+
       if (userEmail === email) {
-        // Check if subscription is still valid
+
         if (!expiresAt || new Date(expiresAt) > new Date()) {
           console.log('Using cached subscription for', email, ':', { tier, expiresAt });
           return tier;
@@ -140,11 +130,10 @@ export const getUserSubscriptionTier = async () => {
 
     console.log('✅ Subscription found:', data);
 
-    // Cache the subscription with user-specific key (reuse existing userCacheKey)
     await AsyncStorage.setItem(userCacheKey, JSON.stringify({
       tier: data.subscription_tier,
       expiresAt: data.expires_at,
-      userEmail: email, // Store email to verify cache belongs to current user
+      userEmail: email, 
     }));
 
     return data.subscription_tier || SUBSCRIPTION_TIERS.FREE;
@@ -155,9 +144,9 @@ export const getUserSubscriptionTier = async () => {
 };
 
 /**
- * Check if user has access to a specific feature
- * @param {string} feature - Feature to check
- * @returns {Promise<boolean>} True if user has access
+
+ * @param {string} feature
+ * @returns {Promise<boolean>} 
  */
 export const hasFeatureAccess = async (feature) => {
   try {
@@ -172,7 +161,7 @@ export const hasFeatureAccess = async (feature) => {
       hasAccess
     });
     
-    // Show all available features for this tier (only once per tier)
+
     if (!hasFeatureAccess._lastTierLogged || hasFeatureAccess._lastTierLogged !== userTier) {
       getAvailableFeaturesForTier(userTier);
       hasFeatureAccess._lastTierLogged = userTier;
@@ -186,9 +175,9 @@ export const hasFeatureAccess = async (feature) => {
 };
 
 /**
- * Show upgrade prompt for locked features
- * @param {object} navigation - Navigation object
- * @param {string} featureName - Name of the locked feature
+
+ * @param {object} navigation
+ * @param {string} featureName 
  */
 export const showUpgradePrompt = (navigation, featureName = 'this feature') => {
   const { Alert } = require('react-native');
@@ -214,9 +203,9 @@ export const showUpgradePrompt = (navigation, featureName = 'this feature') => {
 };
 
 /**
- * Update user's subscription tier
- * @param {string} tier - New subscription tier
- * @param {string} expiresAt - Expiration date
+
+ * @param {string} tier
+ * @param {string} expiresAt
  */
 export const updateUserSubscription = async (tier, expiresAt = null) => {
   try {
@@ -229,7 +218,7 @@ export const updateUserSubscription = async (tier, expiresAt = null) => {
 
     console.log(`💾 Updating subscription for ${email}:`, { tier, expiresAt });
 
-    // Update in Supabase
+
     const { error } = await supabase
       .from('user_subscriptions')
       .upsert({
@@ -245,7 +234,6 @@ export const updateUserSubscription = async (tier, expiresAt = null) => {
       throw error;
     }
 
-    // Update cache with user-specific key
     const userCacheKey = `@user_subscription_${email}`;
     await AsyncStorage.setItem(userCacheKey, JSON.stringify({
       tier,
@@ -261,12 +249,9 @@ export const updateUserSubscription = async (tier, expiresAt = null) => {
   }
 };
 
-/**
- * Clear subscription cache (forces refresh on next check)
- */
 export const clearSubscriptionCache = async () => {
   try {
-    // Get current user to clear their specific cache
+
     const sessionData = await AsyncStorage.getItem('@user_session');
     if (sessionData) {
       const { email } = JSON.parse(sessionData);
@@ -274,7 +259,7 @@ export const clearSubscriptionCache = async () => {
       await AsyncStorage.removeItem(userCacheKey);
       console.log(`🗑️ Subscription cache cleared for user: ${email}`);
     } else {
-      // Fallback: clear old global cache if it exists
+
       await AsyncStorage.removeItem('@user_subscription');
       console.log('🗑️ Global subscription cache cleared');
     }
@@ -283,9 +268,6 @@ export const clearSubscriptionCache = async () => {
   }
 };
 
-/**
- * Clear all subscription caches (for logout)
- */
 export const clearAllSubscriptionCaches = async () => {
   try {
     const keys = await AsyncStorage.getAllKeys();
@@ -302,9 +284,6 @@ export const clearAllSubscriptionCaches = async () => {
   }
 };
 
-/**
- * Debug helper: Get all features available for a tier
- */
 export const getAvailableFeaturesForTier = (tier) => {
   const features = [];
   for (const [featureKey, allowedTiers] of Object.entries(FEATURE_ACCESS)) {
@@ -316,9 +295,6 @@ export const getAvailableFeaturesForTier = (tier) => {
   return features;
 };
 
-/**
- * 🧪 DEBUG: Check current cache state (for testing)
- */
 export const debugCacheState = async () => {
   try {
     const sessionData = await AsyncStorage.getItem('@user_session');
@@ -349,7 +325,7 @@ export const debugCacheState = async () => {
       console.log('📭 No cache found for this user');
     }
     
-    // Check for old global cache
+
     const oldCache = await AsyncStorage.getItem('@user_subscription');
     if (oldCache) {
       console.log('⚠️  Old global cache still exists:', JSON.parse(oldCache));
@@ -362,9 +338,9 @@ export const debugCacheState = async () => {
 };
 
 /**
- * Get feature description for upgrade prompts
- * @param {string} feature - Feature key
- * @returns {object} Feature info
+
+ * @param {string} feature
+ * @returns {object}
  */
 export const getFeatureInfo = (feature) => {
   const featureInfo = {

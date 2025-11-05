@@ -15,7 +15,7 @@ const teamMembers = [
     id: "1",
     firstName: "Emmanuel",
     lastName: "Starkio",
-    commits: 64,
+    contribution: Math.round((74 / 217) * 100),
     Role: "Group Leader",
     attendence: 11,
     commitment: "100%",
@@ -29,7 +29,7 @@ const teamMembers = [
     firstName: "Lethabo Scofield",
     lastName: "Makonto",
     Role: "Project Leader",
-    commits: 68,
+    contribution: Math.round((72 / 217) * 100),
     attendence: 10,
     features: ["Call AI Agent"],
     icon: <MaterialIcons name="person-pin" size={60} color="#7c3aed" />,
@@ -39,7 +39,7 @@ const teamMembers = [
     firstName: "Masego",
     lastName: "Motsamai",
     Role: "Business Analyst",
-    commits: 2,
+    contribution: Math.round((2 / 217) * 100),
     attendence: 8,
     commitment: "50%",
     features: ["Real-Time Communication"],
@@ -50,7 +50,7 @@ const teamMembers = [
     firstName: "Zamokuhle",
     lastName: "Mazibuko",
     Role: "Database Administrator",
-    commits: 24,
+    contribution: Math.round((34 / 217) * 100),
     attendence: 11,
     commitment: "100%",
     features: ["Newsfeed/Aya Social Media"],
@@ -61,7 +61,7 @@ const teamMembers = [
     firstName: "Mbongeni",
     lastName: "Qwabe",
     Role: "Co-Database Administrator",
-    commits: 17,
+    contribution:  Math.round((17 / 217) * 100),
     attendence: 8,
     commitment: "70%",
     features: ["Computer Vision"],
@@ -72,7 +72,7 @@ const teamMembers = [
     firstName: "Natalie",
     lastName: "Mashele",
     Role: "UI/UX Designer",
-    commits: 10,
+    contribution:  Math.round((17 / 217) * 100),
     attendence: 11,
     commitment: "100%",
     features: ["Overall Frontend Design"],
@@ -83,7 +83,7 @@ const teamMembers = [
     firstName: "Ntswaki",
     lastName: "Mphelo",
     Role: "UI/UX Designer & Meeting Scribe",
-    commits: 10,
+    contribution:  Math.round((12 / 217) * 100),
     attendence: 11,
     commitment: "100%",
     features: ["Integrating Games"],
@@ -94,7 +94,7 @@ const teamMembers = [
     firstName: "Nkosiyethu",
     lastName: "Ngubane",
     Role: "Security Specialist",
-    commits: 20,
+    contribution:  Math.round((20 / 217) * 100),
     attendence: 11,
     commitment: "100%",
     features: ["Fall detection"],
@@ -126,9 +126,9 @@ export default function AboutUsScreen({ navigation }) {
 
         <View style={styles.infoContainer}>
           <Text style={styles.name}>
-            {item.firstName} {item.lastName}
+            {item.firstName} {item.lastName}  
           </Text>
-          <Text style={styles.commits}>{item.commits} commits</Text>
+         
 
           <View style={styles.features}>
             {item.features.slice(0, 3).map((f, i) => (
@@ -144,7 +144,6 @@ export default function AboutUsScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#FF1493" />
@@ -160,8 +159,6 @@ export default function AboutUsScreen({ navigation }) {
         renderItem={renderMemberCard}
         showsVerticalScrollIndicator={false}
       />
-
-      {/* Custom Modal */}
       <Modal
         transparent
         animationType="fade"
@@ -179,7 +176,7 @@ export default function AboutUsScreen({ navigation }) {
                 <Text style={styles.modalRole}>{selectedMember.Role}</Text>
 
                 <Text style={styles.modalText}>
-                  Commits: {selectedMember.commits}
+                  contribution: {selectedMember.contribution}%
                 </Text>
                 <Text style={styles.modalText}>
                   Attendance: {selectedMember.attendence}
@@ -207,7 +204,7 @@ export default function AboutUsScreen({ navigation }) {
   );
 }
 
-// Styles
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -261,11 +258,10 @@ const styles = StyleSheet.create({
   Role: { fontSize: 13, textAlign: "center", color: "#6b7280" },
   infoContainer: { flex: 1 },
   name: { fontSize: 18, fontWeight: "600", color: "#1e293b" },
-  commits: { fontSize: 14, fontWeight: "500", color: "#2563eb", marginVertical: 6 },
+  contribution: { fontSize: 14, fontWeight: "500", color: "#2563eb", marginVertical: 6 },
   features: { marginTop: 4 },
   featureItem: { color: "#374151", fontSize: 14, marginBottom: 2 },
 
-  // Modal Styles
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",

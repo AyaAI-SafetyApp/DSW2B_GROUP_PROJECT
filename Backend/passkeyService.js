@@ -1,14 +1,10 @@
 const { createClient } = require("@supabase/supabase-js");
 
-// Supabase configuration
 const SUPABASE_URL = "https://gfrnxqhivmgfgdersflu.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdmcm54cWhpdm1nZmdkZXJzZmx1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjEwNDY2NjYsImV4cCI6MjA3NjYyMjY2Nn0._6i4zlwcGDfyYMH5vJQKP_n4LTboPNGegh8f8A8_GIM";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-/**
- * Generate a unique passkey credential
- */
 const generatePasskey = (userId) => {
   const timestamp = Date.now();
   const randomString = Math.random().toString(36).substring(2, 15);
@@ -20,9 +16,6 @@ const generatePasskey = (userId) => {
   };
 };
 
-/**
- * Store passkey in Supabase database
- */
 const storePasskey = async (userId, credentialId, publicKey, provider = "biometric") => {
   try {
     const passkeyData = {
@@ -33,7 +26,6 @@ const storePasskey = async (userId, credentialId, publicKey, provider = "biometr
       created_at: new Date().toISOString(),
     };
 
-    // Insert passkey into Supabase
     const { data, error } = await supabase
       .from("passkeys")
       .insert([passkeyData])
@@ -51,9 +43,6 @@ const storePasskey = async (userId, credentialId, publicKey, provider = "biometr
   }
 };
 
-/**
- * Retrieve passkey from Supabase
- */
 const getPasskey = async (userId, credentialId) => {
   try {
     const { data, error } = await supabase
@@ -75,9 +64,6 @@ const getPasskey = async (userId, credentialId) => {
   }
 };
 
-/**
- * Get all passkeys for a user
- */
 const getUserPasskeys = async (userId) => {
   try {
     const { data, error } = await supabase
@@ -98,9 +84,6 @@ const getUserPasskeys = async (userId) => {
   }
 };
 
-/**
- * Verify passkey exists for login
- */
 const verifyPasskey = async (userId, credentialId) => {
   try {
     const passkey = await getPasskey(userId, credentialId);

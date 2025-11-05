@@ -13,11 +13,9 @@ export default function Civilian({ x, y }) {
   const scale = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    // Pick a random image when civilian spawns
+    
     const randomIndex = Math.floor(Math.random() * victimImages.length);
     setImageSource(victimImages[randomIndex]);
-
-    // Animate bounce/pulse effect continuously
     Animated.loop(
       Animated.sequence([
         Animated.timing(scale, {

@@ -8,33 +8,31 @@ if (__DEV__) {
     reactotron = Reactotron
       .configure({
         name: 'Aya App',
-        host: '127.0.0.1', // Change to your IP if using physical device
+        host: '127.0.0.1', 
         port: 9090,
       })
       .useReactNative({
-        asyncStorage: false, // there are more options to the async storage.
-        networking: { // optionally, you can turn it off with false.
+        asyncStorage: false,
+        networking: { 
           ignoreUrls: /symbolicate/
         },
-        editor: false, // there are more options to editor
-        errors: { veto: (stackFrame) => false }, // or turn it off with false
-        overlay: false, // just turning off overlay
+        editor: false,
+        errors: { veto: (stackFrame) => false },
+        overlay: false,
       })
       .connect();
 
-    // Let's clear Reactotron on every time we load the app
     reactotron.clear();
     
     debugLog('Reactotron connected successfully');
-    
-    // Make Reactotron available globally for debugging
+
     console.tron = reactotron;
     
   } catch (error) {
     console.warn('Failed to initialize Reactotron:', error);
   }
 } else {
-  // Create a mock for production
+
   console.tron = {
     log: () => {},
     warn: () => {},

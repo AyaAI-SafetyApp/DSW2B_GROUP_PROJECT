@@ -14,9 +14,9 @@ if (SECRET_KEY === DEFAULT_SECRET) {
 }
 
 /**
- * Encrypt a value (string, number, object). Returns base64 ciphertext string.
- * @param {any} data
- * @returns {string|null}
+
+  @param {any} data
+  @returns {string|null}
  */
 export const encryptData = (data) => {
   try {
@@ -30,8 +30,7 @@ export const encryptData = (data) => {
 };
 
 /**
- * Decrypt ciphertext produced by encryptData.
- * Returns original value (object if JSON was stored) or string, or null on failure.
+
  * @param {string} ciphertext
  * @returns {any|null}
  */
@@ -53,8 +52,7 @@ export const decryptData = (ciphertext) => {
 };
 
 /**
- * Compute SHA-256 hash of plaintext (hex). Useful for searchable equality checks without storing plaintext.
- * Example: store { value_encrypted, value_hash } then query by hash.
+
  * @param {string} value
  * @returns {string}
  */

@@ -8,8 +8,6 @@ const cron = require('node-cron');
 require('dotenv').config();
 
 const app = express();
-
-// Initialize Supabase
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_KEY
@@ -17,19 +15,16 @@ const supabase = createClient(
 
 const expo = new Expo();
 
-// Security middleware
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
 
-// Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100
 });
 app.use(limiter);
 
-// ==================== BACKGROUND SERVICES ====================
 class BackgroundService {
   constructor() {
     this.init();
@@ -37,25 +32,17 @@ class BackgroundService {
 
   init() {
     console.log('🔄 Initializing background services...');
-    
-    // Check for new alerts every 5 minutes
     cron.schedule('*/5 * * * *', () => {
       this.checkForNewAlerts();
     });
-    
-    // Clean up old alerts every hour
+
     cron.schedule('0 * * * *', () => {
       this.cleanupOldAlerts();
     });
 
-    // Send time-based tips at scheduled hours (00, 06, 12, 18)
      cron.schedule('0 0,6,12,18 * * *', () => {
      this.sendScheduledTimeTips();
     });
-  // Send time-based tips at 21:05 for testing
-    /*cron.schedule('36 21 * * *', () => {
-      this.sendScheduledTimeTips();
-    });*/
 
     
     console.log('✅ Background services initialized');
@@ -66,14 +53,12 @@ class BackgroundService {
       console.log('🔍 Checking for new alerts...');
       const now = new Date().toISOString();
 
-      // Deactivate expired safety alerts
       await supabase
         .from('safety_alerts')
         .update({ is_active: false })
         .eq('is_active', true)
         .lt('end_time', now);
 
-      // Deactivate expired location warnings
       await supabase
         .from('location_warnings')
         .update({ is_active: false })
@@ -178,12 +163,8 @@ class BackgroundService {
   }
 }
 
-// Initialize background services
 const backgroundService = new BackgroundService();
 
-// ==================== API ROUTES ====================
-
-// Health check
 app.get('/health', async (req, res) => {
   try {
     res.status(200).json({ 
@@ -200,7 +181,6 @@ app.get('/health', async (req, res) => {
   }
 });
 
-// Save push token
 app.post('/save-push-token', async (req, res) => {
   try {
     const { token, platform, userId } = req.body;
@@ -240,7 +220,6 @@ app.post('/save-push-token', async (req, res) => {
   }
 });
 
-// Get active safety alerts
 app.get('/safety-alerts', async (req, res) => {
   try {
     const { data: alerts, error } = await supabase
@@ -265,7 +244,6 @@ app.get('/safety-alerts', async (req, res) => {
   }
 });
 
-// Create safety alert
 app.post('/safety-alerts', async (req, res) => {
   try {
     const alertData = {
@@ -296,7 +274,6 @@ app.post('/safety-alerts', async (req, res) => {
   }
 });
 
-// Get crime alerts
 app.get('/crime-alerts', async (req, res) => {
   try {
     const { data: crimes, error } = await supabase
@@ -321,7 +298,6 @@ app.get('/crime-alerts', async (req, res) => {
   }
 });
 
-// Create crime alert
 app.post('/crime-alerts', async (req, res) => {
   try {
     const crimeData = {
@@ -354,7 +330,6 @@ app.post('/crime-alerts', async (req, res) => {
   }
 });
 
-// Get location warnings
 app.get('/location-warnings', async (req, res) => {
   try {
     const { data: warnings, error } = await supabase
@@ -379,7 +354,6 @@ app.get('/location-warnings', async (req, res) => {
   }
 });
 
-// Create location warning
 app.post('/location-warnings', async (req, res) => {
   try {
     const warningData = {
@@ -407,8 +381,6 @@ app.post('/location-warnings', async (req, res) => {
     });
   }
 });
-
-// Get time tips
 app.get('/time-tips', async (req, res) => {
   try {
     const { data: tips, error } = await supabase
@@ -432,7 +404,6 @@ app.get('/time-tips', async (req, res) => {
   }
 });
 
-// Create time tip
 app.post('/time-tips', async (req, res) => {
   try {
     const tipData = {
@@ -461,7 +432,6 @@ app.post('/time-tips', async (req, res) => {
   }
 });
 
-// Trigger time tip manually
 app.post('/trigger-time-tip', async (req, res) => {
   try {
     await backgroundService.sendScheduledTimeTips();
@@ -478,7 +448,6 @@ app.post('/trigger-time-tip', async (req, res) => {
   }
 });
 
-// ==================== NOTIFICATION FUNCTIONS ====================
 
 async function sendSafetyAlertNotifications(alert) {
   try {

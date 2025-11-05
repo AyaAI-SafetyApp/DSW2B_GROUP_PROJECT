@@ -292,7 +292,7 @@ export default function AyaEmergencyApp() {
             style={[styles.progressRing, { transform: [{ scale: progressAnim }] }]}
           />
         </View>
-      </View>
+     
 
         <View style={styles.contactsContainer}>
           <Text style={styles.contactsHeader}>Emergency Contacts</Text>
@@ -316,7 +316,7 @@ export default function AyaEmergencyApp() {
               !newContact && { backgroundColor: "#E5E5EA" },
             ]}
             disabled={!newContact}
-          >
+          />
             <Ionicons
               name="add"
               size={24}
@@ -330,8 +330,7 @@ export default function AyaEmergencyApp() {
               <Ionicons name="add" size={24} color={newContact ? "#FFFFFF" : "#999"} />
             </TouchableOpacity>
           </View>
-        </View>
-      </View>
+         
     </SafeAreaView>
     </ScrollView>
   );

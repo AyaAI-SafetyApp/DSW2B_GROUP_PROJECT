@@ -6,7 +6,7 @@ export default function AICompanion() {
     "Welcome Hero! Watch out for hazards!"
   );
   const [fadeAnim] = useState(new Animated.Value(0));
-  const [color, setColor] = useState("#4caf50"); // default green
+  const [color, setColor] = useState("#4caf50");
 
   useEffect(() => {
     const messages = [
@@ -21,22 +21,21 @@ export default function AICompanion() {
       const randomMsg = messages[Math.floor(Math.random() * messages.length)];
       setMessage(randomMsg.text);
 
-      // Set color based on type
+      
       switch (randomMsg.type) {
         case "urgent":
-          setColor("#ff9800"); // orange
+          setColor("#ff9800");
           break;
         case "danger":
-          setColor("#f44336"); // red
+          setColor("#f44336");
           break;
         case "praise":
-          setColor("#4caf50"); // green
+          setColor("#4caf50"); 
           break;
         default:
-          setColor("#2196f3"); // blue
+          setColor("#2196f3");
       }
 
-      // Animate fade-in
       fadeAnim.setValue(0);
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -69,18 +68,18 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 2,
     maxWidth: 250,
-    alignItems: "center", // centers text horizontally
+    alignItems: "center", 
   },
   text: {
     fontSize: 16,
     fontWeight: "bold",
-    textAlign: "center", // ensures multi-line text is centered
+    textAlign: "center",
   },
   triangle: {
     position: "absolute",
     bottom: -10,
-    left: "50%", // center horizontally
-    marginLeft: -10, // half of triangle width to truly center
+    left: "50%",
+    marginLeft: -10,
     width: 0,
     height: 0,
     borderLeftWidth: 10,

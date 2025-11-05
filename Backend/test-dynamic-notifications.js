@@ -1,6 +1,5 @@
 const axios = require("axios");
 
-// Your Railway backend URL
 const RAILWAY_BASE_URL = "https://ayabackgroundservices-production.up.railway.app";
 
 async function getStoredTokens() {
@@ -97,8 +96,7 @@ async function testAllStoredTokens(testType = "manual") {
     console.log(`Platform: ${tokenData.platform}`);
     
     await sendTestNotification(tokenData.token, tokenData.userId, testType);
-    
-    // Wait between notifications to avoid rate limiting
+
     if (i < tokens.length - 1) {
       console.log("⏳ Waiting 2 seconds before next notification...");
       await new Promise(resolve => setTimeout(resolve, 2000));
@@ -117,7 +115,7 @@ async function interactiveTest() {
     return;
   }
 
-  // Test different notification types
+
   const testTypes = ["manual", "subscription", "emergency", "location"];
   
   for (const testType of testTypes) {
@@ -128,13 +126,11 @@ async function interactiveTest() {
   }
 }
 
-// Main execution
 (async () => {
   try {
     console.log("🚀 Starting Manual Notification Test");
     console.log("====================================");
-    
-    // First, check if backend is accessible
+
     console.log("🏥 Testing backend connection...");
     try {
       await axios.get(`${RAILWAY_BASE_URL}/`, { timeout: 5000 });

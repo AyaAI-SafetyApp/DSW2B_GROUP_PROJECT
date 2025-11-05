@@ -12,26 +12,22 @@ const twilio = require("twilio");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const multer = require("multer");
 
-// Load environment variables
+
 dotenv.config();
 
 const upload = multer({ dest: "uploads/" });
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Gemini API setup for emergency chat
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
-// Twilio setup for emergency alerts
 const accountSid = process.env.TWILIO_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
 const client = twilio(accountSid, authToken);
 
-// Initialize Google Generative AI for therapist chat
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 const therapistModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-// Emergency alert system
 const alerts = [];
 const TRUSTED_NUMBERS = ["+27712233272"];
 
@@ -49,13 +45,11 @@ function getUser(userId) {
   );
 }
 
-// Middleware
-app.use(cors({ origin: '*' })); // allow all origins for testing
+app.use(cors({ origin: '*' }));
 app.use(express.json());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 
-// Emergency alert functions
 async function sendWhatsApp(userId, messageBody, contacts = TRUSTED_NUMBERS) {
   try {
     const sendMessages = contacts.map((number) =>
@@ -135,7 +129,7 @@ Last known location: ${locationUrl}
 Please check on them immediately!`;
 }
 
-// Load SAPS data
+
 let sapsData = [];
 try {
     sapsData = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'saps_cleaned.json'), 'utf8'));
@@ -145,7 +139,6 @@ try {
     sapsData = [];
 }
 
-// Aya Emergency system prompt
 const EMERGENCY_SYSTEM_PROMPT = `
 You are Aya, an advanced Emergency Responder chatbot developed by The Sabios team.
 Your role is to provide immediate, actionable help to users during any emergency.
@@ -168,7 +161,6 @@ Guidelines:
 - Always prioritize saving life, reducing harm, or stabilizing the situation until professional help arrives.
 `;
 
-// Therapist System Prompt
 const THERAPIST_SYSTEM_PROMPT = `
 You are Aya Therapist, a concise and empathetic virtual therapist for South African users. 
 Respond in short sentences, listening attentively. Provide guidance, emotional support, and safety advice.
@@ -177,7 +169,6 @@ If user is in danger, advise contacting local emergency services:
 Always be calm, supportive, and concise.
 `;
 
-// Calculate GPS distance
 function calculateDistance(lat1, lon1, lat2, lon2) {
     const R = 6371;
     const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -191,19 +182,15 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
     return Math.round(distance * 100) / 100; 
 }
 
-// PayPal sandbox credentials
 const PAYPAL_CLIENT = "AdbWBuyZ4lFfgLA__ilCjdoGOcPOVn7UO6CvSfeXBnHO1aawqyB5YCYp0O1qJY-B5QqyksODsOi5QvFG";
 const PAYPAL_SECRET = "EI6U2x4gRe5Xj7EeX8g-TQX1eAAvTBvA-7n_PhjuB7U1_dLwRG9dPTLodWk9KPp4FKPE4Gut_5rCqnIs";
 const PAYPAL_BASE = "https://api-m.sandbox.paypal.com";
 
-// Supabase client setup
 const SUPABASE_URL = "https://gfrnxqhivmgfgdersflu.supabase.co";
-// const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdmcm54cWhpdm1nZmdkZXJzZmx1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MTA0NjY2NiwiZXhwIjoyMDc2NjIyNjY2fQ.9jPBDKLm4aw5sa1PZalKxSQo4JyDQydnv6mWZqofjto";
 const SUPABASE_KEY= "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdmcm54cWhpdm1nZmdkZXJzZmx1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MTA0NjY2NiwiZXhwIjoyMDc2NjIyNjY2fQ.9jPBDKLm4aw5sa1PZalKxSQo4JyDQydnv6mWZqofjto";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 
-// Supabase Auth client setup (for user management)
 const AUTH_SUPABASE_URL = "https://gfrnxqhivmgfgdersflu.supabase.co";
 const AUTH_SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdmcm54cWhpdm1nZmdkZXJzZmx1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MTA0NjY2NiwiZXhwIjoyMDc2NjIyNjY2fQ.4rYkTs5G3OLbqBbCxSzZ7pqTHe-AxsPvMqzIUw_rTm0";
 const authSupabase = createClient(AUTH_SUPABASE_URL, AUTH_SUPABASE_SERVICE_KEY, {
@@ -213,7 +200,6 @@ const authSupabase = createClient(AUTH_SUPABASE_URL, AUTH_SUPABASE_SERVICE_KEY, 
   }
 });
 
-// Generate PayPal access token
 async function generateAccessToken() {
     const response = await axios({
         url: `${PAYPAL_BASE}/v1/oauth2/token`,
@@ -225,11 +211,6 @@ async function generateAccessToken() {
     return response.data.access_token;
 }
 
-// Passkey service functions are now imported from passkeyService.js
-
-// Routes
-
-// Get safety status
 app.get('/api/safety-status/:area', (req, res) => {
     try {
         const area = req.params.area || 'Johannesburg';
@@ -269,7 +250,6 @@ app.get('/api/safety-status/:area', (req, res) => {
     }
 });
 
-// Get GPS safety
 app.get('/api/safety-status/location/:latitude/:longitude', (req, res) => {
     try {
         const userLat = parseFloat(req.params.latitude);
@@ -343,7 +323,6 @@ app.get('/api/safety-status/location/:latitude/:longitude', (req, res) => {
     }
 });
 
-// Get news feed
 app.get('/api/news-feed', (req, res) => {
     try {
         const news = [
@@ -395,7 +374,6 @@ app.get('/api/news-feed', (req, res) => {
     }
 });
 
-// Get emergency contacts
 app.get('/api/emergency-contacts', (req, res) => {
     try {
         res.json({
@@ -412,7 +390,6 @@ app.get('/api/emergency-contacts', (req, res) => {
     }
 });
 
-// Get available areas
 app.get('/api/areas', (req, res) => {
     try {
         const areas = sapsData.map(item => ({
@@ -429,7 +406,6 @@ app.get('/api/areas', (req, res) => {
     }
 });
 
-// Health check endpoint
 app.get('/api/health', (req, res) => {
     res.json({ 
         status: 'OK', 
@@ -439,14 +415,10 @@ app.get('/api/health', (req, res) => {
     });
 });
 
-// Testing endpoint
 app.get("/ping", (req, res) => {
     res.send("pong 🏓");
 });
 
-// === EMERGENCY CHAT ENDPOINTS ===
-
-// Emergency chat endpoint
 app.post("/chat", async (req, res) => {
     try {
         const { message, location, user_profile } = req.body;
@@ -458,10 +430,7 @@ app.post("/chat", async (req, res) => {
             });
         }
 
-        // Combine user message with optional context
         const userContext = JSON.stringify({ message, location, user_profile });
-
-        // Prepare AI request
         const requestBody = {
             contents: [
                 {
@@ -471,7 +440,6 @@ app.post("/chat", async (req, res) => {
             ],
         };
 
-        // Call Gemini API
          const response = await axios.post(
          "https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent",
          requestBody,
@@ -482,12 +450,10 @@ app.post("/chat", async (req, res) => {
            },
          }
        );
-        // Extract AI response text
         let rawText = response.data.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
         console.log("Raw AI response:", rawText);
 
-        // Clean formatting if AI wraps JSON in ```json blocks
         rawText = rawText
             .replace(/```json/g, "")
             .replace(/```/g, "")
@@ -497,13 +463,12 @@ app.post("/chat", async (req, res) => {
 
         let parsed;
         try {
-            // Parse JSON from AI response
+
             parsed = JSON.parse(rawText);
 
-            // Format instructions as bullet-style with bolded step titles
             if (parsed.instructions && Array.isArray(parsed.instructions)) {
                 parsed.instructions = parsed.instructions.map((step, index) => {
-                    // Convert to string if it's not already a string
+                   
                     const stepText = typeof step === 'string' ? step : JSON.stringify(step);
                     return `**Step ${index + 1}:** ${stepText.trim().replace(/\n+/g, " ")}`;
                 });
@@ -511,7 +476,6 @@ app.post("/chat", async (req, res) => {
         } catch (e) {
             console.error("Failed to parse AI response:", e);
             console.error("Raw AI response:", rawText);
-            // Default fallback if AI fails to return valid JSON
             parsed = {
                 triage: "unknown",
                 instructions: [
@@ -523,7 +487,7 @@ app.post("/chat", async (req, res) => {
             };
         }
 
-        // Return structured response
+        
         res.json({ ok: true, incident: parsed });
     } catch (error) {
         console.error("Emergency chat error:", error.response?.data || error.message);
@@ -534,7 +498,6 @@ app.post("/chat", async (req, res) => {
     }
 });
 
-// List available Gemini models (for debugging)
 app.get("/models", async (req, res) => {
     try {
         if (!GEMINI_API_KEY) {
@@ -561,7 +524,7 @@ app.get("/models", async (req, res) => {
 
 app.get("/api/time-based-safety-tips", async (req, res) => {
   try {
-    // Example static data
+
     const tips = [
       { id: 1, awareness: "Morning Safety", tip: "Stay hydrated and alert.", hour_start: 6, hour_end: 12 },
       { id: 2, awareness: "Afternoon Safety", tip: "Avoid distractions while walking.", hour_start: 12, hour_end: 18 },
@@ -569,7 +532,7 @@ app.get("/api/time-based-safety-tips", async (req, res) => {
       { id: 4, awareness: "Late Night Safety", tip: "Keep emergency numbers handy.", hour_start: 0, hour_end: 6 }
     ];
 
-    res.json(tips); // ✅ Respond with JSON
+    res.json(tips);
   } catch (error) {
     console.error("Error fetching time-based tips:", error);
     res.status(500).json({ error: "Failed to fetch safety tips" });
@@ -589,9 +552,9 @@ app.post('/api/save-push-token', async (req, res) => {
     const response = await axios.post(
       `${AUTH_SUPABASE_URL}/rest/v1/push_tokens`,
       { 
-        token: token,           // The actual push token
-        platform: platform,     // Required: 'expo', 'ios', or 'android'
-        user_id: userId || null // Optional user association
+        token: token,           
+        platform: platform,     
+        user_id: userId || null 
       },
       {
         headers: {
@@ -623,14 +586,6 @@ app.post('/api/save-push-token', async (req, res) => {
   }
 });
 
-
-// === EMAIL SERVICE ENDPOINTS ===
-
-/**
- * Send reactivation code email
- * POST /api/email/send-reactivation-code
- * Body: { email, code, userName }
- */
 app.post('/api/email/send-reactivation-code', async (req, res) => {
   try {
     const { email, code, userName } = req.body;
@@ -659,11 +614,7 @@ app.post('/api/email/send-reactivation-code', async (req, res) => {
   }
 });
 
-/**
- * Send account deactivation notification
- * POST /api/email/send-deactivation-notification
- * Body: { email, userName }
- */
+
 app.post('/api/email/send-deactivation-notification', async (req, res) => {
   try {
     const { email, userName } = req.body;
@@ -692,11 +643,6 @@ app.post('/api/email/send-deactivation-notification', async (req, res) => {
   }
 });
 
-/**
- * Send account deletion confirmation
- * POST /api/email/send-deletion-confirmation
- * Body: { email, userName }
- */
 app.post('/api/email/send-deletion-confirmation', async (req, res) => {
   try {
     const { email, userName } = req.body;
@@ -725,11 +671,6 @@ app.post('/api/email/send-deletion-confirmation', async (req, res) => {
   }
 });
 
-/**
- * Test email service
- * POST /api/email/test
- * Body: { email }
- */
 app.post('/api/email/test', async (req, res) => {
   try {
     const { email } = req.body;
@@ -758,10 +699,6 @@ app.post('/api/email/test', async (req, res) => {
   }
 });
 
-
-// === SOS & EMERGENCY ALERT ENDPOINTS ===
-
-// Send location for emergency alerts
 app.post("/api/send-location", async (req, res) => {
     const { userId, timestamp, coords } = req.body;
     if (
@@ -785,7 +722,7 @@ app.post("/api/send-location", async (req, res) => {
         contacts: user.contacts,
     });
 
-    // Trigger Retell AI call automatically
+    
     makeSOSCall(userId, coords);
 
     res.json({
@@ -797,7 +734,6 @@ app.post("/api/send-location", async (req, res) => {
     });
 });
 
-// Webhook for emergency responses
 app.post("/api/webhook", (req, res) => {
     const from = req.body.From || "";
     const body = req.body.Body || "";
@@ -816,14 +752,10 @@ app.post("/api/webhook", (req, res) => {
     res.send(`<Response></Response>`);
 });
 
-// Get all alerts
 app.get("/api/alerts", (req, res) => {
     res.json(alerts);
 });
 
-// === THERAPIST CHAT ENDPOINTS ===
-
-// Therapist text chat endpoint
 app.post("/therapist/chat", async (req, res) => {
     const { message } = req.body;
     if (!message || !message.trim()) {
@@ -853,7 +785,6 @@ app.post("/therapist/chat", async (req, res) => {
     }
 });
 
-// Therapist audio chat endpoint
 app.post("/therapist/chat-audio", upload.single("audio"), async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ error: "Audio file required" });
@@ -862,7 +793,6 @@ app.post("/therapist/chat-audio", upload.single("audio"), async (req, res) => {
     const audioPath = req.file.path;
 
     try {
-        // Process audio file and get transcription + response
         const transcriptionResult = await therapistModel.generateContent({
             contents: [
                 { role: "model", parts: [{ text: THERAPIST_SYSTEM_PROMPT }] },
@@ -881,7 +811,6 @@ app.post("/therapist/chat-audio", upload.single("audio"), async (req, res) => {
 
         const transcription = transcriptionResult.response.text();
 
-        // Generate AI reply based on transcription
         const replyResult = await therapistModel.generateContent({
             contents: [
                 { role: "model", parts: [{ text: THERAPIST_SYSTEM_PROMPT }] },
@@ -897,7 +826,6 @@ app.post("/therapist/chat-audio", upload.single("audio"), async (req, res) => {
 
         const aiReply = replyResult.response.text();
 
-        // Clean up audio file
         fs.unlink(audioPath, (err) => {
             if (err) console.error("Failed to delete audio file:", err);
         });
@@ -909,19 +837,14 @@ app.post("/therapist/chat-audio", upload.single("audio"), async (req, res) => {
     }
 });
 
-// Therapist conversation summary endpoint (disabled - no conversation storage)
 app.get("/therapist/summary", async (req, res) => {
     res.json({ summary: "Conversation history not available - conversations are not stored" });
 });
 
-// Therapist feedback endpoint (disabled - no conversation storage)
 app.get("/therapist/feedback", async (req, res) => {
     res.json({ feedback: "Conversation history not available - conversations are not stored" });
 });
 
-// === PAYPAL SUBSCRIPTION ENDPOINTS ===
-
-// Create PayPal subscription
 app.post("/create-subscription", async (req, res) => {
     try {
         const accessToken = await generateAccessToken();
@@ -942,7 +865,6 @@ app.post("/create-subscription", async (req, res) => {
 
         const approvalUrl = response.data.links.find((link) => link.rel === "approve").href;
 
-        // Skip database recording for now - PayPal handles everything
         console.log(`✅ Subscription created: ${response.data.id} (Database recording skipped)`);
         console.log(`📝 Plan: ${planId}, User: ${userId}, Status: PENDING`);
 
@@ -953,7 +875,6 @@ app.post("/create-subscription", async (req, res) => {
     }
 });
 
-// Handle PayPal webhooks
 app.post("/webhook/paypal", async (req, res) => {
     try {
         const event = req.body;
@@ -984,17 +905,14 @@ app.post("/webhook/paypal", async (req, res) => {
     }
 });
 
-// Notify user of successful subscription (optional)
 app.get("/success", (req, res) => {
     res.send("Subscription successful! You can close this window.");
 });
 
-// Create PayPal plans 
 app.post("/create-paypal-plans", async (req, res) => {
     try {
         const accessToken = await generateAccessToken();
-        
-        // Define plans 
+
         const plansToCreate = [
             {
                 name: "Personal Monthly Plan",
@@ -1137,7 +1055,6 @@ app.post("/create-paypal-plans", async (req, res) => {
     }
 });
 
-// CRUD Endpoints for Community Posts
 app.post("/posts", async (req, res) => {
     const { title, content, author } = req.body;
     const { data, error } = await supabase
@@ -1149,14 +1066,12 @@ app.post("/posts", async (req, res) => {
     res.json(data);
 });
 
-// Get all posts
 app.get("/posts", async (req, res) => {
     const { data, error } = await supabase.from("community_posts").select("*");
     if (error) return res.status(400).json({ error: error.message });
     res.json(data);
 });
 
-// Get posts from user
 app.get("/posts/:id", async (req, res) => {
     const { id } = req.params;
     const { data, error } = await supabase
@@ -1169,7 +1084,6 @@ app.get("/posts/:id", async (req, res) => {
     res.json(data);
 });
 
-// Update post
 app.put("/posts/:id", async (req, res) => {
     const { id } = req.params;
     const { title, content, author } = req.body;
@@ -1184,7 +1098,6 @@ app.put("/posts/:id", async (req, res) => {
     res.json(data);
 });
 
-// Delete post
 app.delete("/posts/:id", async (req, res) => {
     const { id } = req.params;
     const { error } = await supabase
@@ -1196,14 +1109,12 @@ app.delete("/posts/:id", async (req, res) => {
     res.json({ message: "Post deleted successfully" });
 });
 
-// Delete user account
 app.delete("/api/user/:userId", async (req, res) => {
     try {
         const { userId } = req.params;
         
         console.log(`🗑️ Attempting to delete user: ${userId}`);
 
-        // Delete user from Supabase Auth
         const { data, error } = await authSupabase.auth.admin.deleteUser(userId);
 
         if (error) {
@@ -1229,7 +1140,6 @@ app.delete("/api/user/:userId", async (req, res) => {
     }
 });
 
-// Helper functions
 function getRiskLevel(dangerPercentage) {
     if (dangerPercentage >= 90) return 'EXTREME';
     if (dangerPercentage >= 70) return 'VERY HIGH';
@@ -1238,25 +1148,21 @@ function getRiskLevel(dangerPercentage) {
     return 'LOW';
 }
 
-// Generate safety tips
 function generateSafetyTips(areaData) {
-    // Get current hour for time-based tips
     const hour = new Date().getHours();
-    
-    // Time-based safety tip (first tip)
+
     let timeBasedTip = "";
     
     if (hour >= 0 && hour < 6) {
-        // 00:00–06:00
         timeBasedTip = "Be aware: Break-ins, night theft.\nTip: Lock everything and avoid late-night movement.";
     } else if (hour >= 6 && hour < 12) {
-        // 06:00–12:00
+
         timeBasedTip = "Be aware: Phone snatching, muggings.\nTip: Stay alert on commute; keep valuables hidden.";
     } else if (hour >= 12 && hour < 18) {
-        // 12:00–18:00
+
         timeBasedTip = "Be aware: Burglaries, car theft.\nTip: Lock your home and car; don't leave items visible.";
     } else {
-        // 18:00–24:00
+
         timeBasedTip = "Be aware: Hijackings, robberies.\nTip: Stay alert when driving; avoid dark, quiet areas.";
     }
     
@@ -1270,13 +1176,9 @@ function generateSafetyTips(areaData) {
         "Avoid displaying expensive items publicly"
     ];
 
-    // Return time-based tip first, then general base tips
     return [timeBasedTip, ...baseTips].slice(0, 6);
 }
 
-// Passkey API endpoints
-
-// Register endpoint - Generate and store passkey
 app.post('/register', async (req, res) => {
     try {
         const { userID, credential, provider } = req.body;
@@ -1287,10 +1189,8 @@ app.post('/register', async (req, res) => {
             });
         }
 
-        // Generate a unique passkey
         const generatedPasskey = passkeyService.generatePasskey(userID);
-        
-        // Store the passkey in Supabase
+
         const storedPasskey = await passkeyService.storePasskey(
             userID,
             generatedPasskey.credentialId,
@@ -1313,7 +1213,6 @@ app.post('/register', async (req, res) => {
     }
 });
 
-// Login verification endpoint
 app.post('/login/verify', async (req, res) => {
     try {
         const { userID, assertion } = req.body;
@@ -1324,7 +1223,6 @@ app.post('/login/verify', async (req, res) => {
             });
         }
 
-        // Get user's passkeys
         const userPasskeys = await passkeyService.getUserPasskeys(userID);
         
         if (!userPasskeys || userPasskeys.length === 0) {
@@ -1333,7 +1231,6 @@ app.post('/login/verify', async (req, res) => {
             });
         }
 
-        // Verify the credential exists
         const credentialId = assertion.id;
         const isValid = await passkeyService.verifyPasskey(userID, credentialId);
         
@@ -1357,7 +1254,6 @@ app.post('/login/verify', async (req, res) => {
     }
 });
 
-// Get user passkeys endpoint
 app.get('/api/passkey/:userId', async (req, res) => {
     try {
         const { userId } = req.params;
@@ -1377,7 +1273,6 @@ app.get('/api/passkey/:userId', async (req, res) => {
     }
 });
 
-// Account endpoint 
 app.post('/account', async (req, res) => {
     try {
         const { userID, account } = req.body;
@@ -1390,10 +1285,7 @@ app.post('/account', async (req, res) => {
         
         console.log(`Account data received for user: ${userID}`);
         console.log('Account details:', account);
-        
-        // Here you could save to database (Supabase, Firebase, etc.)
-        // For now, we'll just log and return success
-        
+
         res.status(200).json({ 
             message: 'Account data saved successfully',
             userID: userID
@@ -1407,7 +1299,6 @@ app.post('/account', async (req, res) => {
     }
 });
 
-// Login verify endpoint (used by GetAssertion.js)
 app.post('/login/verify', async (req, res) => {
     try {
         const { userID, assertion } = req.body;
@@ -1420,10 +1311,7 @@ app.post('/login/verify', async (req, res) => {
         
         console.log(`Login verification for user: ${userID}`);
         console.log('Assertion:', assertion);
-        
-        // Here you could verify the assertion against stored passkeys
-        // For now, we'll just log and return success
-        
+
         res.status(200).json({ 
             message: 'Login verified successfully',
             userID: userID,
@@ -1438,14 +1326,14 @@ app.post('/login/verify', async (req, res) => {
     }
 });
 
-// Handle subscription success
+
 app.get("/success", async (req, res) => {
     try {
         const { subscription_id, ba_token, token } = req.query;
         console.log("Subscription success:", { subscription_id, ba_token, token });
         
         if (subscription_id) {
-            // Skip database operations - PayPal manages the subscription
+
             console.log(`✅ Subscription ${subscription_id} is now ACTIVE (Database recording skipped)`);
             console.log(`🎉 PayPal is handling the subscription - payment successful!`);
         }
@@ -1476,7 +1364,6 @@ app.get("/success", async (req, res) => {
     }
 });
 
-// Handle subscription cancellation
 app.get("/cancel", (req, res) => {
     console.log("Subscription cancelled by user");
     res.send(`
@@ -1493,21 +1380,17 @@ app.get("/cancel", (req, res) => {
     `);
 });
 
-// Error handling middleware
 app.use((err, req, res, next) => {
     console.error('Unhandled error:', err);
     res.status(500).json({ error: 'Internal server error' });
 });
 
-// 404 handler
 app.use((req, res) => {
     res.status(404).json({ error: 'Endpoint not found' });
 });
 
-// Start retry alerts interval
 setInterval(retryAlerts, 60 * 1000);
 
-// Start server
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`AyaAI Safety Server running on port ${PORT}`);
     console.log(`Loaded ${sapsData.length} SAPS records`);
