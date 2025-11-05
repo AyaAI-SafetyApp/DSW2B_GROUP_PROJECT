@@ -14,12 +14,10 @@ export default function FallDetector() {
   const [hasAccess, setHasAccess] = useState(false);
   const [checkingAccess, setCheckingAccess] = useState(true);
 
-  // Check feature access
   useEffect(() => {
     checkAccess();
   }, []);
 
-  // Re-check access when screen gains focus (after returning from subscription)
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
       checkAccess();
@@ -111,7 +109,6 @@ export default function FallDetector() {
     }
   };
 
-  // Show loading or locked screen
   if (checkingAccess) {
     return (
       <SafeAreaView style={styles.container}>

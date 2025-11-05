@@ -18,7 +18,7 @@ export default function Player({ civilians, hazards, onRescue, onHitHazard }) {
 
       Animated.spring(position, {
         toValue: { x: newX, y: newY },
-        useNativeDriver: false, // MUST be false for layout
+        useNativeDriver: false, 
         speed: 20,
         bounciness: 10,
       }).start();

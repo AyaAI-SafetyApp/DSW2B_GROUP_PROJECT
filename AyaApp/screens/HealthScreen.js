@@ -20,8 +20,6 @@ import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import { hasFeatureAccess, showUpgradePrompt, FEATURES } from "../utils/subscriptionUtils";
 import { useNavigation } from "@react-navigation/native";
-
-// added minimal imports to save/load card to Supabase (placed in HealthBackend folder)
 import { supabase } from "../HealthBackend/supabaseClient";
 import { getCardForUser, upsertCardByUser } from "../HealthBackend/healthService";
 
@@ -45,12 +43,10 @@ const DigitalCard = () => {
 
   const [form, setForm] = useState(cardDetails);
 
-  // Check feature access
   useEffect(() => {
     checkAccess();
   }, []);
 
-  // Re-check access when screen gains focus (after returning from subscription)
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
       checkAccess();
@@ -74,30 +70,25 @@ const DigitalCard = () => {
     flipAnimation.setValue(isFlipped ? 1 : 0);
   }, []);
 
-  // helper: robustly get current signed-in user's id
   const getCurrentUserId = async () => {
     try {
-      // supabase-js v2: getSession
       if (typeof supabase.auth?.getSession === "function") {
         const { data } = await supabase.auth.getSession();
         const uid = data?.session?.user?.id ?? null;
         if (uid) return uid;
       }
 
-      // supabase-js v2: getUser
       if (typeof supabase.auth?.getUser === "function") {
         const { data } = await supabase.auth.getUser();
         const uid = data?.user?.id ?? null;
         if (uid) return uid;
       }
 
-      // supabase-js v1: auth.user()
       if (typeof supabase.auth?.user === "function") {
         const u = supabase.auth.user();
         if (u?.id) return u.id;
       }
 
-      // fallback: wait for onAuthStateChange event briefly
       return await new Promise((resolve) => {
         let resolved = false;
         const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -108,7 +99,7 @@ const DigitalCard = () => {
           }
           listener?.unsubscribe?.();
         });
-        // timeout after 1.5s
+
         setTimeout(() => {
           if (!resolved) {
             resolved = true;
@@ -123,7 +114,6 @@ const DigitalCard = () => {
     }
   };
 
-  // load saved card for signed-in user on mount (minimal change)
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -243,10 +233,8 @@ const DigitalCard = () => {
     }
   };
 
-  // changed: now upserts to Supabase; UI behavior preserved
   const handleSaveDetails = async () => {
     try {
-      // optimistic UI update
       setCardDetails(form);
       setFormVisible(false);
 
@@ -288,7 +276,6 @@ const DigitalCard = () => {
     }
   };
 
-  // Show loading or locked screen
   if (checkingAccess) {
     return (
       <SafeAreaView style={styles.appContainer}>
@@ -375,7 +362,6 @@ const DigitalCard = () => {
             </View>
           </Animated.View>
 
-          {/* Front of card */}
           <Animated.View
             style={[styles.card, styles.frontCard, frontAnimatedStyle]}
           >

@@ -13,7 +13,6 @@ const SafetyGame = () => {
   const [score, setScore] = useState(0);
   const [gameCompleted, setGameCompleted] = useState(false);
 
-  // Game scenarios with different safety situations
   const scenarios = [
     {
       id: 1,
@@ -116,10 +115,8 @@ const SafetyGame = () => {
   ];
 
   const handleAnswer = (option) => {
-    // Update score
     setScore(score + option.points);
 
-    // Show outcome explanation
     Alert.alert(
       option.points > 7 ? "Good Choice!" : "Be Careful!",
       option.outcome,
@@ -127,7 +124,6 @@ const SafetyGame = () => {
         {
           text: "Continue",
           onPress: () => {
-            // Move to next scenario or end game
             if (currentScenario < scenarios.length - 1) {
               setCurrentScenario(currentScenario + 1);
             } else {

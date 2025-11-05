@@ -144,7 +144,6 @@ export default function AboutUsScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#FF1493" />
@@ -161,7 +160,6 @@ export default function AboutUsScreen({ navigation }) {
         showsVerticalScrollIndicator={false}
       />
 
-      {/* Custom Modal */}
       <Modal
         transparent
         animationType="fade"
@@ -207,7 +205,6 @@ export default function AboutUsScreen({ navigation }) {
   );
 }
 
-// Styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -265,7 +262,6 @@ const styles = StyleSheet.create({
   features: { marginTop: 4 },
   featureItem: { color: "#374151", fontSize: 14, marginBottom: 2 },
 
-  // Modal Styles
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",

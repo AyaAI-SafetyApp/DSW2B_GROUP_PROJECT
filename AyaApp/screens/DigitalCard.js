@@ -74,7 +74,6 @@ const DigitalCard = () => {
         activeOpacity={0.9}
         style={styles.cardContainer}
       >
-        {/* Front Side - Medical Details */}
         <Animated.View
           style={[styles.card, styles.frontCard, frontAnimatedStyle]}
         >

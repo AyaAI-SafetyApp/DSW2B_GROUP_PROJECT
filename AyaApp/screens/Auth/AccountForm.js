@@ -1,6 +1,3 @@
-
-
-
 import 'react-native-get-random-values';
 import React, { useState, useRef, useEffect } from "react";
 import {
@@ -63,7 +60,6 @@ export default function PremiumMultiStepForm() {
 
   const genders = ["Male", "Female", "Non-binary", "Prefer not to say"];
 
-  // ---------- Aya logo bounce ----------
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
@@ -73,7 +69,6 @@ export default function PremiumMultiStepForm() {
     ).start();
   }, []);
 
-  // ---------- Clear gender errors ----------
   useEffect(() => {
     if (gender && step === 2) {
       setErrors((prevErrors) => {
@@ -84,7 +79,6 @@ export default function PremiumMultiStepForm() {
     }
   }, [gender, step]);
 
-  // ---------- Image Upload with Remove Functionality ----------
   const pickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) return;
@@ -116,13 +110,11 @@ export default function PremiumMultiStepForm() {
     loadCachedImage();
   }, []);
 
-  // ---------- Enhanced Real-time Location Detection ----------
   const detectCurrentLocation = async () => {
     try {
       setGettingCurrentLocation(true);
       setIsSearching(false);
 
-      // Request location permissions
       let { status } = await Location.requestForegroundPermissionsAsync();
       
       if (status !== 'granted') {
@@ -135,7 +127,6 @@ export default function PremiumMultiStepForm() {
         return;
       }
 
-      // Get current position with better configuration
       const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.High,
         timeout: 15000,
@@ -146,10 +137,8 @@ export default function PremiumMultiStepForm() {
       
       console.log('Detected coordinates:', latitude, longitude);
 
-      // Store coordinates
       setCurrentCoordinates({ latitude, longitude });
-      
-      // Reverse geocode to get address using TomTom
+
       await reverseGeocode(latitude, longitude);
       
     } catch (error) {
@@ -171,7 +160,6 @@ export default function PremiumMultiStepForm() {
     }
   };
 
-  // ---------- Reverse Geocoding Function with TomTom ----------
   const reverseGeocode = async (latitude, longitude) => {
     try {
       const response = await fetch(
@@ -187,28 +175,24 @@ export default function PremiumMultiStepForm() {
       
       if (data && data.addresses && data.addresses.length > 0) {
         const address = data.addresses[0].address;
-        
-        // Build exact street-level location name
+
         let locationName = '';
-        
-        // Priority: Street + Number > Street > Suburb > Municipality
+
         if (address.streetNumber && address.streetName) {
           locationName = `${address.streetNumber} ${address.streetName}`;
         } else if (address.streetName) {
           locationName = address.streetName;
         } else if (address.municipalitySubdivision) {
-          locationName = address.municipalitySubdivision; // Suburb
+          locationName = address.municipalitySubdivision; 
         } else if (address.municipality) {
-          locationName = address.municipality; // Fallback to municipality
+          locationName = address.municipality; 
         }
-        
-        // Add suburb for context if available and different
+
         if (locationName && address.municipalitySubdivision && 
             !locationName.includes(address.municipalitySubdivision)) {
           locationName = `${locationName}, ${address.municipalitySubdivision}`;
         }
-        
-        // Final fallback
+
         if (!locationName) {
           locationName = address.freeformAddress || `Current Location`;
         }
@@ -224,7 +208,6 @@ export default function PremiumMultiStepForm() {
     }
   };
 
-  // ---------- Enhanced Real-time Location Search with TomTom ----------
   const fetchLocationSuggestions = async (input) => {
     if (!input || input.trim().length < 2) {
       setLocationSuggestions([]);
@@ -237,8 +220,7 @@ export default function PremiumMultiStepForm() {
     
     try {
       console.log('Searching for:', input);
-      
-      // TomTom Search API for South Africa - simplified query
+
       const response = await fetch(
         `https://api.tomtom.com/search/2/search/${encodeURIComponent(input)}.json?key=${TOMTOM_API_KEY}&countrySet=ZA&limit=10&typeahead=true`
       );
@@ -271,25 +253,22 @@ export default function PremiumMultiStepForm() {
     }
   };
 
-  // ---------- Process TomTom Location Suggestions ----------
   const processTomTomSuggestions = (results) => {
     return results
       .map((place, index) => {
         const address = place.address || {};
         
         console.log('Processing place:', place);
-        
-        // Extract street-level location details
+
         let mainText = '';
         let secondaryText = '';
-        
-        // Priority for main text: Street address > Suburb > Municipality > POI
+
         if (address.streetNumber && address.streetName) {
           mainText = `${address.streetNumber} ${address.streetName}`;
         } else if (address.streetName) {
           mainText = address.streetName;
         } else if (address.municipalitySubdivision) {
-          mainText = address.municipalitySubdivision; // Suburb
+          mainText = address.municipalitySubdivision; 
         } else if (address.municipality) {
           mainText = address.municipality;
         } else if (place.poi && place.poi.name) {
@@ -297,16 +276,13 @@ export default function PremiumMultiStepForm() {
         } else {
           mainText = address.freeformAddress || 'Location';
         }
-        
-        // Build secondary text with suburb and municipality
+
         const addressParts = [];
-        
-        // Add suburb if available and different from main text
+
         if (address.municipalitySubdivision && mainText !== address.municipalitySubdivision) {
           addressParts.push(address.municipalitySubdivision);
         }
-        
-        // Add municipality if available and different from main text and suburb
+  
         if (address.municipality && 
             mainText !== address.municipality && 
             address.municipalitySubdivision !== address.municipality) {
@@ -314,8 +290,7 @@ export default function PremiumMultiStepForm() {
         }
         
         secondaryText = addressParts.join(', ');
-        
-        // Use freeformAddress as fallback for description
+
         const description = address.freeformAddress || mainText + (secondaryText ? `, ${secondaryText}` : '');
         
         return {
@@ -328,19 +303,16 @@ export default function PremiumMultiStepForm() {
           lon: place.position?.lon
         };
       })
-      .slice(0, 10); // Limit to top 10 results
+      .slice(0, 10);
   };
 
-  // ---------- Enhanced Location Change Handler ----------
   const handleLocationChange = (text) => {
     setLocation(text);
-    
-    // Clear previous timeout
+
     if (locationTimeoutRef.current) {
       clearTimeout(locationTimeoutRef.current);
     }
-    
-    // Set new timeout with debouncing
+
     locationTimeoutRef.current = setTimeout(() => {
       if (text.trim().length >= 2) {
         console.log('Triggering search for:', text);
@@ -352,14 +324,12 @@ export default function PremiumMultiStepForm() {
     }, 500);
   };
 
-  // ---------- Select Location ----------
   const selectLocation = (place) => {
     console.log('Location selected:', place);
     setLocation(place.description);
     setLocationSuggestions([]);
     setIsSearching(false);
-    
-    // Store coordinates if available
+
     if (place.lat && place.lon) {
       setCurrentCoordinates({
         latitude: parseFloat(place.lat),
@@ -368,7 +338,6 @@ export default function PremiumMultiStepForm() {
     }
   };
 
-  // ---------- Cleanup on Unmount ----------
   useEffect(() => {
     return () => {
       if (locationTimeoutRef.current) {
@@ -377,7 +346,6 @@ export default function PremiumMultiStepForm() {
     };
   }, []);
 
-  // ---------- Validation ----------
   const validateStep = () => {
     const newErrors = {};
 
@@ -415,7 +383,6 @@ export default function PremiumMultiStepForm() {
     return false;
   };
 
-  // ---------- Age Verification ----------
   const verifyAgeAndProceed = () => {
     const userAge = parseInt(age);
     if (isNaN(userAge) || userAge < MINIMUM_AGE) {
@@ -440,7 +407,6 @@ export default function PremiumMultiStepForm() {
     return true;
   };
 
-  // ---------- Step Animations ----------
   const animateTransition = (direction = 1) => {
     slideAnim.setValue(direction * SCREEN_WIDTH);
     fadeAnim.setValue(0);
@@ -495,15 +461,13 @@ export default function PremiumMultiStepForm() {
 
   const handleSubmit = async () => {
     if (!validateStep()) return;
-    
-    // Final age verification before submission
+
     if (!verifyAgeAndProceed()) {
       return;
     }
     
     setLoading(true);
     try {
-      // Plain object for local/session usage
       const accountData = { fullName, username, age, gender, phone, location, profilePic };
       const encryptedAccount = {        username,
         age: parseInt(age),
@@ -553,7 +517,6 @@ export default function PremiumMultiStepForm() {
       await AsyncStorage.setItem("@user_session", JSON.stringify(userData));
       
       animateStepCompletion(step);
-      // Navigate to passkey creation first (before subscription)
       navigation.navigate("CreateCredential", { 
         userID,
         initialFullName: fullName,
@@ -567,7 +530,6 @@ export default function PremiumMultiStepForm() {
     }
   };
 
-  // ---------- Render Step Icons and Progress Bar ----------
   const renderStepIcons = () => {
     const icons = [
       <Ionicons name="person" size={20} color="#fff" />,
@@ -621,7 +583,6 @@ export default function PremiumMultiStepForm() {
     </View>
   );
 
-  // ---------- Render Location Suggestions ----------
   const renderLocationSuggestions = () => {
     if (loadingLocations) {
       return (
@@ -675,7 +636,6 @@ export default function PremiumMultiStepForm() {
     return null;
   };
 
-  // ---------- Render Profile Picture with Remove Option ----------
   const renderProfilePicture = () => (
     <View style={styles.profileContainer}>
       <Pressable onPress={pickImage}>
@@ -696,7 +656,6 @@ export default function PremiumMultiStepForm() {
     </View>
   );
 
-  // ---------- Render Step Content ----------
   const renderStepContent = () => {
     switch (step) {
       case 0:
@@ -746,7 +705,6 @@ export default function PremiumMultiStepForm() {
             </View>
             {errors.phone && <Text style={styles.errorText}>{errors.phone}</Text>}
 
-            {/* Location input with 'Use My Location' button */}
             <View style={styles.locationContainer}>
               <View style={[styles.inputWithIcon, { flex: 1, marginBottom: 0 }]}>
                 <Ionicons
@@ -811,7 +769,6 @@ export default function PremiumMultiStepForm() {
           <>
             <Text style={styles.sectionTitle}>Select Gender</Text>
             <View style={styles.genderGrid}>
-              {/* First Row */}
               <View style={styles.genderRow}>
                 <Pressable
                   style={[styles.genderOption, gender === "Male" && styles.genderOptionSelected]}
@@ -830,8 +787,7 @@ export default function PremiumMultiStepForm() {
                   </Text>
                 </Pressable>
               </View>
-              
-              {/* Second Row */}
+
               <View style={styles.genderRow}>
                 <Pressable
                   style={[styles.genderOption, gender === "Non-binary" && styles.genderOptionSelected]}
@@ -865,7 +821,6 @@ export default function PremiumMultiStepForm() {
         <Image source={require("../../assets/Logos/Aya_AI_Logo.png")} style={{ width: 80, height: 80 }} />
       </Animated.View>
 
-      {/* Step Icons and Progress Bar */}
       {renderStepIcons()}
       {renderProgressBar()}
 

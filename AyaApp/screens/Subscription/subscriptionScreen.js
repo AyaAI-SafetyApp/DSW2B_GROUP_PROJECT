@@ -19,7 +19,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { updateUserSubscription, SUBSCRIPTION_TIERS } from "../../utils/subscriptionUtils";
 import { scheduleLocalNotification } from "../../components/NotificationService";
 
-// Constants
 const { width, height } = Dimensions.get("window");
 
 const CONFIG = {
@@ -126,7 +125,6 @@ const PLANS = {
   ],
 };
 
-// Custom Hook
 const useSubscription = (navigation, userID) => {
   const [checkoutUrl, setCheckoutUrl] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -142,25 +140,21 @@ const useSubscription = (navigation, userID) => {
       Alert.alert("Selection Required", "Please select a subscription plan to continue");
       return;
     }
-    
-    // Handle free plan - skip payment and go directly to app
+
     if (selectedPlan.isFree) {
-      // Verify session exists before navigating
       const sessionData = await AsyncStorage.getItem("@user_session");
       if (!sessionData) {
         console.error('❌ No session found when trying to access app');
         Alert.alert("Error", "Session not found. Please log in again.");
         return;
       }
-      
-      // Update subscription to FREE tier (no expiration)
+
       const updated = await updateUserSubscription(SUBSCRIPTION_TIERS.FREE, null);
       
       if (!updated) {
         console.warn('Failed to update free subscription in database');
       }
-      
-      // Send notification for free plan activation
+
       await scheduleLocalNotification(
         "Welcome to Aya App! 🎉",
         "You've activated the Free plan. Enjoy basic safety features!",
@@ -185,15 +179,14 @@ const useSubscription = (navigation, userID) => {
       );
       return;
     }
-    
-    // For paid plans, get userID from session if not provided
+
     let currentUserID = userID;
     if (!currentUserID) {
       try {
         const sessionData = await AsyncStorage.getItem("@user_session");
         if (sessionData) {
           const { email } = JSON.parse(sessionData);
-          currentUserID = email; // Use email as userID
+          currentUserID = email; 
         }
       } catch (error) {
         console.error("Error getting session:", error);
@@ -250,7 +243,6 @@ const useSubscription = (navigation, userID) => {
       if (url.includes("success")) {
         setCheckoutUrl(null);
         setTimeout(async () => {
-          // Verify session exists before navigating
           const sessionData = await AsyncStorage.getItem("@user_session");
           if (!sessionData) {
             console.error('❌ No session found after payment');
@@ -259,8 +251,7 @@ const useSubscription = (navigation, userID) => {
           }
           
           console.log('✅ Session verified after payment, navigating to app');
-          
-          // Map plan to subscription tier
+
           let subscriptionTier = SUBSCRIPTION_TIERS.FREE;
           if (selectedPlan?.title.toLowerCase().includes('personal pro')) {
             subscriptionTier = SUBSCRIPTION_TIERS.PERSONAL_PRO;
@@ -269,23 +260,20 @@ const useSubscription = (navigation, userID) => {
           } else if (selectedPlan?.title.toLowerCase().includes('personal')) {
             subscriptionTier = SUBSCRIPTION_TIERS.PERSONAL;
           }
-          
-          // Calculate expiration date (30 days for monthly, 365 for yearly)
+   
           const expiresAt = new Date();
           if (billingCycle === 'yearly') {
             expiresAt.setFullYear(expiresAt.getFullYear() + 1);
           } else {
             expiresAt.setDate(expiresAt.getDate() + 30);
           }
-          
-          // Update subscription in database
+
           const updated = await updateUserSubscription(subscriptionTier, expiresAt.toISOString());
           
           if (!updated) {
             console.warn('Failed to update subscription in database');
           }
-          
-          // Send notification for paid plan activation
+
           await scheduleLocalNotification(
             "Subscription Activated! 🎉",
             `Your ${selectedPlan?.title} plan is now active. Enjoy all premium features!`,
@@ -337,7 +325,6 @@ const useSubscription = (navigation, userID) => {
   };
 };
 
-// Plan Card Component
 const PlanCard = React.memo(({ plan, selectedPlan, onSelectPlan, index }) => {
   const isSelected = selectedPlan?.id === plan.id;
 
@@ -405,7 +392,6 @@ const PlanCard = React.memo(({ plan, selectedPlan, onSelectPlan, index }) => {
   );
 });
 
-// Main Component
 export default function SubscriptionScreen({ navigation, route }) {
   const { userID } = route.params || {};
   
@@ -439,8 +425,7 @@ export default function SubscriptionScreen({ navigation, route }) {
             <Ionicons name="lock-closed" size={16} color="#6B7280" />
           </View>
         </View>
-        
-        {/* WebView - Takes remaining space */}
+
         <View style={styles.webviewWrapper}>
           <WebView
             source={{ uri: checkoutUrl }}
@@ -455,7 +440,6 @@ export default function SubscriptionScreen({ navigation, route }) {
           />
         </View>
 
-        {/* Fixed Footer  */}
         <View style={styles.paypalFooter}>
           <Ionicons name="lock-closed" size={14} color="#6B7280" />
           <Text style={styles.footerText}>Secure payments with PayPal</Text>
@@ -558,7 +542,6 @@ export default function SubscriptionScreen({ navigation, route }) {
               )}
             </TouchableOpacity>
 
-            {/* Simple Footer */}
             {!selectedPlan.isFree && (
               <View style={styles.footer}>
                 <Ionicons name="lock-closed" size={14} color="#6B7280" />
@@ -855,7 +838,6 @@ const styles = StyleSheet.create({
     color: "#6B7280",
   },
 
-  // Fixed WebView Styles
   webviewContainer: { 
     flex: 1, 
     backgroundColor: "#FFF" 

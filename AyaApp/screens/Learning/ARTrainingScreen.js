@@ -18,40 +18,33 @@ const { width, height } = Dimensions.get("window");
 export default function ARTrainingScreen({ route, navigation }) {
   const { training, type } = route.params;
   
-  // Training state
   const [isTrainingActive, setIsTrainingActive] = useState(false);
   const [currentMoveIndex, setCurrentMoveIndex] = useState(0);
   const [score, setScore] = useState(0);
   const [countdown, setCountdown] = useState(3);
   const [repsCompleted, setRepsCompleted] = useState(0);
-  const [totalReps] = useState(training.moves.length * 5); // 5 reps per move
+  const [totalReps] = useState(training.moves.length * 5);
   
-  // Sensor data
+
   const [motionData, setMotionData] = useState({ x: 0, y: 0, z: 0 });
   const [gyroData, setGyroData] = useState({ x: 0, y: 0, z: 0 });
-  
-  // Animation values
+
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const glowAnim = useRef(new Animated.Value(0)).current;
   const moveIndicatorAnim = useRef(new Animated.Value(0)).current;
-  
-  // Sensor subscriptions
+
   const accelerometerRef = useRef(null);
   const gyroscopeRef = useRef(null);
 
-  // Define functions before useEffect
   const startSensors = () => {
-    // Set sensor update intervals
     Accelerometer.setUpdateInterval(100);
     Gyroscope.setUpdateInterval(100);
 
-    // Subscribe to accelerometer
     accelerometerRef.current = Accelerometer.addListener((data) => {
       setMotionData(data);
       detectMovement(data);
     });
 
-    // Subscribe to gyroscope
     gyroscopeRef.current = Gyroscope.addListener((data) => {
       setGyroData(data);
     });
@@ -83,8 +76,7 @@ export default function ARTrainingScreen({ route, navigation }) {
     if (!isTrainingActive) return;
 
     const magnitude = Math.sqrt(data.x ** 2 + data.y ** 2 + data.z ** 2);
-    
-    // Different thresholds for different training types
+
     let threshold = 1.5;
     if (type === "fall") threshold = 2.0;
     if (type === "reaction") threshold = 1.8;
@@ -95,10 +87,9 @@ export default function ARTrainingScreen({ route, navigation }) {
   };
 
   const onMoveDetected = () => {
-    // Haptic feedback
+
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    
-    // Flash animation
+
     Animated.sequence([
       Animated.timing(glowAnim, {
         toValue: 1,
@@ -112,12 +103,10 @@ export default function ARTrainingScreen({ route, navigation }) {
       }),
     ]).start();
 
-    // Update progress
     const newReps = repsCompleted + 1;
     setRepsCompleted(newReps);
     setScore(score + 10);
 
-    // Check if move is complete (5 reps)
     if (newReps % 5 === 0) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       
@@ -180,9 +169,8 @@ export default function ARTrainingScreen({ route, navigation }) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   };
 
-  // useEffect hooks
+
   useEffect(() => {
-    // Start pulsing animation
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
@@ -198,7 +186,6 @@ export default function ARTrainingScreen({ route, navigation }) {
       ])
     ).start();
 
-    // Auto-start countdown after 1 second
     const autoStartTimer = setTimeout(() => {
       startCountdown();
     }, 1000);
@@ -231,7 +218,6 @@ export default function ARTrainingScreen({ route, navigation }) {
       colors={["#1F2937", "#111827", "#000000"]}
       style={styles.container}
     >
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
@@ -245,7 +231,6 @@ export default function ARTrainingScreen({ route, navigation }) {
         </View>
       </View>
 
-      {/* Progress Bar */}
       <View style={styles.progressContainer}>
         <View style={styles.progressBar}>
           <View style={[styles.progressFill, { width: `${progress}%` }]} />
@@ -255,7 +240,6 @@ export default function ARTrainingScreen({ route, navigation }) {
         </Text>
       </View>
 
-      {/* AR View Area */}
       <View style={styles.arView}>
         {countdown > 0 && !isTrainingActive ? (
           <Animated.View
@@ -266,7 +250,7 @@ export default function ARTrainingScreen({ route, navigation }) {
           </Animated.View>
         ) : isTrainingActive ? (
           <>
-            {/* Move Indicator */}
+  
             <Animated.View style={[styles.moveIndicator, { opacity: glowAnim }]}>
               <LinearGradient
                 colors={["rgba(34, 197, 94, 0.5)", "rgba(34, 197, 94, 0.1)"]}
@@ -274,7 +258,6 @@ export default function ARTrainingScreen({ route, navigation }) {
               />
             </Animated.View>
 
-            {/* Current Move Display */}
             <View style={styles.moveDisplay}>
               <Ionicons name="fitness" size={80} color="#22C55E" />
               <Text style={styles.moveTitle}>{currentMove}</Text>
@@ -290,7 +273,6 @@ export default function ARTrainingScreen({ route, navigation }) {
               </View>
             </View>
 
-            {/* Motion Feedback */}
             <View style={styles.motionFeedback}>
               <Text style={styles.feedbackLabel}>Motion Detected</Text>
               <View style={styles.sensorBars}>
@@ -341,7 +323,6 @@ export default function ARTrainingScreen({ route, navigation }) {
         )}
       </View>
 
-      {/* Control Buttons */}
       <View style={styles.controls}>
         {!isTrainingActive && countdown === 0 && repsCompleted === 0 ? (
           <TouchableOpacity style={styles.startButton} onPress={handleStart}>

@@ -106,7 +106,6 @@ export default function App() {
               </View>
             </View>
 
-            {/* Reaction Row */}
             <View style={styles.reactionRow}>
               {reactionEmojis.map((emoji) => (
                 <TouchableOpacity

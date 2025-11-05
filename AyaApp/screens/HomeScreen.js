@@ -256,11 +256,9 @@ export default function HomeScreen() {
   const [loadingNotifications, setLoadingNotifications] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Screen focus effect
   useFocusEffect(
     useCallback(() => {
       console.log("HomeScreen: Screen focused (similar to onResume)");
-      // Refresh data when screen comes into focus
       refreshData();
       
       return () => {

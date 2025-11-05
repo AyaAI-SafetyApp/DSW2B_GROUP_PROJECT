@@ -1,4 +1,3 @@
-// Profile Service - Helper functions for user profile operations
 import { supabase } from './supabaseClient';
 import * as FileSystem from 'expo-file-system/legacy';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -13,20 +12,16 @@ export const uploadProfilePicture = async (imageUri, userId) => {
   try {
     if (!imageUri) return null;
 
-    // Create unique filename
     const fileExt = imageUri.split('.').pop();
     const fileName = `${userId}_${Date.now()}.${fileExt}`;
     const filePath = `${userId}/${fileName}`;
 
-    // Read file as base64
     const base64 = await FileSystem.readAsStringAsync(imageUri, {
       encoding: 'base64',
     });
 
-    // Convert base64 to blob
     const arrayBuffer = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
 
-    // Upload to Supabase Storage
     const { data, error } = await supabase.storage
       .from('profile-pictures')
       .upload(filePath, arrayBuffer, {
@@ -39,7 +34,6 @@ export const uploadProfilePicture = async (imageUri, userId) => {
       throw error;
     }
 
-    // Get public URL
     const { data: { publicUrl } } = supabase.storage
       .from('profile-pictures')
       .getPublicUrl(filePath);
@@ -71,13 +65,11 @@ export const saveUserProfile = async (profileData) => {
       provider,
     } = profileData;
 
-    // Upload profile picture if provided
     let profilePictureUrl = null;
     if (profilePicUri) {
       profilePictureUrl = await uploadProfilePicture(profilePicUri, userId);
     }
 
-    // Check if profile exists
     const { data: existingProfile } = await supabase
       .from('user_profiles')
       .select('*')
@@ -87,7 +79,6 @@ export const saveUserProfile = async (profileData) => {
     let result;
     
     if (existingProfile) {
-      // Update existing profile
       const { data, error } = await supabase
         .from('user_profiles')
         .update({
@@ -108,7 +99,6 @@ export const saveUserProfile = async (profileData) => {
       if (error) throw error;
       result = data;
     } else {
-      // Create new profile
       const { data, error } = await supabase
         .from('user_profiles')
         .insert([
@@ -132,7 +122,6 @@ export const saveUserProfile = async (profileData) => {
       result = data;
     }
 
-    // Cache profile data locally
     await AsyncStorage.setItem('@user_profile', JSON.stringify(result));
     
     return result;
@@ -155,39 +144,33 @@ export const getUserProfile = async (userId) => {
       .or(`user_id.eq.${userId},email.eq.${userId}`)
       .maybeSingle();
 
-    // If no profile found, return null (not an error)
     if (error && error.code !== 'PGRST116') {
       console.error('Error getting user profile:', error);
       throw error;
     }
 
-    // Cache profile locally if found
     if (data) {
       await AsyncStorage.setItem('@user_profile', JSON.stringify(data));
       return data;
     }
 
-    // Try to get cached profile if no data from Supabase
     const cachedProfile = await AsyncStorage.getItem('@user_profile');
     if (cachedProfile) {
       console.log('📦 Using cached profile');
       return JSON.parse(cachedProfile);
     }
 
-    // No profile found anywhere, return null
     console.log('ℹ️ No profile found for user:', userId);
     return null;
   } catch (error) {
     console.error('Error getting user profile:', error);
-    
-    // Try to get cached profile as last resort
+
     const cachedProfile = await AsyncStorage.getItem('@user_profile');
     if (cachedProfile) {
       console.log('📦 Using cached profile after error');
       return JSON.parse(cachedProfile);
     }
-    
-    // Return null instead of throwing error
+
     return null;
   }
 };
@@ -236,11 +219,9 @@ export const updateSafetyPreferences = async (userId, preferences) => {
  */
 export const addEmergencyContact = async (userId, contact) => {
   try {
-    // Get current profile
     const profile = await getUserProfile(userId);
     const currentContacts = profile.emergency_contacts || [];
-    
-    // Add new contact
+
     const updatedContacts = [...currentContacts, { ...contact, id: Date.now() }];
     
     const { data, error } = await supabase
@@ -267,16 +248,13 @@ export const deleteProfilePicture = async (userId, pictureUrl) => {
   try {
     if (!pictureUrl) return;
 
-    // Extract file path from URL
     const urlParts = pictureUrl.split('/');
-    const filePath = urlParts.slice(-2).join('/'); // userId/filename
+    const filePath = urlParts.slice(-2).join('/'); 
 
-    // Delete from storage
     await supabase.storage
       .from('profile-pictures')
       .remove([filePath]);
 
-    // Update profile
     await supabase
       .from('user_profiles')
       .update({ profile_picture_url: null })
