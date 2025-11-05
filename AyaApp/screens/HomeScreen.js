@@ -41,10 +41,10 @@ const FadeView = ({ children, delay = 0, style }) => {
 const Header = ({ notificationsCount, onOpenNotifications, onProfilePress, riskColor }) => (
   <FadeView style={styles.header} delay={100}>
     <View style={styles.headerLeft}>
-      <Image 
-        source={require("../assets/Logos/Aya_AI_Logo.png")} 
-        style={styles.logoImage} 
-        accessibilityIgnoresInvertColors 
+      <Image
+        source={require("../assets/Logos/Aya_AI_Logo.png")}
+        style={styles.logoImage}
+        accessibilityIgnoresInvertColors
       />
     </View>
     <View style={styles.headerRight}>
@@ -74,7 +74,11 @@ const Header = ({ notificationsCount, onOpenNotifications, onProfilePress, riskC
         accessibilityLabel="Open profile"
       >
         <View style={styles.profilePicture}>
-          <Ionicons name="person" size={18} color="#FFFFFF" />
+          <Image
+            source={require("../assets/avator.png")}
+            style={{ width: 45, height: 45 }}
+            resizeMode="contain"
+          />
         </View>
       </TouchableOpacity>
     </View>
@@ -262,7 +266,7 @@ export default function HomeScreen() {
       console.log("HomeScreen: Screen focused (similar to onResume)");
       // Refresh data when screen comes into focus
       refreshData();
-      
+
       return () => {
         console.log("HomeScreen: Screen unfocused (similar to onPause)");
       };
@@ -300,7 +304,7 @@ export default function HomeScreen() {
       try {
         const cached = await AsyncStorage.getItem("@safety_last");
         if (cached) setSafetyData(JSON.parse(cached));
-      } catch {}
+      } catch { }
     })();
   }, []);
 
@@ -368,7 +372,7 @@ export default function HomeScreen() {
         accuracy: Location.Accuracy.Highest,
       });
       const addresses = await Location.reverseGeocodeAsync(loc.coords);
-      
+
       const city = addresses[0]?.city || addresses[0]?.subregion || addresses[0]?.region || "Unknown";
       setCurrentLocation(city);
       await fetchSafetyData(city, loc.coords.latitude, loc.coords.longitude);
@@ -382,13 +386,13 @@ export default function HomeScreen() {
 
   useEffect(() => {
     let mounted = true;
-    
+
     const initializeData = async () => {
       await fetchLocationAndSafetyData();
     };
-    
+
     initializeData();
-    
+
     return () => (mounted = false);
   }, []);
 
@@ -397,8 +401,8 @@ export default function HomeScreen() {
       crimeProbability < 40
         ? "#34C759"
         : crimeProbability < 70
-        ? "#FF9500"
-        : "#FF3B30",
+          ? "#FF9500"
+          : "#FF3B30",
     [crimeProbability]
   );
 
@@ -407,8 +411,8 @@ export default function HomeScreen() {
       crimeProbability < 40
         ? "Low Risk"
         : crimeProbability < 70
-        ? "Moderate Risk"
-        : "High Risk",
+          ? "Moderate Risk"
+          : "High Risk",
     [crimeProbability]
   );
 
@@ -429,9 +433,9 @@ export default function HomeScreen() {
 
   const checkAndSendRiskNotification = useCallback(() => {
     if (currentLocation && currentLocation !== "Loading..." && lastRiskData) {
-      const shouldSend = !hasSentInitialNotification || 
+      const shouldSend = !hasSentInitialNotification ||
         (Date.now() - (lastRiskData.timestamp || 0)) > 30 * 60 * 1000;
-      
+
       if (shouldSend && currentLocation !== "Error fetching location") {
         sendLocationRiskNotification(
           currentLocation,
@@ -448,22 +452,22 @@ export default function HomeScreen() {
       setLoadingSafety(true);
       setShowLottie(true);
       try {
-        const endpoint = lat && lon 
+        const endpoint = lat && lon
           ? `${API_BASE_URL}/api/safety-status/location/${lat}/${lon}`
           : `${API_BASE_URL}/api/safety-status/${encodeURIComponent(area)}`;
-        
+
         const res = await fetch(endpoint);
-        const data = res.ok 
-          ? await res.json() 
+        const data = res.ok
+          ? await res.json()
           : { Danger_Percentage: 50, safetyTips: ["Data unavailable. Stay alert."] };
-        
+
         setSafetyData(data);
         await AsyncStorage.setItem("@safety_last", JSON.stringify(data));
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
         const dangerPercentage = data.Danger_Percentage || 50;
         const riskLevel = dangerPercentage < 40 ? "Low Risk" : dangerPercentage < 70 ? "Moderate Risk" : "High Risk";
-        
+
         const currentRiskData = {
           location: area,
           crimeProbability: dangerPercentage,
@@ -473,11 +477,11 @@ export default function HomeScreen() {
         };
 
         if (lastRiskData) {
-          const riskChanged = 
+          const riskChanged =
             currentRiskData.location !== lastRiskData.location ||
             Math.abs(currentRiskData.crimeProbability - lastRiskData.crimeProbability) > 15 ||
             currentRiskData.riskLevel !== lastRiskData.riskLevel;
-          
+
           if (riskChanged && area !== "Loading..." && area !== "Error fetching location") {
             await sendLocationRiskNotification(
               currentRiskData.location,
@@ -745,7 +749,6 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: PRIMARY,
     alignItems: "center",
     justifyContent: "center",
   },

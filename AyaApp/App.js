@@ -77,7 +77,7 @@ export default function App() {
       console.log("App.js: Initializing session and notifications...");
 
       const session = await getSession();
-      setInitialRoute(session ? "MainTabs" : "OnboardingScreen");
+      setInitialRoute(session ? "MainTabs" : "MainTabs");
 
       try {
         const notificationInit = await initializeAllNotificationServices();

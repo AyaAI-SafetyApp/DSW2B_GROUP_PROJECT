@@ -17,7 +17,7 @@ const { width, height } = Dimensions.get("window");
 
 export default function ARTrainingScreen({ route, navigation }) {
   const { training, type } = route.params;
-  
+
   // Training state
   const [isTrainingActive, setIsTrainingActive] = useState(false);
   const [currentMoveIndex, setCurrentMoveIndex] = useState(0);
@@ -25,16 +25,16 @@ export default function ARTrainingScreen({ route, navigation }) {
   const [countdown, setCountdown] = useState(3);
   const [repsCompleted, setRepsCompleted] = useState(0);
   const [totalReps] = useState(training.moves.length * 5); // 5 reps per move
-  
+
   // Sensor data
   const [motionData, setMotionData] = useState({ x: 0, y: 0, z: 0 });
   const [gyroData, setGyroData] = useState({ x: 0, y: 0, z: 0 });
-  
+
   // Animation values
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const glowAnim = useRef(new Animated.Value(0)).current;
   const moveIndicatorAnim = useRef(new Animated.Value(0)).current;
-  
+
   // Sensor subscriptions
   const accelerometerRef = useRef(null);
   const gyroscopeRef = useRef(null);
@@ -83,7 +83,7 @@ export default function ARTrainingScreen({ route, navigation }) {
     if (!isTrainingActive) return;
 
     const magnitude = Math.sqrt(data.x ** 2 + data.y ** 2 + data.z ** 2);
-    
+
     // Different thresholds for different training types
     let threshold = 1.5;
     if (type === "fall") threshold = 2.0;
@@ -97,7 +97,7 @@ export default function ARTrainingScreen({ route, navigation }) {
   const onMoveDetected = () => {
     // Haptic feedback
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    
+
     // Flash animation
     Animated.sequence([
       Animated.timing(glowAnim, {
@@ -120,7 +120,7 @@ export default function ARTrainingScreen({ route, navigation }) {
     // Check if move is complete (5 reps)
     if (newReps % 5 === 0) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      
+
       if (currentMoveIndex < training.moves.length - 1) {
         setCurrentMoveIndex(currentMoveIndex + 1);
       } else {
@@ -132,7 +132,7 @@ export default function ARTrainingScreen({ route, navigation }) {
   const completeTraining = () => {
     setIsTrainingActive(false);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    
+
     Alert.alert(
       "🎉 Training Complete!",
       `Great job! You've completed all ${training.moves.length} moves.\n\nScore: ${score}\nReps: ${repsCompleted}/${totalReps}`,
@@ -382,6 +382,7 @@ export default function ARTrainingScreen({ route, navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "#FFFFFF",
   },
   header: {
     flexDirection: "row",
@@ -389,28 +390,28 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingTop: 50,
     paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingBottom: 16,
   },
   backButton: {
     padding: 8,
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#FFFFFF",
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#000000",
     flex: 1,
     textAlign: "center",
   },
   scoreBadge: {
-    backgroundColor: "#4F46E5",
+    backgroundColor: "#E0E0E0",
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 6,
     borderRadius: 20,
   },
   scoreText: {
     fontSize: 16,
-    fontWeight: "bold",
-    color: "#FFFFFF",
+    fontWeight: "600",
+    color: "#000000",
   },
   progressContainer: {
     paddingHorizontal: 20,
@@ -418,18 +419,18 @@ const styles = StyleSheet.create({
   },
   progressBar: {
     height: 8,
-    backgroundColor: "#374151",
+    backgroundColor: "#CCCCCC",
     borderRadius: 4,
     overflow: "hidden",
   },
   progressFill: {
     height: "100%",
-    backgroundColor: "#22C55E",
+    backgroundColor: "#888888",
   },
   progressText: {
     fontSize: 12,
-    color: "#9CA3AF",
-    marginTop: 8,
+    color: "#666666",
+    marginTop: 6,
     textAlign: "center",
   },
   arView: {
@@ -442,59 +443,60 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   countdownText: {
-    fontSize: 120,
-    fontWeight: "bold",
-    color: "#4F46E5",
+    fontSize: 96,
+    fontWeight: "700",
+    color: "#000000",
   },
   countdownLabel: {
-    fontSize: 24,
-    color: "#9CA3AF",
-    marginTop: 20,
+    fontSize: 20,
+    color: "#666666",
+    marginTop: 12,
   },
   moveIndicator: {
     position: "absolute",
-    width: 300,
-    height: 300,
-    borderRadius: 150,
+    width: 280,
+    height: 280,
+    borderRadius: 140,
     justifyContent: "center",
     alignItems: "center",
   },
   glowEffect: {
     width: "100%",
     height: "100%",
-    borderRadius: 150,
+    borderRadius: 140,
+    backgroundColor: "#CCCCCC",
   },
   moveDisplay: {
     alignItems: "center",
     zIndex: 1,
   },
   moveTitle: {
-    fontSize: 32,
-    fontWeight: "bold",
-    color: "#FFFFFF",
-    marginTop: 20,
+    fontSize: 28,
+    fontWeight: "700",
+    color: "#000000",
+    marginTop: 16,
     textAlign: "center",
   },
   moveInstruction: {
     fontSize: 16,
-    color: "#9CA3AF",
-    marginTop: 12,
+    color: "#666666",
+    marginTop: 8,
     textAlign: "center",
     paddingHorizontal: 20,
   },
   repCounter: {
-    marginTop: 24,
-    backgroundColor: "rgba(79, 70, 229, 0.3)",
+    marginTop: 20,
+    backgroundColor: "#F2F2F2",
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 24,
-    borderWidth: 2,
-    borderColor: "#4F46E5",
+    borderWidth: 1,
+    borderColor: "#CCCCCC",
   },
   repText: {
     fontSize: 20,
-    fontWeight: "bold",
-    color: "#FFFFFF",
+    fontWeight: "600",
+    color: "#000000",
   },
   motionFeedback: {
     position: "absolute",
@@ -504,48 +506,50 @@ const styles = StyleSheet.create({
   },
   feedbackLabel: {
     fontSize: 12,
-    color: "#9CA3AF",
-    marginBottom: 8,
+    color: "#666666",
+    marginBottom: 6,
     textAlign: "center",
   },
   sensorBars: {
-    gap: 8,
+    gap: 6,
   },
   sensorBar: {
     height: 6,
-    backgroundColor: "#374151",
+    backgroundColor: "#CCCCCC",
     borderRadius: 3,
     overflow: "hidden",
   },
   sensorFill: {
     height: "100%",
-    backgroundColor: "#22C55E",
+    backgroundColor: "#888888",
   },
   welcomeContainer: {
     alignItems: "center",
+    paddingHorizontal: 20,
   },
   welcomeTitle: {
     fontSize: 28,
-    fontWeight: "bold",
-    color: "#FFFFFF",
+    fontWeight: "700",
+    color: "#000000",
     marginTop: 20,
+    textAlign: "center",
   },
   welcomeDescription: {
     fontSize: 16,
-    color: "#9CA3AF",
+    color: "#666666",
     marginTop: 12,
     textAlign: "center",
-    paddingHorizontal: 20,
   },
   movesList: {
-    marginTop: 32,
+    marginTop: 24,
     width: "100%",
+    paddingHorizontal: 20,
   },
   movesListTitle: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#FFFFFF",
-    marginBottom: 16,
+    color: "#000000",
+    marginBottom: 12,
   },
   moveItem: {
     flexDirection: "row",
@@ -554,35 +558,38 @@ const styles = StyleSheet.create({
   },
   moveItemText: {
     fontSize: 16,
-    color: "#D1D5DB",
+    color: "#444444",
     marginLeft: 12,
   },
   controls: {
     paddingHorizontal: 20,
-    paddingBottom: 40,
+    paddingBottom: 32,
   },
   startButton: {
     borderRadius: 16,
     overflow: "hidden",
+    backgroundColor: "#CCCCCC",
   },
   pauseButton: {
     borderRadius: 16,
     overflow: "hidden",
+    backgroundColor: "#CCCCCC",
   },
   resumeButton: {
     borderRadius: 16,
     overflow: "hidden",
+    backgroundColor: "#CCCCCC",
   },
   buttonGradient: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 18,
+    paddingVertical: 16,
     gap: 12,
   },
   buttonText: {
     fontSize: 18,
-    fontWeight: "bold",
-    color: "#FFFFFF",
+    fontWeight: "600",
+    color: "#000000",
   },
 });

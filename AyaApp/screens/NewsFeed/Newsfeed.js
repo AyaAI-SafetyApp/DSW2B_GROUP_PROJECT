@@ -63,15 +63,15 @@ const { width, height } = Dimensions.get("window");
 const AnimatedFlatList = Animated.createAnimatedComponent(RNFlatList);
 
 const COLORS = {
-  background: "#FAFAFA",
-  cardBackground: "#FFFFFF",
-  text: "#262626",
-  textSecondary: "#8E8E8E",
-  border: "#DBDBDB",
-  accent: "#f6007bff",
-  like: "#ED4956",
-  white: "#FFFFFF",
+  background: "#FFFFFF",
+  cardBackground: "#F7F7F7",
+  border: "#E0E0E0",
+  text: "#1C1C1E",
+  textSecondary: "#8E8E93",
+  accent: "#ff006fff",
+  like: "#D1D1D6",
 };
+
 
 const STORY_DURATION = 5000;
 const STORY_PROGRESS_INTERVAL = 50;
@@ -255,7 +255,7 @@ async function uploadMediaUrisToPostsBucket(uris = []) {
               uploadedUrls.push(manual);
               continue;
             }
-          } catch (e) {}
+          } catch (e) { }
         }
         uploadedUrls.push(url);
       } else {
@@ -758,16 +758,16 @@ const CommentsModal = ({
 const LikesModal = ({ visible, likes, onClose }) => {
   const items = Array.isArray(likes)
     ? likes.map((l, idx) => {
-        if (!l) return { id: `l_${idx}`, username: String(l) };
-        if (typeof l === "string") return { id: `l_${l}_${idx}`, username: l };
-        if (typeof l === "object") {
-          const username =
-            l.username || l.user || l.name || l.id || JSON.stringify(l);
-          const avatar = l.avatar || l.avatar_url || l.photo || null;
-          return { id: `l_${username}_${idx}`, username, avatar };
-        }
-        return { id: `l_${idx}`, username: String(l) };
-      })
+      if (!l) return { id: `l_${idx}`, username: String(l) };
+      if (typeof l === "string") return { id: `l_${l}_${idx}`, username: l };
+      if (typeof l === "object") {
+        const username =
+          l.username || l.user || l.name || l.id || JSON.stringify(l);
+        const avatar = l.avatar || l.avatar_url || l.photo || null;
+        return { id: `l_${username}_${idx}`, username, avatar };
+      }
+      return { id: `l_${idx}`, username: String(l) };
+    })
     : [];
   return (
     <Modal
@@ -865,8 +865,8 @@ const StoryViewer = ({
                       i < activeIndex
                         ? "100%"
                         : i === activeIndex
-                        ? `${progress}%`
-                        : "0%",
+                          ? `${progress}%`
+                          : "0%",
                   },
                 ]}
               />
@@ -954,7 +954,7 @@ const getTimeAgo = (timestamp) => {
 
 // ============ MAIN COMPONENT ============
 const Newsfeed = ({ scrollY: externalScrollY }) => {
-  
+
   const scrollY = externalScrollY || useRef(new Animated.Value(0)).current;
 
   const [posts, setPosts] = useState([]);
@@ -1034,23 +1034,23 @@ const Newsfeed = ({ scrollY: externalScrollY }) => {
           typeof rawCreated === "string"
             ? Date.parse(rawCreated) || Date.now()
             : typeof rawCreated === "number"
-            ? String(rawCreated).length === 10
-              ? rawCreated * 1000
-              : rawCreated
-            : Date.now();
+              ? String(rawCreated).length === 10
+                ? rawCreated * 1000
+                : rawCreated
+              : Date.now();
         const comments = Array.isArray(p.comments)
           ? p.comments.map((c) => {
-              const rawC = c.created_at ?? c.createdAt ?? Date.now();
-              const created_at_c =
-                typeof rawC === "string"
-                  ? Date.parse(rawC) || Date.now()
-                  : typeof rawC === "number"
+            const rawC = c.created_at ?? c.createdAt ?? Date.now();
+            const created_at_c =
+              typeof rawC === "string"
+                ? Date.parse(rawC) || Date.now()
+                : typeof rawC === "number"
                   ? String(rawC).length === 10
                     ? rawC * 1000
                     : rawC
                   : Date.now();
-              return { ...c, created_at: created_at_c };
-            })
+            return { ...c, created_at: created_at_c };
+          })
           : [];
         return {
           id: p.id,
@@ -1063,8 +1063,8 @@ const Newsfeed = ({ scrollY: externalScrollY }) => {
           media_urls: Array.isArray(p.media_urls)
             ? p.media_urls
             : p.media_url
-            ? [p.media_url]
-            : [],
+              ? [p.media_url]
+              : [],
           likes: Array.isArray(p.likes) ? p.likes : [],
           comments,
           created_at,
@@ -1272,22 +1272,22 @@ const Newsfeed = ({ scrollY: externalScrollY }) => {
                 prev.map((p) =>
                   p.id === postId
                     ? {
-                        ...p,
-                        comments: (p.comments || []).filter(
-                          (c) => c.id !== commentId
-                        ),
-                      }
+                      ...p,
+                      comments: (p.comments || []).filter(
+                        (c) => c.id !== commentId
+                      ),
+                    }
                     : p
                 )
               );
               setSelectedPost((prev) =>
                 prev && prev.id === postId
                   ? {
-                      ...prev,
-                      comments: (prev.comments || []).filter(
-                        (c) => c.id !== commentId
-                      ),
-                    }
+                    ...prev,
+                    comments: (prev.comments || []).filter(
+                      (c) => c.id !== commentId
+                    ),
+                  }
                   : prev
               );
               try {
@@ -1390,11 +1390,11 @@ const Newsfeed = ({ scrollY: externalScrollY }) => {
             prev.map((p) =>
               p.id === editingPostId
                 ? {
-                    ...p,
-                    content: postContent,
-                    media_urls: mediaUris,
-                    media_type: mediaUris.length ? postType : "none",
-                  }
+                  ...p,
+                  content: postContent,
+                  media_urls: mediaUris,
+                  media_type: mediaUris.length ? postType : "none",
+                }
                 : p
             )
           );
@@ -1415,11 +1415,11 @@ const Newsfeed = ({ scrollY: externalScrollY }) => {
               prev.map((p) =>
                 p.id === editingPostId
                   ? {
-                      ...p,
-                      content: postContent,
-                      media_urls: mediaUris,
-                      media_type: mediaUris.length ? postType : "none",
-                    }
+                    ...p,
+                    content: postContent,
+                    media_urls: mediaUris,
+                    media_type: mediaUris.length ? postType : "none",
+                  }
                   : p
               )
             );
@@ -1844,7 +1844,7 @@ const Newsfeed = ({ scrollY: externalScrollY }) => {
           removeClippedSubviews={Platform.OS === "android"}
           onViewableItemsChanged={onViewableItemsChanged}
           viewabilityConfig={viewabilityConfig}
-          
+
           scrollEventThrottle={16}
           onScroll={Animated.event(
             [{ nativeEvent: { contentOffset: { y: scrollY } } }],
@@ -1899,7 +1899,7 @@ const Newsfeed = ({ scrollY: externalScrollY }) => {
         animationOut="slideOutDown"
         avoidKeyboard={true}
       >
-        {}
+        { }
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           keyboardVerticalOffset={
@@ -2114,18 +2114,18 @@ const styles = StyleSheet.create({
       Platform.OS === "android" ? (StatusBar.currentHeight || 0) + 8 : 12,
     paddingBottom: 10,
     backgroundColor: COLORS.cardBackground,
-    
+
     minHeight:
       Platform.OS === "android" ? (StatusBar.currentHeight || 24) + 56 : 64,
     borderBottomWidth: 0.5,
     borderBottomColor: COLORS.border,
   },
   headerLeft: {
-    
+
     width: 44,
     height: 44,
   },
-  
+
   headerTitleContainer: {
     flex: 1,
     flexDirection: "row",
@@ -2416,7 +2416,7 @@ const styles = StyleSheet.create({
   modalActionBtn: {
     padding: 8,
   },
-  
+
   fab: {
     position: "absolute",
     right: 20,
