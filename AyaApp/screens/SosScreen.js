@@ -15,10 +15,10 @@ import {
 } from "react-native";
 import * as Location from "expo-location";
 import { Accelerometer } from "expo-sensors";
-import { WebView } from "react-native-webview";
 import { Ionicons, FontAwesome } from "@expo/vector-icons";
 import * as contactsService from "../SosCRUD/contactsService";
 import { supabase } from "../SosCRUD/supabaseClient";
+import WakewordDetection from "../components/WakewordDetection";
 
 const FALL_THRESHOLD = 2.5;
 const SOS_COUNTDOWN = 5;
@@ -33,9 +33,11 @@ export default function AyaEmergencyApp() {
   const [status, setStatus] = useState("Alerts inactive");
   const [sosCountdown, setSosCountdown] = useState(0);
   const [newContact, setNewContact] = useState("");
+  const [wakewordEnabled, setWakewordEnabled] = useState(false);
+  const [isSOSActive, setIsSOSActive] = useState(false);
   const countdownRef = useRef(null);
-  const webview = useRef(null);
   const progressAnim = useRef(new Animated.Value(0)).current;
+  const lastSOSTime = useRef(0);
 
   const ensureDevSignedIn = async () => {
     try {
@@ -103,6 +105,12 @@ export default function AyaEmergencyApp() {
   }, [location, fallDetectionEnabled]);
 
   const handleFall = async () => {
+    const now = Date.now();
+    if (now - lastSOSTime.current < 30000) {
+      console.log("⏳ Fall detected but still in cooldown period");
+      return;
+    }
+    
     setStatus("Fall detected! Sending alert...");
     const loc = location || (await Location.getCurrentPositionAsync({}));
     sendAlert("fall", loc);
@@ -116,17 +124,33 @@ export default function AyaEmergencyApp() {
       coords: loc.coords,
       contacts,
     };
+    
     const endpoint = "https://dsw2b-backend.onrender.com/api/send-location";
+    
+    console.log(`📍 Sending ${type} alert to backend...`);
+    console.log("Payload:", payload);
+    
     try {
-      await fetch(endpoint, {
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      setStatus(`${type.toUpperCase()} alert sent`);
-    } catch {
+      
+      const data = await response.json();
+      console.log("Alert response:", data);
+      
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to send alert");
+      }
+      
+      setStatus(`${type.toUpperCase()} alert sent via WhatsApp`);
+      Alert.alert("Alert Sent", `Location shared with emergency contacts via WhatsApp`);
+    } catch (error) {
+      console.error("Alert sending failed:", error);
       setOfflineQueue((prev) => [...prev, { type, payload }]);
-      setStatus("Alert queued");
+      setStatus("Alert queued - will retry");
+      Alert.alert("Alert Queued", "Will send when connection is restored");
     }
   };
 
@@ -148,26 +172,18 @@ export default function AyaEmergencyApp() {
     return () => clearInterval(interval);
   }, [offlineQueue]);
 
-  const webviewHtml = `
-    <!DOCTYPE html>
-    <html>
-      <body>
-        <script>
-          const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-          recognition.continuous = true;
-          recognition.interimResults = false;
-          recognition.lang = 'en-US';
-          recognition.onresult = (event) => {
-            const transcript = event.results[event.results.length - 1][0].transcript.toLowerCase();
-            if(transcript.includes("aya")){
-              window.ReactNativeWebView.postMessage("aya detected");
-            }
-          };
-          recognition.start();
-        </script>
-      </body>
-    </html>
-  `;
+  const handleWakewordDetected = () => {
+    const now = Date.now();
+    if (now - lastSOSTime.current < 30000) {
+      console.log("⏳ Wakeword detected but still in cooldown period");
+      setStatus("Please wait before triggering again");
+      return;
+    }
+    
+    console.log("🎤 Wakeword 'Hello Aya' detected! Triggering SOS...");
+    setStatus("Voice command detected!");
+    triggerSOS();
+  };
 
   const addContact = async () => {
     if (newContact && !contacts.includes(newContact) && newContact.match(/^\+?\d{10,15}$/)) {
@@ -233,53 +249,86 @@ export default function AyaEmergencyApp() {
   };
 
   const triggerSOS = async () => {
+    const now = Date.now();
+    if (isSOSActive || (now - lastSOSTime.current < 30000)) {
+      console.log("⏳ SOS already active or in cooldown period");
+      setStatus("Please wait - SOS in progress or cooldown active");
+      return;
+    }
+
+    setIsSOSActive(true);
+    lastSOSTime.current = now;
+    
     const loc = location || (await Location.getCurrentPositionAsync({}));
     setStatus("SOS triggered!");
 
     sendAlert("sos", loc);
 
-    // Trigger call to first contact via backend
     if (contacts.length > 0) {
       try {
-        const response = await fetch("http://172.16.26.108:3000/call", {
+        console.log("📞 Attempting to call:", contacts[0]);
+        const response = await fetch("http://10.250.228.96:3000/call", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ to: contacts[0] }),
         });
+        
+        console.log("📞 Response status:", response.status);
         const data = await response.json();
+        console.log("📞 Response data:", data);
+        
         if (!response.ok) throw new Error(data.error || "Call failed");
-        setStatus("SOS call initiated to " + contacts[0]);
+        setStatus("✅ SOS call initiated to " + contacts[0]);
+        Alert.alert("Success", `Emergency call initiated to ${contacts[0]}`);
       } catch (e) {
-        Alert.alert("Call Error", e.message);
-        setStatus("SOS call failed");
+        console.error("❌ Call error:", e);
+        Alert.alert("Call Error", `Failed to initiate call: ${e.message}`);
+        setStatus("SOS call failed - check backend connection");
+      } finally {
+        setTimeout(() => {
+          setIsSOSActive(false);
+        }, 5000);
       }
+    } else {
+      setIsSOSActive(false);
     }
   };
 
   return (
-    <ScrollView>
-      <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      <WebView
-        ref={webview}
-        originWhitelist={["*"]}
-        source={{ html: webviewHtml }}
-        onMessage={() => triggerSOS()}
-        javaScriptEnabled
-        style={{ flex: 0, height: 0 }}
+      
+      <WakewordDetection 
+        onWakewordDetected={handleWakewordDetected}
+        enabled={wakewordEnabled}
       />
 
+      <ScrollView>
         <View style={styles.topContainer}>
           <View style={styles.alertContainer}>
             <Text style={styles.alertText}>{status}</Text>
           </View>
+          
           <View style={styles.switchContainer}>
-            <Text style={styles.switchLabel}>Alerts</Text>
+            <Text style={styles.switchLabel}>Voice Detection</Text>
+            <Switch
+              value={wakewordEnabled}
+              onValueChange={(v) => {
+                setWakewordEnabled(v);
+                setStatus(v ? "🎤 Voice detection active" : "🎤 Voice detection off");
+              }}
+              trackColor={{ false: "#E5E5EA", true: "#34C75950" }}
+              thumbColor={wakewordEnabled ? "#34C759" : "#FFFFFF"}
+            />
+          </View>
+
+          <View style={styles.switchContainer}>
+            <Text style={styles.switchLabel}>Fall Detection</Text>
             <Switch
               value={fallDetectionEnabled}
               onValueChange={(v) => {
                 setFallDetectionEnabled(v);
-                setStatus(v ? "⚠️ Alerts active" : "⚠️ Alerts inactive");
+                setStatus(v ? "⚠️ Fall alerts active" : "⚠️ Fall alerts inactive");
               }}
               trackColor={{ false: "#E5E5EA", true: "#34C75950" }}
               thumbColor={fallDetectionEnabled ? "#34C759" : "#FFFFFF"}
@@ -288,11 +337,23 @@ export default function AyaEmergencyApp() {
         </View>
 
         <View style={styles.sosWrapper}>
+          <TouchableOpacity
+            onPress={startSOSCountdown}
+            style={[styles.sosButton, sosCountdown > 0 && styles.sosButtonActive]}
+          >
+            {sosCountdown > 0 ? (
+              <Text style={styles.sosCountdownText}>{sosCountdown}</Text>
+            ) : (
+              <FontAwesome name="exclamation-triangle" size={48} color="#FFFFFF" />
+            )}
+          </TouchableOpacity>
+          <Text style={styles.sosInstruction}>
+            {sosCountdown > 0 ? "Tap to cancel" : "Tap to trigger SOS"}
+          </Text>
           <Animated.View
             style={[styles.progressRing, { transform: [{ scale: progressAnim }] }]}
           />
         </View>
-      </View>
 
         <View style={styles.contactsContainer}>
           <Text style={styles.contactsHeader}>Emergency Contacts</Text>
@@ -309,31 +370,33 @@ export default function AyaEmergencyApp() {
               </View>
             )}
           />
-          <TouchableOpacity
-            onPress={addContact}
-            style={[
-              styles.addButton,
-              !newContact && { backgroundColor: "#E5E5EA" },
-            ]}
-            disabled={!newContact}
-          >
-            <Ionicons
-              name="add"
-              size={24}
-              color={newContact ? "#FFFFFF" : "#999"}
+          <View style={styles.addContactContainer}>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter emergency contact"
+              placeholderTextColor="#999"
+              value={newContact}
+              onChangeText={setNewContact}
+              keyboardType="phone-pad"
             />
             <TouchableOpacity
               onPress={addContact}
-              style={[styles.addButton, !newContact && { backgroundColor: "#E5EEA" }]}
+              style={[
+                styles.addButton,
+                !newContact && { backgroundColor: "#E5E5EA" },
+              ]}
               disabled={!newContact}
             >
-              <Ionicons name="add" size={24} color={newContact ? "#FFFFFF" : "#999"} />
+              <Ionicons
+                name="add"
+                size={24}
+                color={newContact ? "#FFFFFF" : "#999"}
+              />
             </TouchableOpacity>
           </View>
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
-    </ScrollView>
   );
 }
 

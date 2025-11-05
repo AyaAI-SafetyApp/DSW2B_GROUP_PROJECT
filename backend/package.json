@@ -30,6 +30,7 @@
     "multer": "^2.0.2",
     "node-cron": "^4.2.1",
     "react-native-svg": "^15.12.1",
+    "resend": "^6.4.1",
     "socket.io": "^4.8.1",
     "sqlite3": "^5.1.7",
     "twilio": "^5.8.0",

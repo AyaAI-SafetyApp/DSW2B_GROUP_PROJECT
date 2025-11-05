@@ -10,7 +10,7 @@ import { Asset } from 'expo-asset';
 const WakewordDetection = ({ 
   onWakewordDetected, 
   enabled = true,
-  accessKey = 'kCsrJ/Pm9rT2SHwbfmZyLANxyk9W17W3OOf924XqkSNdXBBODAog7g==',
+  accessKey = 'iqNepytDmqvoeOKRywe3S2POEd4DXSS29f+PNAVXZ0xJE2FNxlLAdw==',
 }) => {
   const [porcupineManager, setPorcupineManager] = useState(null);
   const [isListening, setIsListening] = useState(false);
