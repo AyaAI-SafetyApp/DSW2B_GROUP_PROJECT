@@ -38,12 +38,17 @@ app.post("/call", async (req, res) => {
     console.log("🔍 Request Headers:", JSON.stringify(req.headers, null, 2));
 
     try {
-        const { to } = req.body;
+        let { to } = req.body;
 
         if (!to) {
             console.error("❌ ERROR: No phone number provided in request");
             console.error("📋 Received body:", req.body);
             return res.status(400).json({ error: "Phone number is required" });
+        }
+
+        // Convert local SA number to E.164 if needed
+        if (to.startsWith("0") && to.length === 10) {
+            to = "+27" + to.slice(1);
         }
 
         const from = process.env.VONAGE_VIRTUAL_NUMBER;
