@@ -36,10 +36,10 @@ app.post("/call", async (req, res) => {
     console.log("📋 Request Body:", JSON.stringify(req.body, null, 2));
     console.log("🔍 Request IP:", req.ip);
     console.log("🔍 Request Headers:", JSON.stringify(req.headers, null, 2));
-    
+
     try {
         const { to } = req.body;
-        
+
         if (!to) {
             console.error("❌ ERROR: No phone number provided in request");
             console.error("📋 Received body:", req.body);
@@ -55,7 +55,7 @@ app.post("/call", async (req, res) => {
         const ncco = [
             {
                 action: "talk",
-                text: "Emergency SOS alert from Aya AI system. This is an automated emergency call. The user has triggered an SOS alert.",
+                text: "Emergency SOS alert from Aya AI system. This is an automated emergency call. Natalie triggered an SOS alert less than a second ago inside Auckland Park Bunting Road Campus. I’ve shared more details via WhatsApp. Thank you.",
             },
         ];
 
@@ -73,35 +73,35 @@ app.post("/call", async (req, res) => {
         console.log(`   Call UUID: ${response.uuid}`);
         console.log(`   Status: ${response.status}`);
         console.log(`   Direction: ${response.direction}`);
-        
-        res.json({ 
+
+        res.json({
             success: true,
-            message: "Call initiated successfully", 
-            callId: response.uuid, 
+            message: "Call initiated successfully",
+            callId: response.uuid,
             to,
-            status: response.status 
+            status: response.status
         });
-        
+
         console.log("✅ Response sent to client");
         console.log("━".repeat(60));
-        
+
     } catch (error) {
         console.error("\n❌ ERROR OCCURRED");
         console.error("━".repeat(60));
         console.error("Error Type:", error.constructor.name);
         console.error("Error Message:", error.message);
         console.error("Error Stack:", error.stack);
-        
+
         if (error.response) {
             console.error("API Response Error:", error.response);
         }
-        
-        res.status(500).json({ 
+
+        res.status(500).json({
             success: false,
             error: error.message || "Failed to initiate call",
             details: error.toString()
         });
-        
+
         console.error("❌ Error response sent to client");
         console.error("━".repeat(60));
     }
@@ -110,8 +110,8 @@ app.post("/call", async (req, res) => {
 // Health check endpoint
 app.get("/health", (req, res) => {
     console.log("💚 Health check from:", req.ip);
-    res.json({ 
-        status: "OK", 
+    res.json({
+        status: "OK",
         message: "Aya Call Agent is running",
         timestamp: new Date().toISOString(),
         vonageConfigured: !!process.env.VONAGE_APPLICATION_ID
@@ -121,7 +121,7 @@ app.get("/health", (req, res) => {
 // Test endpoint
 app.get("/test", (req, res) => {
     console.log("🧪 Test endpoint accessed from:", req.ip);
-    res.json({ 
+    res.json({
         message: "Backend is reachable!",
         timestamp: new Date().toISOString()
     });
