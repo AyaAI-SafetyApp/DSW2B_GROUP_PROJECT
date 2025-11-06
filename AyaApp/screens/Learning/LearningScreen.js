@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
-import { WebView } from "react-native-webview";
+import { Video } from "expo-av";
 
 const { width } = Dimensions.get("window");
 
@@ -20,7 +20,7 @@ const videos = [
   {
     id: 1,
     title: "What Is Domestic Violence?",
-    url: "https://www.youtube.com/embed/zuN1wlwQLEA",
+    src: require("../../assets/video/video1.mp4"),
     avatar: require("../../assets/avatars/avatar1.png"),
     uploader: "SafeLife Channel",
     views: "12K views",
@@ -29,7 +29,7 @@ const videos = [
   {
     id: 2,
     title: "Self Defence Basics",
-    url: "https://www.youtube.com/embed/PXgPZsak9y0",
+    src: require("../../assets/video/video2.mp4"),
     avatar: require("../../assets/avatars/avatar2.png"),
     uploader: "Defend Yourself",
     views: "8.5K views",
@@ -38,15 +38,131 @@ const videos = [
   {
     id: 3,
     title: "Advanced Self Defence",
-    url: "https://www.youtube.com/embed/abcd1234",
+    src: require("../../assets/video/video3.mp4"),
+    avatar: require("../../assets/avatars/avatar3.png"),
+    uploader: "Defend Yourself",
+    views: "5K views",
+    date: "2 weeks ago",
+  },
+  {
+    id: 4,
+    title: "Awareness Training",
+    src: require("../../assets/video/video4.mp4"),
+    avatar: require("../../assets/avatars/avatar4.png"),
+    uploader: "Defend Yourself",
+    views: "5K views",
+    date: "2 weeks ago",
+  },
+  {
+    id: 1,
+    title: "What Is Domestic Violence?",
+    src: require("../../assets/video/video1.mp4"),
+    avatar: require("../../assets/avatars/avatar1.png"),
+    uploader: "SafeLife Channel",
+    views: "12K views",
+    date: "3 days ago",
+  },
+  {
+    id: 2,
+    title: "Self Defence Basics",
+    src: require("../../assets/video/video2.mp4"),
     avatar: require("../../assets/avatars/avatar2.png"),
+    uploader: "Defend Yourself",
+    views: "8.5K views",
+    date: "1 week ago",
+  },
+  {
+    id: 3,
+    title: "Advanced Self Defence",
+    src: require("../../assets/video/video3.mp4"),
+    avatar: require("../../assets/avatars/avatar3.png"),
+    uploader: "Defend Yourself",
+    views: "5K views",
+    date: "2 weeks ago",
+  },
+  {
+    id: 4,
+    title: "Awareness Training",
+    src: require("../../assets/video/video4.mp4"),
+    avatar: require("../../assets/avatars/avatar4.png"),
+    uploader: "Defend Yourself",
+    views: "5K views",
+    date: "2 weeks ago",
+  },
+  {
+    id: 1,
+    title: "What Is Domestic Violence?",
+    src: require("../../assets/video/video1.mp4"),
+    avatar: require("../../assets/avatars/avatar1.png"),
+    uploader: "SafeLife Channel",
+    views: "12K views",
+    date: "3 days ago",
+  },
+  {
+    id: 2,
+    title: "Self Defence Basics",
+    src: require("../../assets/video/video2.mp4"),
+    avatar: require("../../assets/avatars/avatar2.png"),
+    uploader: "Defend Yourself",
+    views: "8.5K views",
+    date: "1 week ago",
+  },
+  {
+    id: 3,
+    title: "Advanced Self Defence",
+    src: require("../../assets/video/video3.mp4"),
+    avatar: require("../../assets/avatars/avatar3.png"),
+    uploader: "Defend Yourself",
+    views: "5K views",
+    date: "2 weeks ago",
+  },
+  {
+    id: 4,
+    title: "Awareness Training",
+    src: require("../../assets/video/video4.mp4"),
+    avatar: require("../../assets/avatars/avatar4.png"),
+    uploader: "Defend Yourself",
+    views: "5K views",
+    date: "2 weeks ago",
+  },
+  {
+    id: 1,
+    title: "What Is Domestic Violence?",
+    src: require("../../assets/video/video1.mp4"),
+    avatar: require("../../assets/avatars/avatar1.png"),
+    uploader: "SafeLife Channel",
+    views: "12K views",
+    date: "3 days ago",
+  },
+  {
+    id: 2,
+    title: "Self Defence Basics",
+    src: require("../../assets/video/video2.mp4"),
+    avatar: require("../../assets/avatars/avatar2.png"),
+    uploader: "Defend Yourself",
+    views: "8.5K views",
+    date: "1 week ago",
+  },
+  {
+    id: 3,
+    title: "Advanced Self Defence",
+    src: require("../../assets/video/video3.mp4"),
+    avatar: require("../../assets/avatars/avatar3.png"),
+    uploader: "Defend Yourself",
+    views: "5K views",
+    date: "2 weeks ago",
+  },
+  {
+    id: 4,
+    title: "Awareness Training",
+    src: require("../../assets/video/video4.mp4"),
+    avatar: require("../../assets/avatars/avatar4.png"),
     uploader: "Defend Yourself",
     views: "5K views",
     date: "2 weeks ago",
   },
 ];
 
-// Sample Tutorials
 const tutorials = [
   {
     id: 1,
@@ -65,7 +181,6 @@ const tutorials = [
   },
 ];
 
-// Sample Games
 const games = [
   {
     id: 1,
@@ -81,7 +196,6 @@ const games = [
   },
 ];
 
-// Video Card with Skeleton
 function VideoCard({ video }) {
   const [loading, setLoading] = useState(true);
   const shimmerAnim = useRef(new Animated.Value(0)).current;
@@ -103,15 +217,16 @@ function VideoCard({ video }) {
   return (
     <View style={styles.videoCard}>
       {loading && <Animated.View style={[styles.videoSkeleton, { backgroundColor: shimmerBackground }]} />}
-      <WebView
-        style={styles.videoWebView}
-        source={{ uri: video.url }}
-        javaScriptEnabled
-        allowsFullscreenVideo
-        onLoadEnd={() => setLoading(false)}
+      <Video
+        source={video.src}
+        style={styles.videoPlayer}
+        useNativeControls
+        resizeMode="cover"
+        shouldPlay={false}
+        onLoad={() => setLoading(false)}
       />
       <View style={styles.videoMeta}>
-        <Image source={video.avatar || require("../../assets/avatars/default.png")} style={styles.videoAvatar} />
+        <Image source={video.avatar} style={styles.videoAvatar} />
         <View style={{ flex: 1 }}>
           <Text style={styles.videoTitle}>{video.title}</Text>
           <Text style={styles.videoSubInfo}>
@@ -133,47 +248,60 @@ export default function LearningScreen() {
   };
 
   const handleGamePress = (game) => {
-    navigation.navigate(game.id === 1 ? "ReactionGame" : game.id === 2 ? "PoliceGame" : "Safety", { game });
+    navigation.navigate(game.id === 1 ? "ReactionGame" : "PoliceGame", { game });
   };
 
   const renderContent = () => {
     switch (activeTab) {
       case "Videos":
-        return <FlatList
-          data={videos}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={({ item }) => <VideoCard video={item} />}
-          contentContainerStyle={{ paddingBottom: 20, paddingHorizontal: 15 }}
-        />;
+        return (
+          <FlatList
+            data={videos}
+            keyExtractor={(item) => item.id.toString()}
+            renderItem={({ item }) => <VideoCard video={item} />}
+            contentContainerStyle={{ paddingBottom: 20, paddingHorizontal: 15 }}
+          />
+        );
       case "Tutorials":
-        return <ScrollView contentContainerStyle={{ paddingHorizontal: 15, paddingTop: 10 }}>
-          {tutorials.map((tut) => (
-            <TouchableOpacity key={tut.id} style={styles.arTrainingCard} onPress={() => handleTrainingPress(tut)} activeOpacity={0.7}>
-              <Image source={tut.image} style={styles.verticalCardImage} />
-              <View style={styles.verticalCardContent}>
-                <Text style={styles.cardTitle}>{tut.title}</Text>
-                <Text style={styles.cardDesc}>{tut.description}</Text>
-                <View style={styles.trainingMeta}>
-                  <Text style={styles.metaText}>{tut.duration} • {tut.moves.length} moves • {tut.difficulty}</Text>
+        return (
+          <ScrollView contentContainerStyle={{ paddingHorizontal: 15, paddingTop: 10 }}>
+            {tutorials.map((tut) => (
+              <TouchableOpacity
+                key={tut.id}
+                style={styles.arTrainingCard}
+                onPress={() => handleTrainingPress(tut)}
+                activeOpacity={0.7}
+              >
+                <Image source={tut.image} style={styles.verticalCardImage} />
+                <View style={styles.verticalCardContent}>
+                  <Text style={styles.cardTitle}>{tut.title}</Text>
+                  <Text style={styles.cardDesc}>{tut.description}</Text>
+                  <View style={styles.trainingMeta}>
+                    <Text style={styles.metaText}>
+                      {tut.duration} • {tut.moves.length} moves • {tut.difficulty}
+                    </Text>
+                  </View>
+                  <Text style={styles.statusBadge}>{tut.status}</Text>
                 </View>
-                <Text style={styles.statusBadge}>{tut.status}</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>;
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        );
       case "Games":
-        return <ScrollView contentContainerStyle={{ paddingHorizontal: 15, paddingTop: 10 }}>
-          {games.map((game) => (
-            <TouchableOpacity key={game.id} style={styles.card} onPress={() => handleGamePress(game)}>
-              <Image source={game.image} style={styles.cardImage} />
-              <View style={styles.cardContent}>
-                <Text style={styles.cardTitle}>{game.title}</Text>
-                <Text style={styles.cardDesc}>{game.description}</Text>
-              </View>
-              <Ionicons name="game-controller-outline" size={28} color="#111827" />
-            </TouchableOpacity>
-          ))}
-        </ScrollView>;
+        return (
+          <ScrollView contentContainerStyle={{ paddingHorizontal: 15, paddingTop: 10 }}>
+            {games.map((game) => (
+              <TouchableOpacity key={game.id} style={styles.card} onPress={() => handleGamePress(game)}>
+                <Image source={game.image} style={styles.cardImage} />
+                <View style={styles.cardContent}>
+                  <Text style={styles.cardTitle}>{game.title}</Text>
+                  <Text style={styles.cardDesc}>{game.description}</Text>
+                </View>
+                <Ionicons name="game-controller-outline" size={28} color="#111827" />
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        );
       default:
         return null;
     }
@@ -211,31 +339,70 @@ export default function LearningScreen() {
   );
 }
 
-// Styles
 const styles = StyleSheet.create({
-  navbar: { width: "100%", paddingVertical: 60, paddingHorizontal: 15, backgroundColor: "#fff", borderBottomColor: "#E5E7EB", borderBottomWidth: 1 },
+  navbar: {
+    width: "100%",
+    paddingVertical: 60,
+    paddingHorizontal: 15,
+    backgroundColor: "#fff",
+    borderBottomColor: "#E5E7EB",
+    borderBottomWidth: 1,
+  },
   navButtons: { flexDirection: "row", justifyContent: "space-around" },
-  navButton: { flexDirection: "row", alignItems: "center", paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8 },
+  navButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+  },
   navButtonText: { fontSize: 14, color: "#111827", fontWeight: "600", marginLeft: 4 },
   activeTab: { backgroundColor: "#F3F4F6" },
 
-  videoCard: { width: width * 0.95, marginBottom: 20, borderRadius: 12, overflow: "hidden", backgroundColor: "#fff", elevation: 2 },
-  videoWebView: { width: "100%", height: 200 },
+  videoCard: {
+    width: width * 0.95,
+    marginBottom: 20,
+    borderRadius: 12,
+    overflow: "hidden",
+    backgroundColor: "#fff",
+    elevation: 2,
+  },
+  videoPlayer: { width: "100%", height: 200, backgroundColor: "#000" },
   videoSkeleton: { width: "100%", height: 200, borderRadius: 12, marginBottom: 8 },
   videoMeta: { flexDirection: "row", alignItems: "center", marginTop: 8, paddingHorizontal: 8, paddingBottom: 8 },
   videoAvatar: { width: 36, height: 36, borderRadius: 18, marginRight: 8 },
   videoTitle: { fontSize: 16, fontWeight: "600", color: "#111827" },
   videoSubInfo: { fontSize: 12, color: "#6B7280", marginTop: 2 },
-
   verticalCardImage: { width: "100%", height: 140, borderTopLeftRadius: 16, borderTopRightRadius: 16 },
   verticalCardContent: { padding: 12 },
   cardTitle: { fontSize: 16, fontWeight: "600", color: "#111827" },
   cardDesc: { fontSize: 12, color: "#6B7280", marginTop: 4 },
   trainingMeta: { marginTop: 6 },
   metaText: { fontSize: 12, color: "#6B7280" },
-  statusBadge: { fontSize: 11, fontWeight: "700", color: "#10B981", backgroundColor: "#D1FAE5", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, alignSelf: "flex-start", marginTop: 6 },
-
-  card: { flexDirection: "row", alignItems: "center", backgroundColor: "#F9FAFB", padding: 12, borderRadius: 12, marginBottom: 12, shadowColor: "#000", shadowOpacity: 0.05, shadowOffset: { width: 0, height: 3 }, shadowRadius: 5, elevation: 2 },
+  statusBadge: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#10B981",
+    backgroundColor: "#D1FAE5",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignSelf: "flex-start",
+    marginTop: 6,
+  },
+  card: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F9FAFB",
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 3 },
+    shadowRadius: 5,
+    elevation: 2,
+  },
   cardImage: { width: 60, height: 60, borderRadius: 12, marginRight: 10 },
   cardContent: { flex: 1 },
 });

@@ -758,10 +758,10 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     backgroundColor: "#F9FAFB",
     marginHorizontal: 20,
-    marginTop: 16,
+    marginTop: 1,
     paddingVertical: 12,
     paddingHorizontal: 16,
-    borderRadius: 24,
+    borderRadius: 30,
   },
   locationText: {
     fontSize: 16,
