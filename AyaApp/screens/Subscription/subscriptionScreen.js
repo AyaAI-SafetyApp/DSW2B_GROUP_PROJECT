@@ -50,7 +50,7 @@ const PLANS = {
     {
       id: "P-1GN061938A031721GNC5CY4Q",
       title: "Personal",
-      price: "R49.99",
+      price: "R174",
       period: "month",
       icon: "user",
       iconColor: "#DE0973",
@@ -68,7 +68,7 @@ const PLANS = {
     {
       id: "P-5PD448977L069480VNC5CZYY",
       title: "Family",
-      price: "R67.99",
+      price: "R866",
       period: "month",
       icon: "users",
       iconColor: "#8B5CF6",
@@ -107,7 +107,7 @@ const PLANS = {
     {
       id: "P-9U8910582N234330WNC5C2OQ",
       title: "Personal Pro",
-      price: "R99.99",
+      price: "R174",
       period: "month",
       icon: "user-shield",
       iconColor: "#10B981",

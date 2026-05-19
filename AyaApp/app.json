@@ -26,7 +26,6 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/Logos/Aya_Logo.png"
       },
-      "edgeToEdgeEnabled": true,
       "permissions": [
         "RECORD_AUDIO",
         "android.permission.RECORD_AUDIO",

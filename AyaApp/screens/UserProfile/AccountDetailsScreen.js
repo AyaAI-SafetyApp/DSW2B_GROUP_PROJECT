@@ -101,7 +101,7 @@ export default function AccountDetailsScreen({ navigation }) {
   ) => (
     <View style={styles.fieldContainer}>
       <View style={styles.fieldHeader}>
-        <Ionicons name={icon} size={20} color="#000" />
+        <Ionicons name={icon} size={20} color="#FF1493" />
         <Text style={styles.fieldLabel}>{label}</Text>
       </View>
       {isEditing && editable ? (
@@ -147,7 +147,7 @@ export default function AccountDetailsScreen({ navigation }) {
           onPress={() => navigation.goBack()}
           style={styles.backButton}
         >
-          <Ionicons name="arrow-back" size={24} color="#000" />
+          <Ionicons name="arrow-back" size={24} color="#FF1493" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Account Details</Text>
         <TouchableOpacity
@@ -223,50 +223,74 @@ export default function AccountDetailsScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff", paddingHorizontal: 20 },
+  container: {
+    flex: 1,
+    backgroundColor: "#F8F9FA",
+  },
   header: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
     paddingVertical: 15,
+    backgroundColor: "#fff",
     borderBottomWidth: 1,
-    borderBottomColor: "#e5e5e5",
+    borderBottomColor: "#F0F0F0",
   },
   backButton: { padding: 5 },
-  headerTitle: { fontSize: 18, fontWeight: "600", color: "#000" },
-  editButtonText: { fontSize: 16, fontWeight: "600", color: "#000" },
-  content: { flex: 1, marginTop: 10 },
-  section: { marginVertical: 10 },
+  headerTitle: { fontSize: 18, fontWeight: "600", color: "#FF1493" },
+  editButtonText: { fontSize: 16, fontWeight: "600", color: "#FF1493" },
+  content: { flex: 1, paddingHorizontal: 20 },
+  section: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 15,
+    marginTop: 15,
+    borderWidth: 1,
+    borderColor: "#F0F0F0",
+  },
   sectionTitle: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#555",
+    color: "#666",
     marginBottom: 10,
+    textTransform: "uppercase",
   },
-  fieldContainer: { marginBottom: 20 },
-  fieldHeader: { flexDirection: "row", alignItems: "center", marginBottom: 5 },
-  fieldLabel: { fontSize: 14, fontWeight: "500", color: "#111", marginLeft: 8 },
-  fieldValue: { fontSize: 16, color: "#666", paddingLeft: 28 },
+  fieldContainer: { marginBottom: 15 },
+  fieldHeader: { flexDirection: "row", alignItems: "center", marginBottom: 4 },
+  fieldLabel: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#333",
+    marginLeft: 8,
+  },
+  fieldValue: { fontSize: 15, color: "#555", paddingLeft: 28 },
   input: {
-    fontSize: 16,
+    fontSize: 15,
     color: "#111",
     paddingLeft: 28,
     borderBottomWidth: 1,
-    borderBottomColor: "#ccc",
+    borderBottomColor: "#FFB6D9",
     paddingVertical: 6,
   },
   cancelButton: {
-    backgroundColor: "#f0f0f0",
-    marginVertical: 20,
+    backgroundColor: "#FFE6F0",
+    marginTop: 20,
+    marginBottom: 40,
     paddingVertical: 14,
     borderRadius: 10,
     alignItems: "center",
   },
-  cancelButtonText: { fontSize: 16, fontWeight: "600", color: "#555" },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#FF1493",
+  },
   skeleton: {
     height: 40,
-    backgroundColor: "#e0e0e0",
+    backgroundColor: "#eee",
     borderRadius: 8,
+    marginHorizontal: 20,
     marginVertical: 6,
   },
 });

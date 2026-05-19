@@ -1,0 +1,37 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "expo",
+            "request": "attach",
+            "name": "Debug Expo App",
+            "projectRoot": "${workspaceFolder}/AyaApp",
+            "bundlerPort": "8081",
+            "bundlerHost": "127.0.0.1"
+        },
+        {
+            "type": "reactnative",
+            "request": "attach",
+            "name": "Attach to packager (React Native)",
+            "cwd": "${workspaceFolder}/AyaApp",
+            "port": 8081
+        },
+        {
+            "name": "Debug Android",
+            "request": "launch",
+            "type": "reactnative",
+            "cwd": "${workspaceFolder}/AyaApp",
+            "platform": "android"
+        },
+        {
+            "name": "Debug iOS",
+            "request": "launch", 
+            "type": "reactnative",
+            "cwd": "${workspaceFolder}/AyaApp",
+            "platform": "ios"
+        }
+    ]
+}

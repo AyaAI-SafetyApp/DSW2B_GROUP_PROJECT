@@ -10,6 +10,7 @@ import {
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { TABS } from "../constants/tabs";
 
 const { width } = Dimensions.get("window");
@@ -17,6 +18,12 @@ const Tab = createBottomTabNavigator();
 
 const AnimatedTabBar = React.memo(({ state, navigation, scrollY }) => {
   const translateY = useRef(new Animated.Value(0)).current;
+  const insets = useSafeAreaInsets();
+  
+  // Debug: Log safe area insets (remove this in production)
+  useEffect(() => {
+    console.log('Safe Area Insets:', insets);
+  }, [insets]);
 
   // Animate tab bar based on scroll direction
   useEffect(() => {
@@ -44,12 +51,23 @@ const AnimatedTabBar = React.memo(({ state, navigation, scrollY }) => {
   }, [scrollY]);
 
   return (
-    <Animated.View style={[styles.tabWrapper, { transform: [{ translateY }] }]}>
+    <Animated.View 
+      style={[
+        styles.tabWrapper, 
+        { 
+          transform: [{ translateY }],
+          bottom: Math.max(insets.bottom + 15, 25), // Ensure minimum 25px from bottom, more if safe area requires it
+          paddingBottom: Platform.OS === 'android' ? 5 : 0, // Extra padding for Android
+        }
+      ]}
+    >
       <BlurView
-        intensity={Platform.OS === "ios" ? 80 : 30}
+        intensity={Platform.OS === "ios" ? 100 : 80}
         tint="light"
         style={styles.tabBar}
       >
+        {/* Add a more opaque overlay to reduce transparency further */}
+        <View style={styles.tabBarOverlay} />
         {state.routes.map((route, index) => {
           const isFocused = state.index === index;
           const icon = isFocused
@@ -97,6 +115,7 @@ export default function MainTabs({ scrollY }) {
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
+        tabBarHideOnKeyboard: Platform.OS === 'android', // Hide tab bar when keyboard appears on Android
       }}
       tabBar={(props) => <AnimatedTabBar {...props} scrollY={scrollY} />}
     >
@@ -110,7 +129,6 @@ export default function MainTabs({ scrollY }) {
 const styles = StyleSheet.create({
   tabWrapper: {
     position: "absolute",
-    bottom: 20,
     left: width * 0.05,
     right: width * 0.05,
   },
@@ -124,14 +142,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 8,
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  tabBarOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(255, 255, 255, 0.75)", // Much more opaque white overlay
+    borderRadius: 40,
   },
   tabItem: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    zIndex: 2, // Ensure tab items are above the overlay
   },
   iconContainer: {
     width: 44,
@@ -141,6 +169,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   iconContainerActive: {
-    backgroundColor: "rgba(0,0,0,0.08)",
+    backgroundColor: "rgba(0,0,0,0.12)", // Slightly more opaque for better visibility
   },
 });

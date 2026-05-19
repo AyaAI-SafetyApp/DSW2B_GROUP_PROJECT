@@ -19,7 +19,6 @@ import { supabase, supabaseAdmin } from "../../lib/supabaseClient";
 
 const API_BASE_URL = "https://dsw2b-backend.onrender.com";
 
-// Reusable Option Card
 const OptionCard = ({ title, subtitle, icon, onPress }) => {
   const scale = useRef(new Animated.Value(1)).current;
 
@@ -45,7 +44,7 @@ const OptionCard = ({ title, subtitle, icon, onPress }) => {
       >
         <View style={styles.optionLeft}>
           <View style={styles.optionIcon}>
-            <Ionicons name={icon} size={22} color="#333" />
+            <Ionicons name={icon} size={22} color="#fff" />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.optionTitle}>{title}</Text>
@@ -58,7 +57,6 @@ const OptionCard = ({ title, subtitle, icon, onPress }) => {
   );
 };
 
-// Avatar component with edit
 const AvatarWithEdit = ({ uri, onPick, uploading }) => {
   const scale = useRef(new Animated.Value(1)).current;
 
@@ -177,7 +175,6 @@ const ProfileScreen = () => {
       setUploading(true);
       console.log('📤 Uploading profile picture:', uri);
 
-      // Get user ID
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         Alert.alert('Error', 'User not authenticated');
@@ -185,17 +182,14 @@ const ProfileScreen = () => {
         return;
       }
 
-      // Create file name
       const fileExt = uri.split('.').pop();
       const fileName = `${user.id}-${Date.now()}.${fileExt}`;
       const filePath = `${user.email}/${fileName}`;
 
-      // Convert URI to blob for upload
       const response = await fetch(uri);
       const blob = await response.blob();
       const arrayBuffer = await new Response(blob).arrayBuffer();
 
-      // Upload to Supabase Storage
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('profile-pictures')
         .upload(filePath, arrayBuffer, {
@@ -212,14 +206,12 @@ const ProfileScreen = () => {
 
       console.log('✅ Image uploaded:', uploadData.path);
 
-      // Get public URL
       const { data: { publicUrl } } = supabase.storage
         .from('profile-pictures')
         .getPublicUrl(filePath);
 
       console.log('📸 Public URL:', publicUrl);
 
-      // Update user profile in database
       const { error: updateError } = await supabase
         .from('user_profiles')
         .update({ profile_picture_url: publicUrl })
@@ -232,10 +224,8 @@ const ProfileScreen = () => {
         return;
       }
 
-      // Update local state and session
       setUserData((prev) => ({ ...prev, profilePicture: publicUrl }));
-      
-      // Update session storage
+
       const sessionData = await AsyncStorage.getItem("@user_session");
       if (sessionData) {
         const session = JSON.parse(sessionData);
@@ -363,100 +353,6 @@ const ProfileScreen = () => {
       ]);
   };
 
-  const handleDeactivateAccount = () => {
-    Alert.alert(
-      'Deactivate Account',
-      'Your account will be suspended and you will not be able to log in. Contact support to reactivate your account.\n\nAre you sure you want to continue?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Deactivate',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setLoading(true);
-              
-              // Update user_profiles to mark as deactivated
-              const { error } = await supabase
-                .from('user_profiles')
-                .update({ 
-                  is_active: false,
-                  deactivated_at: new Date().toISOString()
-                })
-                .eq('email', userData.email);
-
-              if (error) {
-                console.error('Deactivation error:', error);
-                Alert.alert('Error', 'Failed to deactivate account. Please try again.');
-                setLoading(false);
-                return;
-              }
-
-              // Send deactivation notification email via Supabase Edge Function
-              try {
-                // Get email from Supabase auth session
-                const { data: { user } } = await supabase.auth.getUser();
-                const emailToUse = user?.email || userData.email;
-                
-                console.log('📧 Preparing deactivation email...');
-                console.log('📧 Email data:', { 
-                  email: emailToUse, 
-                  userName: userData.name || userData.fullName,
-                  emailValid: emailToUse?.includes('@')
-                });
-                
-                // Validate email before sending
-                if (!emailToUse || emailToUse === 'Loading...' || !emailToUse.includes('@')) {
-                  console.warn('⚠️ Invalid email, skipping deactivation notification');
-                } else {
-                  const { data: emailResult, error: emailError } = await supabase.functions.invoke('dynamic-api', {
-                    body: {
-                      email: emailToUse,
-                      userName: userData.name || userData.fullName || 'User',
-                      isDeactivation: true,
-                    },
-                  });
-                  
-                  if (emailResult?.success) {
-                    console.log('✅ Deactivation notification email sent');
-                  } else {
-                    console.warn('⚠️ Failed to send deactivation email:', emailError || emailResult?.error);
-                  }
-                }
-              } catch (emailError) {
-                console.error('❌ Email service error:', emailError);
-                // Continue with account deactivation even if email fails
-              }
-
-              Alert.alert(
-                'Account Deactivated',
-                'Your account has been deactivated. Check your email for details on how to reactivate it.',
-                [
-                  {
-                    text: 'OK',
-                    onPress: async () => {
-                      await AsyncStorage.removeItem('@user_session');
-                      await AsyncStorage.removeItem('@safety_last');
-                      navigation.reset({
-                        index: 0,
-                        routes: [{ name: 'OnboardingScreen' }],
-                      });
-                    },
-                  },
-                ]
-              );
-            } catch (error) {
-              console.error('Deactivation error:', error);
-              Alert.alert('Error', 'An error occurred. Please try again.');
-            } finally {
-              setLoading(false);
-            }
-          },
-        },
-      ]
-    );
-  };
-
   const handleDeleteAccount = () => {
     Alert.alert(
       'Delete Account Permanently',
@@ -467,7 +363,6 @@ const ProfileScreen = () => {
           text: 'Yes, Delete Forever',
           style: 'destructive',
           onPress: async () => {
-            // Second confirmation
             Alert.alert(
               '⚠️ Final Confirmation',
               'This is your last chance! Type DELETE in the next prompt to confirm permanent deletion.',
@@ -477,7 +372,7 @@ const ProfileScreen = () => {
                   text: 'I Understand, Continue',
                   style: 'destructive',
                   onPress: () => {
-                    // For cross-platform support, we'll use a simple second confirmation
+
                     Alert.alert(
                       'Type DELETE to Confirm',
                       'Please confirm by pressing "DELETE FOREVER" below:',
@@ -491,7 +386,6 @@ const ProfileScreen = () => {
                               setLoading(true);
                               console.log('🗑️ Starting account deletion for:', userData.email);
 
-                              // 1. Delete profile picture from storage if exists
                               if (userData.profilePicture) {
                                 try {
                                   const fileName = userData.profilePicture.split('/').pop();
@@ -510,7 +404,6 @@ const ProfileScreen = () => {
                                 }
                               }
 
-                              // 2. Delete from passkeys table
                               console.log('🔑 Deleting passkeys...');
                               const { error: passkeysError } = await supabase
                                 .from('passkeys')
@@ -523,7 +416,6 @@ const ProfileScreen = () => {
                                 console.log('✅ Passkeys deleted');
                               }
 
-                              // 3. Delete from user_profiles table
                               console.log('👤 Deleting user profile...');
                               const { error: profileError } = await supabase
                                 .from('user_profiles')
@@ -538,9 +430,7 @@ const ProfileScreen = () => {
                               }
                               console.log('✅ User profile deleted');
 
-                              // 4. Send deletion confirmation email via Supabase Edge Function (before signing out)
                               try {
-                                // Get email from Supabase auth session before deleting
                                 const { data: { user } } = await supabase.auth.getUser();
                                 const emailToUse = user?.email || userData.email;
                                 
@@ -552,7 +442,6 @@ const ProfileScreen = () => {
                                   emailLength: emailToUse?.length 
                                 });
                                 
-                                // Validate email before sending
                                 if (!emailToUse || emailToUse === 'Loading...' || !emailToUse.includes('@')) {
                                   console.warn('⚠️ Invalid email, skipping deletion notification');
                                 } else {
@@ -572,10 +461,8 @@ const ProfileScreen = () => {
                                 }
                               } catch (emailError) {
                                 console.error('❌ Email service error:', emailError);
-                                // Continue with account deletion even if email fails
                               }
 
-                              // 5. Delete user from Supabase Authentication
                               try {
                                 const { data: { user } } = await supabase.auth.getUser();
                                 const userId = user?.id;
@@ -594,10 +481,8 @@ const ProfileScreen = () => {
                                 }
                               } catch (authDeleteError) {
                                 console.error('❌ Auth deletion error:', authDeleteError);
-                                // Continue even if auth deletion fails
                               }
 
-                              // 6. Sign out the user from Supabase Auth (cleanup)
                               console.log('🚪 Signing out from Supabase Auth...');
                               const { error: signOutError } = await supabase.auth.signOut();
                               if (signOutError) {
@@ -606,7 +491,6 @@ const ProfileScreen = () => {
                                 console.log('✅ Signed out from Supabase Auth');
                               }
 
-                              // 7. Clear all local storage
                               console.log('🧹 Clearing local storage...');
                               await AsyncStorage.clear();
                               console.log('✅ Local storage cleared');
@@ -649,13 +533,13 @@ const ProfileScreen = () => {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#000" />
+          <Ionicons name="arrow-back" size={24} color="#DE0973" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Profile</Text>
         <TouchableOpacity
           onPress={() => navigation.navigate("EditProfileScreen")}
         >
-          <Ionicons name="create-outline" size={24} color="#000" />
+          <Ionicons name="create-outline" size={24} color="#DE0973" />
         </TouchableOpacity>
       </View>
 
@@ -699,16 +583,8 @@ const ProfileScreen = () => {
               style={styles.logoutButton}
               onPress={handleLogout}
             >
-              <Ionicons name="log-out-outline" size={20} color="#000" />
+              <Ionicons name="log-out-outline" size={20} color="#DE0973" />
               <Text style={styles.logoutText}>Logout</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.deactivateButton}
-              onPress={handleDeactivateAccount}
-            >
-              <Ionicons name="pause-circle-outline" size={20} color="#ff9800" />
-              <Text style={styles.deactivateText}>Deactivate Account</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -736,7 +612,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#ddd",
   },
-  headerTitle: { fontSize: 18, fontWeight: "bold", color: "#000" },
+  headerTitle: { fontSize: 18, fontWeight: "bold", color: "#DE0973" },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
@@ -774,7 +650,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: "#000",
+    backgroundColor: "#DE0973",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
@@ -824,7 +700,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "#eee",
+    backgroundColor: "#DE0973",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
@@ -844,25 +720,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     marginTop: 8,
   },
-  logoutText: { fontSize: 16, fontWeight: "600", color: "#000", marginLeft: 8 },
-  deactivateButton: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    marginHorizontal: 20,
-    marginBottom: 12,
-    paddingVertical: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#ff9800",
-    backgroundColor: "#fff8e1",
-  },
-  deactivateText: { 
-    fontSize: 16, 
-    fontWeight: "600", 
-    color: "#ff9800", 
-    marginLeft: 8 
-  },
+  logoutText: { fontSize: 16, fontWeight: "600", color: "#DE0973", marginLeft: 8 },
   deleteButton: {
     flexDirection: "row",
     justifyContent: "center",

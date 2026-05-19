@@ -17,15 +17,20 @@ dotenv.config();
 
 const upload = multer({ dest: "uploads/" });
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = /*process.env.PORT ||*/ 3001;
 
 // Gemini API setup for emergency chat
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
-// Twilio setup for emergency alerts
+// Twilio setup for emergency alerts (optional)
 const accountSid = process.env.TWILIO_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
-const client = twilio(accountSid, authToken);
+const twilioEnabled = accountSid && authToken;
+const client = twilioEnabled ? twilio(accountSid, authToken) : null;
+
+if (!twilioEnabled) {
+  console.log('⚠️  WhatsApp disabled - TWILIO_SID or TWILIO_AUTH_TOKEN not configured');
+}
 
 // Initialize Google Generative AI for therapist chat
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
@@ -56,8 +61,34 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 
 // Emergency alert functions
+let whatsappAttempts = 0;
+const MAX_WHATSAPP_ATTEMPTS = 3;
+
 async function sendWhatsApp(userId, messageBody, contacts = TRUSTED_NUMBERS) {
+  if (!twilioEnabled) {
+    console.log("ℹ️  WhatsApp disabled - skipping message");
+    console.log("   📍 Location alert logged for:", contacts.join(', '));
+    console.log("   📝 Message:", messageBody.substring(0, 100) + '...');
+    return false;
+  }
+  
+  if (whatsappAttempts >= MAX_WHATSAPP_ATTEMPTS) {
+    console.log("⚠️  WhatsApp disabled after", MAX_WHATSAPP_ATTEMPTS, "failed attempts");
+    console.log("   📍 Location alert logged for:", contacts.join(', '));
+    return false;
+  }
+  
   try {
+    console.log("📲 Attempting to send WhatsApp messages...");
+    console.log(`   From: whatsapp:+14155238886`);
+    console.log(`   To: ${contacts.map(n => `whatsapp:${n}`).join(', ')}`);
+    
+    if (!client) {
+      console.warn("⚠️  Twilio client not initialized");
+      whatsappAttempts++;
+      return false;
+    }
+    
     const sendMessages = contacts.map((number) =>
       client.messages.create({
         body: messageBody,
@@ -65,11 +96,27 @@ async function sendWhatsApp(userId, messageBody, contacts = TRUSTED_NUMBERS) {
         to: `whatsapp:${number}`,
       })
     );
-    await Promise.all(sendMessages);
+    
+    const results = await Promise.all(sendMessages);
     console.log(`✅ WhatsApp alerts sent for ${userId}`);
+    console.log(`   Message SIDs:`, results.map(r => r.sid));
+    whatsappAttempts = 0; // Reset on success
     return true;
   } catch (err) {
-    console.error("WhatsApp sending failed:", err.message);
+    whatsappAttempts++;
+    console.error("❌ WhatsApp sending failed:");
+    console.error("   Error:", err.message);
+    console.error("   Code:", err.code);
+    console.error("   Status:", err.status);
+    console.error(`   Attempt ${whatsappAttempts}/${MAX_WHATSAPP_ATTEMPTS}`);
+    
+    // Disable after authentication errors
+    if (err.code === 20003 || err.status === 401) {
+      console.error("❌ Authentication failed - disabling WhatsApp permanently");
+      twilioEnabled = false;
+    }
+    
+    console.warn("⚠️  Continuing without WhatsApp - location logged only");
     return false;
   }
 }
@@ -77,6 +124,15 @@ async function sendWhatsApp(userId, messageBody, contacts = TRUSTED_NUMBERS) {
 async function makeSOSCall(userId, coords) {
   const user = getUser(userId);
   const locationUrl = `https://maps.google.com/?q=${coords.latitude},${coords.longitude}`;
+
+  console.log("📞 Attempting Retell AI call...");
+  
+  if (!process.env.RETELL_API_KEY) {
+    console.warn("⚠️  Retell AI disabled - RETELL_API_KEY missing in .env file");
+    console.log("   Call would have been made to:", user?.name || userId);
+    console.log("   Location:", locationUrl);
+    return false;
+  }
 
   try {
     const response = await fetch("https://api.retell.ai/v1/call", {
@@ -763,18 +819,40 @@ app.post('/api/email/test', async (req, res) => {
 
 // Send location for emergency alerts
 app.post("/api/send-location", async (req, res) => {
-    const { userId, timestamp, coords } = req.body;
+    console.log("\n📍 INCOMING LOCATION ALERT");
+    console.log("━".repeat(60));
+    console.log("Request IP:", req.ip);
+    console.log("Request Body:", JSON.stringify(req.body, null, 2));
+    
+    const { userId, timestamp, coords, contacts } = req.body;
+    
     if (
         !coords ||
         typeof coords.latitude !== "number" ||
         typeof coords.longitude !== "number"
     ) {
+        console.error("❌ Invalid coordinates:", coords);
         return res.status(400).json({ error: "Invalid coordinates" });
     }
 
     const user = getUser(userId);
+    const emergencyContacts = contacts || user.contacts;
+    
+    console.log(`👤 User: ${user.name} (${userId})`);
+    console.log(`📍 Location: ${coords.latitude}, ${coords.longitude}`);
+    console.log(`📞 Contacts: ${emergencyContacts.join(", ")}`);
+    
     const messageBody = generateMessage(userId, { timestamp, coords });
-    const success = await sendWhatsApp(userId, messageBody, user.contacts);
+    console.log(`📝 Message: ${messageBody}`);
+    
+    console.log("\n📤 Sending WhatsApp messages...");
+    const success = await sendWhatsApp(userId, messageBody, emergencyContacts);
+    
+    if (success) {
+        console.log("✅ WhatsApp messages sent successfully");
+    } else {
+        console.error("❌ WhatsApp messages failed");
+    }
 
     alerts.push({
         userId,
@@ -782,19 +860,25 @@ app.post("/api/send-location", async (req, res) => {
         coords,
         status: success ? "active" : "pending",
         retries: success ? 0 : 1,
-        contacts: user.contacts,
+        contacts: emergencyContacts,
     });
 
     // Trigger Retell AI call automatically
+    console.log("\n📞 Triggering Retell AI call...");
     makeSOSCall(userId, coords);
 
-    res.json({
+    const responseData = {
         status: success
             ? "WhatsApp sent + Retell AI call triggered"
             : "Queued for retry",
         coords,
-        contacts: user.contacts,
-    });
+        contacts: emergencyContacts,
+    };
+    
+    console.log("✅ Response:", responseData);
+    console.log("━".repeat(60));
+    
+    res.json(responseData);
 });
 
 // Webhook for emergency responses

@@ -15,8 +15,17 @@
 require('dotenv').config();
 const { Resend } = require('resend');
 
-// Initialize Resend client
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Check if email service is configured
+const EMAIL_ENABLED = !!process.env.RESEND_API_KEY;
+
+// Initialize Resend client only if API key is provided
+let resend = null;
+if (EMAIL_ENABLED) {
+  resend = new Resend(process.env.RESEND_API_KEY);
+  console.log('✅ Email service enabled');
+} else {
+  console.warn('⚠️  Email service disabled - RESEND_API_KEY not configured');
+}
 
 // Default sender email (must be verified in Resend)
 const FROM_EMAIL = process.env.FROM_EMAIL || 'Aya Safety App <noreply@ayaapp.com>';
@@ -30,6 +39,11 @@ const APP_NAME = 'Aya Safety App';
  * @returns {Promise<object>} - Resend API response
  */
 async function sendReactivationCode(email, code, userName = 'User') {
+  if (!EMAIL_ENABLED) {
+    console.warn('⚠️  Email service disabled - skipping reactivation code email');
+    return { success: false, error: 'Email service not configured' };
+  }
+  
   try {
     const { data, error } = await resend.emails.send({
       from: FROM_EMAIL,
@@ -193,6 +207,11 @@ ${APP_NAME} Team
  * @returns {Promise<object>} - Resend API response
  */
 async function sendDeactivationNotification(email, userName = 'User') {
+  if (!EMAIL_ENABLED) {
+    console.warn('⚠️  Email service disabled - skipping deactivation notification');
+    return { success: false, error: 'Email service not configured' };
+  }
+  
   try {
     const { data, error } = await resend.emails.send({
       from: FROM_EMAIL,
@@ -359,6 +378,11 @@ ${APP_NAME} Team
  * @returns {Promise<object>} - Resend API response
  */
 async function sendDeletionConfirmation(email, userName = 'User') {
+  if (!EMAIL_ENABLED) {
+    console.warn('⚠️  Email service disabled - skipping deletion confirmation');
+    return { success: false, error: 'Email service not configured' };
+  }
+  
   try {
     const { data, error } = await resend.emails.send({
       from: FROM_EMAIL,
@@ -521,6 +545,11 @@ ${APP_NAME} Team
  * @returns {Promise<object>}
  */
 async function testEmailService(testEmail) {
+  if (!EMAIL_ENABLED) {
+    console.warn('⚠️  Email service disabled - cannot run test');
+    return { success: false, error: 'Email service not configured' };
+  }
+  
   try {
     console.log('🧪 Testing email service...');
     
@@ -538,5 +567,6 @@ module.exports = {
   sendReactivationCode,
   sendDeactivationNotification,
   sendDeletionConfirmation,
-  testEmailService
+  testEmailService,
+  EMAIL_ENABLED
 };

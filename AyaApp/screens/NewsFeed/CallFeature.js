@@ -4,13 +4,20 @@ import {
   Text,
   Platform,
   PermissionsAndroid,
-  Alert,
   TouchableOpacity,
   FlatList,
   StyleSheet,
+  Dimensions,
+  Animated,
+  StatusBar,
+  SafeAreaView,
 } from "react-native";
 import { createAgoraRtcEngine, ChannelProfileType } from "react-native-agora";
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import * as Haptics from "expo-haptics";
 
+const { width } = Dimensions.get("window");
 const APP_ID = "a2291d57f2e94713b80d8f7b28de2fba";
 const CHANNEL_NAME = "ayatest";
 const TOKEN = "";
@@ -20,17 +27,54 @@ export default function VoiceCall() {
   const [joined, setJoined] = useState(false);
   const [error, setError] = useState(null);
   const [isJoining, setIsJoining] = useState(false);
-  const [users, setUsers] = useState([]); // track joined users
+  const [users, setUsers] = useState([]);
+  const [callDuration, setCallDuration] = useState(0);
+
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  const startPulse = () => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.1, duration: 1000, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 1000, useNativeDriver: true }),
+      ])
+    ).start();
+  };
+
+  useEffect(() => {
+    if (joined) {
+      startPulse();
+      Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }).start();
+    } else {
+      pulseAnim.setValue(1);
+      fadeAnim.setValue(0);
+    }
+  }, [joined]);
+
+  useEffect(() => {
+    let interval;
+    if (joined) {
+      interval = setInterval(() => setCallDuration(prev => prev + 1), 1000);
+    } else {
+      setCallDuration(0);
+    }
+    return () => clearInterval(interval);
+  }, [joined]);
+
+  const formatTime = seconds => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  };
 
   useEffect(() => {
     const init = async () => {
       try {
         if (Platform.OS === "android") {
-          const granted = await PermissionsAndroid.request(
-            PermissionsAndroid.PERMISSIONS.RECORD_AUDIO
-          );
+          const granted = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.RECORD_AUDIO);
           if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-            setError("Microphone permission denied");
+            setError("Microphone permission is required for voice calls");
             return;
           }
         }
@@ -38,46 +82,25 @@ export default function VoiceCall() {
         const engine = createAgoraRtcEngine();
         engineRef.current = engine;
         engine.initialize({ appId: APP_ID, logConfig: { level: 0x0001 } });
-        engine.setChannelProfile(
-          ChannelProfileType.ChannelProfileCommunication
-        );
+        engine.setChannelProfile(ChannelProfileType.ChannelProfileCommunication);
         await engine.enableAudio();
 
         engine.registerEventHandler({
-          onJoinChannelSuccess: () => {
-            setJoined(true);
-            setError(null);
-            setIsJoining(false);
-          },
-          onLeaveChannel: () => {
-            setJoined(false);
-            setIsJoining(false);
-            setUsers([]);
-          },
-          onError: (_, msg) => {
-            setError(`Agora error: ${msg}`);
-            setIsJoining(false);
-          },
-          onUserJoined: (_, remoteUid) => {
-            setUsers((prev) => [...prev, remoteUid]);
-          },
-          onUserOffline: (_, remoteUid) => {
-            setUsers((prev) => prev.filter((u) => u !== remoteUid));
-          },
+          onJoinChannelSuccess: () => { setJoined(true); setError(null); setIsJoining(false); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); },
+          onLeaveChannel: () => { setJoined(false); setIsJoining(false); setUsers([]); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); },
+          onError: (_, msg) => { setError(`Connection error: ${msg}`); setIsJoining(false); Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error); },
+          onUserJoined: (_, remoteUid) => { setUsers(prev => [...prev, remoteUid]); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); },
+          onUserOffline: (_, remoteUid) => { setUsers(prev => prev.filter(u => u !== remoteUid)); },
         });
       } catch (err) {
-        setError(`Init failed: ${err.message}`);
+        setError(`Initialization failed: ${err.message}`);
       }
     };
 
     init();
-
     return () => {
       const eng = engineRef.current;
-      if (eng) {
-        eng.leaveChannel();
-        eng.release();
-      }
+      if (eng) { eng.leaveChannel(); eng.release(); }
     };
   }, []);
 
@@ -85,122 +108,135 @@ export default function VoiceCall() {
     const eng = engineRef.current;
     if (!eng || joined || isJoining) return;
     setIsJoining(true);
-    try {
-      await eng.joinChannel(TOKEN, CHANNEL_NAME, 0, { clientRoleType: 1 });
-    } catch (err) {
-      setError(`Join failed: ${err.message}`);
-      setIsJoining(false);
-    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try { await eng.joinChannel(TOKEN, CHANNEL_NAME, 0, { clientRoleType: 1 }); }
+    catch (err) { setError(`Failed to join: ${err.message}`); setIsJoining(false); }
   };
 
   const leaveChannel = async () => {
     const eng = engineRef.current;
     if (!eng) return;
-    try {
-      await eng.leaveChannel();
-    } catch (err) {
-      console.error(err);
-    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    try { await eng.leaveChannel(); }
+    catch (err) { console.error(err); }
   };
 
-  const renderUser = ({ item }) => (
-    <View style={styles.userItem}>
+  const renderUser = ({ item, index }) => (
+    <Animated.View style={[styles.userItem, { opacity: fadeAnim, transform: [{ translateY: fadeAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
       <View style={styles.avatar}>
-        <Text style={styles.avatarText}>
-          {String(item).slice(-2).toUpperCase()}
-        </Text>
+        <Text style={styles.avatarText}>{String(item).slice(-2)}</Text>
+        <View style={styles.onlineIndicator} />
       </View>
-      <Text style={styles.username}>User {item}</Text>
-      <Text style={[styles.status, { color: "green" }]}>🟢 Online</Text>
-    </View>
+      <View style={styles.userInfo}>
+        <Text style={styles.username}>Safety Partner {index + 1}</Text>
+        <Text style={styles.userStatus}>Connected</Text>
+      </View>
+      <Ionicons name="mic" size={20} color="#4B5563" />
+    </Animated.View>
+  );
+
+  const renderCallControls = () => (
+    <Animated.View style={[styles.controlsContainer, { opacity: fadeAnim, transform: [{ translateY: fadeAnim.interpolate({ inputRange: [0, 1], outputRange: [50, 0] }) }] }]}>
+      <View style={styles.controlButtons}>
+        <TouchableOpacity style={styles.controlButton}>
+          <Ionicons name="mic-off" size={24} color="#4B5563" />
+          <Text style={styles.controlText}>Mute</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.controlButton}>
+          <Ionicons name="volume-high" size={24} color="#4B5563" />
+          <Text style={styles.controlText}>Speaker</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.controlButton, styles.endCallButton]} onPress={leaveChannel}>
+          <Ionicons name="call" size={24} color="#FFFFFF" style={{ transform: [{ rotate: "135deg" }] }} />
+          <Text style={[styles.controlText, { color: "#FFFFFF" }]}>End</Text>
+        </TouchableOpacity>
+      </View>
+    </Animated.View>
   );
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.statusText}>
-        Status:{" "}
-        {joined
-          ? "🟢 Connected"
-          : isJoining
-          ? "🟡 Connecting..."
-          : "⚫ Not connected"}
-      </Text>
-
-      {error && <Text style={styles.errorText}>{error}</Text>}
-
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity
-          style={[
-            styles.button,
-            joined || isJoining ? styles.buttonDisabled : null,
-          ]}
-          onPress={joinChannel}
-          disabled={joined || isJoining}
-        >
-          <Text style={styles.buttonText}>Join Call</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.button, !joined ? styles.buttonDisabled : null]}
-          onPress={leaveChannel}
-          disabled={!joined}
-        >
-          <Text style={styles.buttonText}>Leave Call</Text>
-        </TouchableOpacity>
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Voice Safety</Text>
+        <Text style={styles.headerSubtitle}>Stay connected with your safety network</Text>
       </View>
 
-      <Text style={styles.channelText}>Channel: {CHANNEL_NAME}</Text>
-
-      {joined && (
-        <FlatList
-          data={users}
-          keyExtractor={(item) => item.toString()}
-          renderItem={renderUser}
-          ListHeaderComponent={
-            <Text style={styles.participantsTitle}>Participants</Text>
-          }
-        />
-      )}
-    </View>
+      <View style={styles.content}>
+        {!joined ? (
+          <View style={styles.joinSection}>
+            <LinearGradient colors={["#D1D5DB", "#9CA3AF"]} style={styles.illustration}>
+              <Ionicons name="people" size={80} color="#FFFFFF" />
+            </LinearGradient>
+            <Text style={styles.joinTitle}>Ready to Connect?</Text>
+            <Text style={styles.joinDescription}>Join the safety voice channel to connect with your trusted contacts and emergency responders</Text>
+            <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+              <TouchableOpacity style={styles.joinButton} onPress={joinChannel} disabled={isJoining}>
+                <LinearGradient colors={["#6B7280", "#374151"]} style={styles.joinButtonGradient}>
+                  {isJoining ? <Ionicons name="ellipsis-horizontal" size={24} color="#FFFFFF" /> : <Ionicons name="call-outline" size={24} color="#FFFFFF" />}
+                  <Text style={styles.joinButtonText}>{isJoining ? "Connecting..." : "Join Safety Call"}</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </Animated.View>
+          </View>
+        ) : (
+          <View style={styles.activeCallSection}>
+            <View style={styles.callHeader}>
+              <Text style={styles.callTitle}>Safety Call Active</Text>
+              <Text style={styles.callDuration}>{formatTime(callDuration)}</Text>
+              <Text style={styles.channelInfo}>Channel: {CHANNEL_NAME}</Text>
+            </View>
+            <View style={styles.participantsSection}>
+              <Text style={styles.participantsTitle}>Connected ({users.length + 1})</Text>
+              <FlatList data={users} keyExtractor={item => item.toString()} renderItem={renderUser} style={styles.participantsList} showsVerticalScrollIndicator={false} />
+            </View>
+            {renderCallControls()}
+          </View>
+        )}
+        {error && (
+          <View style={styles.errorContainer}>
+            <Ionicons name="warning" size={20} color="#DC2626" />
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        )}
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
-  statusText: { fontSize: 18, marginBottom: 10 },
-  errorText: { color: "red", marginBottom: 10, textAlign: "center" },
-  buttonContainer: { flexDirection: "row", marginTop: 20 },
-  button: {
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    backgroundColor: "#007bff",
-    borderRadius: 8,
-    marginHorizontal: 10,
-  },
-  buttonDisabled: { backgroundColor: "#ccc" },
-  buttonText: { color: "#fff", fontWeight: "600" },
-  channelText: { marginTop: 20, fontSize: 12, color: "#666" },
-  participantsTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginTop: 20,
-    marginBottom: 10,
-  },
-  userItem: { flexDirection: "row", alignItems: "center", marginBottom: 10 },
-  avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#eee",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 10,
-  },
-  avatarText: { fontWeight: "bold", color: "#333" },
-  username: { fontSize: 14, flex: 1 },
-  status: { fontSize: 12 },
+  container: { flex: 1, backgroundColor: "#FFFFFF" },
+  header: { paddingHorizontal: 24, paddingTop: 16, paddingBottom: 8 },
+  headerTitle: { fontSize: 28, fontWeight: "700", color: "#111827", marginBottom: 4 },
+  headerSubtitle: { fontSize: 16, color: "#6B7280", marginBottom: 8 },
+  content: { flex: 1, padding: 24 },
+  joinSection: { flex: 1, justifyContent: "center", alignItems: "center" },
+  illustration: { width: 160, height: 160, borderRadius: 80, justifyContent: "center", alignItems: "center", marginBottom: 32 },
+  joinTitle: { fontSize: 24, fontWeight: "600", color: "#111827", marginBottom: 12, textAlign: "center" },
+  joinDescription: { fontSize: 16, color: "#6B7280", textAlign: "center", lineHeight: 22, marginBottom: 40, paddingHorizontal: 20 },
+  joinButton: { width: width * 0.7, borderRadius: 20, elevation: 6 },
+  joinButtonGradient: { flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 16, paddingHorizontal: 32, borderRadius: 20 },
+  joinButtonText: { color: "#FFFFFF", fontSize: 18, fontWeight: "600", marginLeft: 8 },
+  activeCallSection: { flex: 1 },
+  callHeader: { alignItems: "center", marginBottom: 32 },
+  callTitle: { fontSize: 22, fontWeight: "600", color: "#111827", marginBottom: 8 },
+  callDuration: { fontSize: 32, fontWeight: "700", color: "#374151", marginBottom: 4 },
+  channelInfo: { fontSize: 14, color: "#6B7280" },
+  participantsSection: { flex: 1 },
+  participantsTitle: { fontSize: 18, fontWeight: "600", color: "#111827", marginBottom: 16 },
+  participantsList: { flex: 1 },
+  userItem: { flexDirection: "row", alignItems: "center", backgroundColor: "#F9FAFB", padding: 16, borderRadius: 16, marginBottom: 12 },
+  avatar: { width: 50, height: 50, borderRadius: 25, justifyContent: "center", alignItems: "center", marginRight: 12, backgroundColor: "#D1D5DB" },
+  avatarText: { color: "#111827", fontWeight: "600", fontSize: 16 },
+  onlineIndicator: { position: "absolute", bottom: 2, right: 2, width: 12, height: 12, borderRadius: 6, backgroundColor: "#16A34A", borderWidth: 2, borderColor: "#FFFFFF" },
+  userInfo: { flex: 1 },
+  username: { fontSize: 16, fontWeight: "600", color: "#111827", marginBottom: 2 },
+  userStatus: { fontSize: 14, color: "#16A34A", fontWeight: "500" },
+  controlsContainer: { marginTop: 24 },
+  controlButtons: { flexDirection: "row", justifyContent: "space-around", alignItems: "center" },
+  controlButton: { alignItems: "center", padding: 16, borderRadius: 20, backgroundColor: "#F3F4F6", minWidth: 80 },
+  endCallButton: { backgroundColor: "#DC2626" },
+  controlText: { marginTop: 8, fontSize: 12, fontWeight: "500", color: "#111827" },
+  errorContainer: { flexDirection: "row", alignItems: "center", backgroundColor: "#FEE2E2", padding: 16, borderRadius: 12, marginTop: 16 },
+  errorText: { color: "#DC2626", marginLeft: 8, flex: 1, fontSize: 14 },
 });

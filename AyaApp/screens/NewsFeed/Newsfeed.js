@@ -7,7 +7,7 @@ import React, {
 } from "react";
 import {
   SafeAreaView,
-  FlatList as RNFlatList, // <-- NEW
+  FlatList as RNFlatList,
   View,
   Text,
   StyleSheet,
@@ -59,21 +59,19 @@ try {
 
 const { width, height } = Dimensions.get("window");
 
-// ---------------------------------------------------------------
-// ANIMATED FLATLIST (needed for scrollY)
-// ---------------------------------------------------------------
+
 const AnimatedFlatList = Animated.createAnimatedComponent(RNFlatList);
 
 const COLORS = {
-  background: "#FAFAFA",
-  cardBackground: "#FFFFFF",
-  text: "#262626",
-  textSecondary: "#8E8E8E",
-  border: "#DBDBDB",
-  accent: "#f6007bff",
-  like: "#ED4956",
-  white: "#FFFFFF",
+  background: "#FFFFFF",
+  cardBackground: "#F7F7F7",
+  border: "#E0E0E0",
+  text: "#1C1C1E",
+  textSecondary: "#8E8E93",
+  accent: "#ff006fff",
+  like: "#D1D1D6",
 };
+
 
 const STORY_DURATION = 5000;
 const STORY_PROGRESS_INTERVAL = 50;
@@ -133,7 +131,7 @@ const isVideoUrl = (uri) => {
   }
 };
 
-// ============ OFFLINE QUEUE HELPERS ============
+
 async function getOpsQueue() {
   try {
     const raw = await AsyncStorage.getItem(OFFLINE_CRUD_QUEUE_KEY);
@@ -257,7 +255,7 @@ async function uploadMediaUrisToPostsBucket(uris = []) {
               uploadedUrls.push(manual);
               continue;
             }
-          } catch (e) {}
+          } catch (e) { }
         }
         uploadedUrls.push(url);
       } else {
@@ -624,9 +622,18 @@ const CommentsModal = ({
     if (commentText.trim()) {
       onAddComment(post.id, commentText.trim());
       setCommentText("");
+      // ensure list scrolls to bottom after adding
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 120);
     }
   };
   if (!post) return null;
+
+  // keep offset so keyboard doesn't cover input
+  const keyboardVerticalOffset =
+    Platform.OS === "ios" ? 80 : (StatusBar.currentHeight || 0) + 80;
+
   return (
     <Modal
       isVisible={visible}
@@ -634,116 +641,133 @@ const CommentsModal = ({
       style={styles.commentsModal}
       animationIn="slideInUp"
       animationOut="slideOutDown"
+      avoidKeyboard={true}
+      backdropOpacity={0.6}
+      swipeDirection="down"
+      onSwipeComplete={onClose}
+      useNativeDriver={true}
+      useNativeDriverForBackdrop={true}
     >
-      <View style={styles.commentsContainer}>
-        <View style={styles.commentsHeader}>
-          <Text style={styles.commentsTitle}>Comments</Text>
-          <TouchableOpacity onPress={onClose}>
-            <MaterialCommunityIcons
-              name="close"
-              size={24}
-              color={COLORS.text}
-            />
-          </TouchableOpacity>
-        </View>
-        <AnimatedFlatList
-          ref={flatListRef}
-          data={post.comments || []}
-          keyExtractor={(c) => c.id}
-          style={styles.commentsList}
-          renderItem={({ item }) => (
-            <View style={styles.commentItem}>
-              <UserAvatar
-                username={item.user}
-                avatarUrl={item.avatar}
-                size={32}
-                style={styles.commentAvatar}
+      {/* Change: ensure modal content anchors to bottom inside KeyboardAvoidingView */}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={keyboardVerticalOffset}
+        style={{ flex: 1, justifyContent: "flex-end" }}
+      >
+        <View style={styles.commentsContainer}>
+          <View style={styles.commentsHeader}>
+            <Text style={styles.commentsTitle}>Comments</Text>
+            <TouchableOpacity onPress={onClose}>
+              <MaterialCommunityIcons
+                name="close"
+                size={24}
+                color={COLORS.text}
               />
-              <View style={styles.commentContent}>
-                <Text style={styles.commentText}>
-                  <Text style={styles.commentUser}>{item.user}</Text>{" "}
-                  {item.text}
-                </Text>
-                <Text style={styles.commentTime}>
-                  {getTimeAgo(item.created_at)}
+            </TouchableOpacity>
+          </View>
+
+          {/* comments list should take available space inside the sheet */}
+          <AnimatedFlatList
+            ref={flatListRef}
+            data={post.comments || []}
+            keyExtractor={(c) => c.id}
+            style={styles.commentsList}
+            contentContainerStyle={{ paddingBottom: 12 }}
+            renderItem={({ item }) => (
+              <View style={styles.commentItem}>
+                <UserAvatar
+                  username={item.user}
+                  avatarUrl={item.avatar}
+                  size={32}
+                  style={styles.commentAvatar}
+                />
+                <View style={styles.commentContent}>
+                  <Text style={styles.commentText}>
+                    <Text style={styles.commentUser}>{item.user}</Text>{" "}
+                    {item.text}
+                  </Text>
+                  <Text style={styles.commentTime}>
+                    {getTimeAgo(item.created_at)}
+                  </Text>
+                </View>
+                {item.user === currentUsername && (
+                  <TouchableOpacity
+                    onPress={() => onDeleteComment(post.id, item.id)}
+                  >
+                    <MaterialCommunityIcons
+                      name="trash-can-outline"
+                      size={18}
+                      color={COLORS.textSecondary}
+                    />
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+            ListEmptyComponent={
+              <View style={styles.emptyComments}>
+                <MaterialCommunityIcons
+                  name="comment-outline"
+                  size={48}
+                  color={COLORS.textSecondary}
+                />
+                <Text style={styles.emptyCommentsText}>No comments yet</Text>
+                <Text style={styles.emptyCommentsSubtext}>
+                  Be the first to comment!
                 </Text>
               </View>
-              {item.user === currentUsername && (
-                <TouchableOpacity
-                  onPress={() => onDeleteComment(post.id, item.id)}
-                >
-                  <MaterialCommunityIcons
-                    name="trash-can-outline"
-                    size={18}
-                    color={COLORS.textSecondary}
-                  />
-                </TouchableOpacity>
-              )}
-            </View>
-          )}
-          ListEmptyComponent={
-            <View style={styles.emptyComments}>
-              <MaterialCommunityIcons
-                name="comment-outline"
-                size={48}
-                color={COLORS.textSecondary}
-              />
-              <Text style={styles.emptyCommentsText}>No comments yet</Text>
-              <Text style={styles.emptyCommentsSubtext}>
-                Be the first to comment!
-              </Text>
-            </View>
-          }
-        />
-        <View style={styles.commentInputContainer}>
-          <UserAvatar
-            username={currentUsername}
-            avatarUrl={currentUser?.user_metadata?.avatar_url}
-            size={32}
-            style={styles.commentInputAvatar}
+            }
           />
-          <RNTextInput
-            placeholder="Add a comment..."
-            value={commentText}
-            onChangeText={setCommentText}
-            style={styles.commentInput}
-            onSubmitEditing={handleSubmit}
-            returnKeyType="send"
-            multiline
-          />
-          <TouchableOpacity
-            onPress={handleSubmit}
-            disabled={!commentText.trim()}
-          >
-            <Text
-              style={[
-                styles.postButtonText,
-                !commentText.trim() && styles.postButtonDisabled,
-              ]}
+
+          <View style={styles.commentInputContainer}>
+            <UserAvatar
+              username={currentUsername}
+              avatarUrl={currentUser?.user_metadata?.avatar_url}
+              size={32}
+              style={styles.commentInputAvatar}
+            />
+            <RNTextInput
+              placeholder="Add a comment..."
+              value={commentText}
+              onChangeText={setCommentText}
+              style={styles.commentInput}
+              onSubmitEditing={handleSubmit}
+              returnKeyType="send"
+              multiline
+            />
+            <TouchableOpacity
+              onPress={handleSubmit}
+              disabled={!commentText.trim()}
             >
-              Post
-            </Text>
-          </TouchableOpacity>
+              <Text
+                style={[
+                  styles.postButtonText,
+                  !commentText.trim() && styles.postButtonDisabled,
+                ]}
+              >
+                Post
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
 
-// ============ NEW: Likes Modal ============
+
 const LikesModal = ({ visible, likes, onClose }) => {
   const items = Array.isArray(likes)
     ? likes.map((l, idx) => {
-        if (!l) return { id: `l_${idx}`, username: String(l) };
-        if (typeof l === "string") return { id: `l_${l}_${idx}`, username: l };
-        if (typeof l === "object") {
-          const username =
-            l.username || l.user || l.name || l.id || JSON.stringify(l);
-          const avatar = l.avatar || l.avatar_url || l.photo || null;
-          return { id: `l_${username}_${idx}`, username, avatar };
-        }
-        return { id: `l_${idx}`, username: String(l) };
-      })
+      if (!l) return { id: `l_${idx}`, username: String(l) };
+      if (typeof l === "string") return { id: `l_${l}_${idx}`, username: l };
+      if (typeof l === "object") {
+        const username =
+          l.username || l.user || l.name || l.id || JSON.stringify(l);
+        const avatar = l.avatar || l.avatar_url || l.photo || null;
+        return { id: `l_${username}_${idx}`, username, avatar };
+      }
+      return { id: `l_${idx}`, username: String(l) };
+    })
     : [];
   return (
     <Modal
@@ -841,8 +865,8 @@ const StoryViewer = ({
                       i < activeIndex
                         ? "100%"
                         : i === activeIndex
-                        ? `${progress}%`
-                        : "0%",
+                          ? `${progress}%`
+                          : "0%",
                   },
                 ]}
               />
@@ -930,9 +954,7 @@ const getTimeAgo = (timestamp) => {
 
 // ============ MAIN COMPONENT ============
 const Newsfeed = ({ scrollY: externalScrollY }) => {
-  // -----------------------------------------------------------------
-  // scrollY – shared with AnimatedTabBar
-  // -----------------------------------------------------------------
+
   const scrollY = externalScrollY || useRef(new Animated.Value(0)).current;
 
   const [posts, setPosts] = useState([]);
@@ -1012,23 +1034,23 @@ const Newsfeed = ({ scrollY: externalScrollY }) => {
           typeof rawCreated === "string"
             ? Date.parse(rawCreated) || Date.now()
             : typeof rawCreated === "number"
-            ? String(rawCreated).length === 10
-              ? rawCreated * 1000
-              : rawCreated
-            : Date.now();
+              ? String(rawCreated).length === 10
+                ? rawCreated * 1000
+                : rawCreated
+              : Date.now();
         const comments = Array.isArray(p.comments)
           ? p.comments.map((c) => {
-              const rawC = c.created_at ?? c.createdAt ?? Date.now();
-              const created_at_c =
-                typeof rawC === "string"
-                  ? Date.parse(rawC) || Date.now()
-                  : typeof rawC === "number"
+            const rawC = c.created_at ?? c.createdAt ?? Date.now();
+            const created_at_c =
+              typeof rawC === "string"
+                ? Date.parse(rawC) || Date.now()
+                : typeof rawC === "number"
                   ? String(rawC).length === 10
                     ? rawC * 1000
                     : rawC
                   : Date.now();
-              return { ...c, created_at: created_at_c };
-            })
+            return { ...c, created_at: created_at_c };
+          })
           : [];
         return {
           id: p.id,
@@ -1041,8 +1063,8 @@ const Newsfeed = ({ scrollY: externalScrollY }) => {
           media_urls: Array.isArray(p.media_urls)
             ? p.media_urls
             : p.media_url
-            ? [p.media_url]
-            : [],
+              ? [p.media_url]
+              : [],
           likes: Array.isArray(p.likes) ? p.likes : [],
           comments,
           created_at,
@@ -1250,22 +1272,22 @@ const Newsfeed = ({ scrollY: externalScrollY }) => {
                 prev.map((p) =>
                   p.id === postId
                     ? {
-                        ...p,
-                        comments: (p.comments || []).filter(
-                          (c) => c.id !== commentId
-                        ),
-                      }
+                      ...p,
+                      comments: (p.comments || []).filter(
+                        (c) => c.id !== commentId
+                      ),
+                    }
                     : p
                 )
               );
               setSelectedPost((prev) =>
                 prev && prev.id === postId
                   ? {
-                      ...prev,
-                      comments: (prev.comments || []).filter(
-                        (c) => c.id !== commentId
-                      ),
-                    }
+                    ...prev,
+                    comments: (prev.comments || []).filter(
+                      (c) => c.id !== commentId
+                    ),
+                  }
                   : prev
               );
               try {
@@ -1368,11 +1390,11 @@ const Newsfeed = ({ scrollY: externalScrollY }) => {
             prev.map((p) =>
               p.id === editingPostId
                 ? {
-                    ...p,
-                    content: postContent,
-                    media_urls: mediaUris,
-                    media_type: mediaUris.length ? postType : "none",
-                  }
+                  ...p,
+                  content: postContent,
+                  media_urls: mediaUris,
+                  media_type: mediaUris.length ? postType : "none",
+                }
                 : p
             )
           );
@@ -1393,11 +1415,11 @@ const Newsfeed = ({ scrollY: externalScrollY }) => {
               prev.map((p) =>
                 p.id === editingPostId
                   ? {
-                      ...p,
-                      content: postContent,
-                      media_urls: mediaUris,
-                      media_type: mediaUris.length ? postType : "none",
-                    }
+                    ...p,
+                    content: postContent,
+                    media_urls: mediaUris,
+                    media_type: mediaUris.length ? postType : "none",
+                  }
                   : p
               )
             );
@@ -1822,9 +1844,7 @@ const Newsfeed = ({ scrollY: externalScrollY }) => {
           removeClippedSubviews={Platform.OS === "android"}
           onViewableItemsChanged={onViewableItemsChanged}
           viewabilityConfig={viewabilityConfig}
-          // -------------------------------------------------
-          // SCROLL → TAB BAR HIDE / SHOW
-          // -------------------------------------------------
+
           scrollEventThrottle={16}
           onScroll={Animated.event(
             [{ nativeEvent: { contentOffset: { y: scrollY } } }],
@@ -1879,10 +1899,13 @@ const Newsfeed = ({ scrollY: externalScrollY }) => {
         animationOut="slideOutDown"
         avoidKeyboard={true}
       >
+        { }
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={
+            Platform.OS === "ios" ? 80 : (StatusBar.currentHeight || 0) + 80
+          }
           style={styles.modalContainer}
-          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
         >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
@@ -1902,10 +1925,13 @@ const Newsfeed = ({ scrollY: externalScrollY }) => {
                 </Text>
               </TouchableOpacity>
             </View>
+
+            {/* Make ScrollView contentContainer have extra bottom padding so typed text remains visible above keyboard */}
             <ScrollView
               style={styles.modalBody}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: Platform.OS === "ios" ? 140 : 120 }}
             >
               <View style={styles.modalUserInfo}>
                 <UserAvatar
@@ -2057,7 +2083,6 @@ const Newsfeed = ({ scrollY: externalScrollY }) => {
   );
 };
 
-// ============ STYLES ============
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -2089,18 +2114,18 @@ const styles = StyleSheet.create({
       Platform.OS === "android" ? (StatusBar.currentHeight || 0) + 8 : 12,
     paddingBottom: 10,
     backgroundColor: COLORS.cardBackground,
-    // ensure header tall enough so content won't be cut
+
     minHeight:
       Platform.OS === "android" ? (StatusBar.currentHeight || 24) + 56 : 64,
     borderBottomWidth: 0.5,
     borderBottomColor: COLORS.border,
   },
   headerLeft: {
-    // placeholder to balance the right icon so title stays centered
+
     width: 44,
     height: 44,
   },
-  /* header title container - updated styling for nicer app name */
+
   headerTitleContainer: {
     flex: 1,
     flexDirection: "row",
@@ -2391,10 +2416,11 @@ const styles = StyleSheet.create({
   modalActionBtn: {
     padding: 8,
   },
+
   fab: {
     position: "absolute",
     right: 20,
-    bottom: Platform.OS === "ios" ? 120 : 100,
+    bottom: Platform.OS === "ios" ? 180 : 150,
     backgroundColor: COLORS.accent,
   },
   commentsModal: {
